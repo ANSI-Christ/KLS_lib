@@ -1,0 +1,4 @@
+1) finish regex
+2) let must be packed with align by types like thread args but first are array of void*
+3) mutexes may not work with static inititalization
+4) gui: add widgets
