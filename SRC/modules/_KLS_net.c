@@ -1,12 +1,4 @@
 
-#ifndef _NET_ERRNO
-    #define _NET_ERRNO  errno
-#endif
-
-#ifndef _NET_ERRNO_TRANSLATE
-    #define _NET_ERRNO_TRANSLATE(...)
-#endif
-
 #ifndef _NET_BAD_OP
     #define _NET_BAD_OP -1
 #endif
@@ -22,11 +14,11 @@
 
 #ifndef POLLIN
 
-#define POLLIN 1
-#define POLLOUT 2
-#define POLLERR 4
-#define POLLNVAL 8
-#define POLLHUP 16
+    #define POLLIN 1
+    #define POLLOUT 2
+    #define POLLERR 4
+    #define POLLNVAL 8
+    #define POLLHUP 16
 
 struct pollfd{
     _NET_t_SOCKET fd;
@@ -62,6 +54,26 @@ int poll(struct pollfd *p,int cnt,int timeout){
 }
 
 #endif
+
+#ifndef _NET_ERRNO
+    #define _NET_ERRNO(...) _1_
+    #define _NET_FUNC_DEF(_f_,...) _f_(__VA_ARGS__)
+#else
+    #define _NET_FUNC_DEF(_f_,...) ({ KLS_TYPEOF(_f_(__VA_ARGS__)) _1_=_f_(__VA_ARGS__); errno=_NET_ERRNO(); _1_; })
+#endif
+
+#define socket(...)   _NET_FUNC_DEF(socket,__VA_ARGS__)
+#define connect(...)  _NET_FUNC_DEF(connect,__VA_ARGS__)
+#define bind(...)     _NET_FUNC_DEF(bind,__VA_ARGS__)
+#define listen(...)   _NET_FUNC_DEF(listen,__VA_ARGS__)
+#define accept(...)   _NET_FUNC_DEF(accept,__VA_ARGS__)
+#define recv(...)     _NET_FUNC_DEF(recv,__VA_ARGS__)
+#define recvfrom(...) _NET_FUNC_DEF(recvfrom,__VA_ARGS__)
+#define send(...)     _NET_FUNC_DEF(send,__VA_ARGS__)
+#define sendto(...)   _NET_FUNC_DEF(sendto,__VA_ARGS__)
+#define shutdown(...) _NET_FUNC_DEF(shutdown,__VA_ARGS__)
+#define select(...)   _NET_FUNC_DEF(select,__VA_ARGS__)
+#define poll(...)     _NET_FUNC_DEF(poll,__VA_ARGS__)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -209,7 +221,7 @@ signed char NET_socketConnect(NET_t_SOCKET *socket,const NET_t_ADDRESS *address)
         _NET_ADDR(a);
         if(_NET_addrToNet(address,&a)){
             int e;
-            if(connect(*_NET_sockOs(socket),&a.d.sa,a.l)!=_NET_BAD_OP || (e=_NET_ERRNO)==EISCONN){
+            if(connect(*_NET_sockOs(socket),&a.d.sa,a.l)!=_NET_BAD_OP || (e=errno)==EISCONN){
                 socket->status=NET_SOCK_CONNECTED; return 1;
             }
             if(e==EALREADY || e==EINPROGRESS || e==EAGAIN || e==EWOULDBLOCK){
@@ -292,8 +304,7 @@ KLS_byte NET_socketOptionGet(NET_t_SOCKET *s,int level,int option,void *data,uns
 int NET_socketError(NET_t_SOCKET *s){
     int e=~0;
     NET_socketOptionGet(s,SOL_SOCKET,SO_ERROR,&e,sizeof(e));
-    _NET_ERRNO_TRANSLATE(e)
-    return e;
+    return _NET_ERRNO(e);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -395,7 +406,7 @@ void _NET_timeouts(NET_t_MANAGER m,time_t t){
                 if(u->_.cntr.created)
                     switch(NET_socketError(&u->_.cntr)){
                         case 0: NET_socketConnect(&u->_.cntr,&u->address);
-                            switch(_NET_ERRNO){
+                            switch(errno){
                                 case EISCONN: case ECONNREFUSED: break;
                                 default: if(t<u->_.pulse) break; NET_disconnect(u); --i; r|=1; continue;
                             }
@@ -556,7 +567,7 @@ signed char _NET_proc(KLS_t_VECTOR *p,KLS_t_VECTOR *s,KLS_size i,time_t *t){
         i=poll(p->data,p->size,i);
         *t=time(NULL);
         switch(i){
-            case -1: return _NET_ERRNO==EINTR ? 1 : -1;
+            case -1: return errno==EINTR ? 1 : -1;
             case 0: return 0;
         }
         for(i=0;i<p->size;++i)
@@ -770,3 +781,15 @@ void NET_detach(NET_t_UNIT u){
     if(u){ u->_.flags|=1; _NET_trashAllow(u); }
 }
 
+#undef socket
+#undef connect
+#undef bind
+#undef listen
+#undef accept
+#undef recv
+#undef recvfrom
+#undef send
+#undef sendto
+#undef shutdown
+#undef select
+#undef poll
