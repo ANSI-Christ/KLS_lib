@@ -15,10 +15,10 @@ void serverTcp(NET_t_UNIT u,KLS_byte e){
             u->timeout=3;
             u->handler=incomingTcp;
             break;
-        case NET_EVENT_ERROR: printf("server error\n"); break;
-        case NET_EVENT_TIMEOUT: printf("server timeout\n"); break;
-        case NET_EVENT_CONNECT: printf("server start\n"); break;
-        case NET_EVENT_DISCONNECT: printf("server end\n"); break;
+        case NET_EVENT_ERROR: printf("error %p\n",u->userData); break;
+        case NET_EVENT_TIMEOUT: printf("timeout %p\n",u->userData); break;
+        case NET_EVENT_CONNECT: printf("connect %p\n",u->userData); break;
+        case NET_EVENT_DISCONNECT: printf("disconnect %p\n",u->userData); break;
     }
 }
 
@@ -28,27 +28,29 @@ void sigInterp(int s){
     printf("\n\ninterrp\n\n");
 }
 
-int mainNet(int argc,char **argv){
+int main(int argc,char **argv){
     int s;
     NET_t_MANAGER m=NET_new(10,0,0);
     NET_t_UNIT u;
 
     KLS_signalSetHandler(SIGINT,KLS_SIGNAL_MODE_UNBLOCK,sigInterp);
 
-    if((u=NET_unit(m,NET_TCP)) && NET_listen(u,NET_address("127.0.0.1",12345),4)){
+    if((u=NET_unit(m,NET_TCP)) && NET_listen(u,NET_address(NET_HOST_ANY4,12345),4)){
         u->timeout=5;
         u->handler=serverTcp;
+        u->userData=0x1;
     }
     NET_detach(u);
 
-    if((u=NET_unit(m,NET_TCP)) && NET_connect(u,NET_address("127.0.0.1",12345),3)){
+    if((u=NET_unit(m,NET_TCP)) && NET_connect(u,NET_address(NET_HOST_LOCAL4,12345),3)){
         u->timeout=5;
         u->handler=serverTcp;
+        u->userData=0x2;
     }
     NET_detach(u);
 
     while(KLS_execLive()){
-        s=NET_service(m,10);
+        s=NET_service(m,5);
         printf("service=%d\n",s);
         if(s<0) break;
     }
@@ -107,7 +109,7 @@ void sigInterp2(int s){
     //printf("\n\ninterrp\n\n");
 }
 
-void main(){
+void mainW(){
     int i;
     KLS_t_TIMER timers[]={KLS_timerCreate(0,0),KLS_timerCreate(0,0)};
     CLASS GUI *gui=GUI_widgetNew(GUI)(NULL,"gui");

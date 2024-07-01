@@ -1,19 +1,11 @@
 
-#ifndef _NET_FUNC_DEF
-    #define _NET_FUNC_DEF(_f_,...) _f_(__VA_ARGS__)
+#ifndef _NET_ERRNO
+    #define _NET_ERRNO  errno
 #endif
 
-#define socket(...)   _NET_FUNC_DEF(socket,__VA_ARGS__)
-#define connect(...)  _NET_FUNC_DEF(connect,__VA_ARGS__)
-#define bind(...)     _NET_FUNC_DEF(bind,__VA_ARGS__)
-#define listen(...)   _NET_FUNC_DEF(listen,__VA_ARGS__)
-#define accept(...)   _NET_FUNC_DEF(accept,__VA_ARGS__)
-#define recv(...)     _NET_FUNC_DEF(recv,__VA_ARGS__)
-#define recvfrom(...) _NET_FUNC_DEF(recvfrom,__VA_ARGS__)
-#define send(...)     _NET_FUNC_DEF(send,__VA_ARGS__)
-#define sendto(...)   _NET_FUNC_DEF(sendto,__VA_ARGS__)
-#define shutdown(...) _NET_FUNC_DEF(shutdown,__VA_ARGS__)
-#define select(...)   _NET_FUNC_DEF(select,__VA_ARGS__)
+#ifndef _NET_ERRNO_TRANSLATE
+    #define _NET_ERRNO_TRANSLATE(...)
+#endif
 
 #ifndef _NET_BAD_OP
     #define _NET_BAD_OP -1
@@ -28,7 +20,7 @@
 #endif
 
 
-#ifdef _NET_POLL_BY_SELECT
+#ifndef POLLIN
 
 #define POLLIN 1
 #define POLLOUT 2
@@ -217,7 +209,7 @@ signed char NET_socketConnect(NET_t_SOCKET *socket,const NET_t_ADDRESS *address)
         _NET_ADDR(a);
         if(_NET_addrToNet(address,&a)){
             int e;
-            if(connect(*_NET_sockOs(socket),&a.d.sa,a.l)!=_NET_BAD_OP || (e=NET_errno())==EISCONN){
+            if(connect(*_NET_sockOs(socket),&a.d.sa,a.l)!=_NET_BAD_OP || (e=_NET_ERRNO)==EISCONN){
                 socket->status=NET_SOCK_CONNECTED; return 1;
             }
             if(e==EALREADY || e==EINPROGRESS || e==EAGAIN || e==EWOULDBLOCK){
@@ -300,19 +292,10 @@ KLS_byte NET_socketOptionGet(NET_t_SOCKET *s,int level,int option,void *data,uns
 int NET_socketError(NET_t_SOCKET *s){
     int e=~0;
     NET_socketOptionGet(s,SOL_SOCKET,SO_ERROR,&e,sizeof(e));
-    #ifdef _NET_ERR2POSIX
-    _NET_ERR2POSIX(e)
-    #endif
+    _NET_ERRNO_TRANSLATE(e)
     return e;
 }
 
-int NET_errno(){
-    int e=errno;
-    #ifdef _NET_ERR2POSIX
-    _NET_ERR2POSIX(e)
-    #endif
-    return e;
-}
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifndef NET_KEEPALIVE_DEFAULT
@@ -412,7 +395,7 @@ void _NET_timeouts(NET_t_MANAGER m,time_t t){
                 if(u->_.cntr.created)
                     switch(NET_socketError(&u->_.cntr)){
                         case 0: NET_socketConnect(&u->_.cntr,&u->address);
-                            switch(NET_errno()){
+                            switch(_NET_ERRNO){
                                 case EISCONN: case ECONNREFUSED: break;
                                 default: if(t<u->_.pulse) break; NET_disconnect(u); --i; r|=1; continue;
                             }
@@ -573,7 +556,7 @@ signed char _NET_proc(KLS_t_VECTOR *p,KLS_t_VECTOR *s,KLS_size i,time_t *t){
         i=poll(p->data,p->size,i);
         *t=time(NULL);
         switch(i){
-            case -1: return NET_errno()==EINTR ? 1 : -1;
+            case -1: return _NET_ERRNO==EINTR ? 1 : -1;
             case 0: return 0;
         }
         for(i=0;i<p->size;++i)
@@ -786,16 +769,4 @@ KLS_byte NET_type(NET_t_UNIT u){
 void NET_detach(NET_t_UNIT u){
     if(u){ u->_.flags|=1; _NET_trashAllow(u); }
 }
-
-#undef socket
-#undef connect
-#undef bind
-#undef listen
-#undef accept
-#undef recv
-#undef recvfrom
-#undef send
-#undef sendto
-#undef shutdown
-#undef select
 

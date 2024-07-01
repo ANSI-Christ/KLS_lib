@@ -29,7 +29,7 @@
 #define M_FOREACH(macros,...) M_LOOP(_M_FOREACH_MAP1(macros,__VA_ARGS__,()()(),()()(),()()(),0))
 #define M_FOREACH_A(macros,arg,...) M_LOOP(_M_FOREACH_MAP_A1(macros,arg,__VA_ARGS__,()()(),()()(),()()(),0))
 
-#define M_LOOP(...)  _M_LOOP4(__VA_ARGS__)  // FIX ME _M_LOOP1(_M_LOOP1(_M_LOOP1(__VA_ARGS__)))
+#define M_LOOP(...)  _M_LOOP1(_M_LOOP1(_M_LOOP1(__VA_ARGS__)))
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
