@@ -141,8 +141,6 @@ void *_KLS_letAddr(void *p);
     _1_/(KLS_ARGS_COUNT(__VA_ARGS__)+1);\
 })
 #define _KLS_TYPE_ALIGN(_expr_) ((sizeof(struct{char ________; _expr_;})-sizeof(char))%sizeof(struct{_expr_;})+1)
-#define _KLS_ATOM_MEMORDER       __ATOMIC_SEQ_CST
-#define _KLS_MALLOC_MIN_MEMORY   0//520168
 char *_KLS_stringv(const char *format, va_list ap[2]);
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -930,12 +928,6 @@ KLS_t_VECTOR KLS_polyStretch(const KLS_t_POINT *poly,int len,double delta); // <
 
 KLS_t_VECTOR KLS_polyFromMatrixAll(const KLS_t_MATRIX *matrix,const void *element,KLS_byte chainMode,KLS_byte(*comparator)(const void *matrixElement,const void *element)); //<KLS_t_VECTOR <KLS_t_POINT> >  chainDirection may be 4 or 8
 KLS_t_VECTOR KLS_polyFromMatrix(const KLS_t_MATRIX *matrix,int row,int column,const void *element,KLS_byte chainMode,KLS_byte(*comparator)(const void *matrixElement,const void *element)); // <KLS_t_POINT>  chainDirection may be 4 or 8
-
-
-
-
-// WORLD MAP SECTION
-KLS_t_MATRIX KLS_wmapNew(const char *mapFileName,int minPerDegrees,int valueSize,double dolgotaLeft,double shirotaTop,double dolgotaRight,double shirotaBtm);
 
 
 
