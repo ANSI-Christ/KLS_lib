@@ -1,4 +1,23 @@
 
+#ifndef _NET_ERRNO
+    #define _NET_ERRNO(...) _1_
+    #define _NET_FUNC_DEF(_f_,...) _f_(__VA_ARGS__)
+#else
+    #define _NET_FUNC_DEF(_f_,...) ({ KLS_TYPEOF(_f_(__VA_ARGS__)) _1_=_f_(__VA_ARGS__); errno=_NET_ERRNO(); _1_; })
+#endif
+
+#define socket(...)   _NET_FUNC_DEF(socket,__VA_ARGS__)
+#define connect(...)  _NET_FUNC_DEF(connect,__VA_ARGS__)
+#define bind(...)     _NET_FUNC_DEF(bind,__VA_ARGS__)
+#define listen(...)   _NET_FUNC_DEF(listen,__VA_ARGS__)
+#define accept(...)   _NET_FUNC_DEF(accept,__VA_ARGS__)
+#define recv(...)     _NET_FUNC_DEF(recv,__VA_ARGS__)
+#define recvfrom(...) _NET_FUNC_DEF(recvfrom,__VA_ARGS__)
+#define send(...)     _NET_FUNC_DEF(send,__VA_ARGS__)
+#define sendto(...)   _NET_FUNC_DEF(sendto,__VA_ARGS__)
+#define shutdown(...) _NET_FUNC_DEF(shutdown,__VA_ARGS__)
+#define select(...)   _NET_FUNC_DEF(select,__VA_ARGS__)
+
 #ifndef _NET_BAD_OP
     #define _NET_BAD_OP -1
 #endif
@@ -10,7 +29,6 @@
 #ifndef MSG_NOSIGNAL
     #define MSG_NOSIGNAL 0
 #endif
-
 
 #ifndef POLLIN
 
@@ -55,24 +73,6 @@ int poll(struct pollfd *p,int cnt,int timeout){
 
 #endif
 
-#ifndef _NET_ERRNO
-    #define _NET_ERRNO(...) _1_
-    #define _NET_FUNC_DEF(_f_,...) _f_(__VA_ARGS__)
-#else
-    #define _NET_FUNC_DEF(_f_,...) ({ KLS_TYPEOF(_f_(__VA_ARGS__)) _1_=_f_(__VA_ARGS__); errno=_NET_ERRNO(); _1_; })
-#endif
-
-#define socket(...)   _NET_FUNC_DEF(socket,__VA_ARGS__)
-#define connect(...)  _NET_FUNC_DEF(connect,__VA_ARGS__)
-#define bind(...)     _NET_FUNC_DEF(bind,__VA_ARGS__)
-#define listen(...)   _NET_FUNC_DEF(listen,__VA_ARGS__)
-#define accept(...)   _NET_FUNC_DEF(accept,__VA_ARGS__)
-#define recv(...)     _NET_FUNC_DEF(recv,__VA_ARGS__)
-#define recvfrom(...) _NET_FUNC_DEF(recvfrom,__VA_ARGS__)
-#define send(...)     _NET_FUNC_DEF(send,__VA_ARGS__)
-#define sendto(...)   _NET_FUNC_DEF(sendto,__VA_ARGS__)
-#define shutdown(...) _NET_FUNC_DEF(shutdown,__VA_ARGS__)
-#define select(...)   _NET_FUNC_DEF(select,__VA_ARGS__)
 #define poll(...)     _NET_FUNC_DEF(poll,__VA_ARGS__)
 
 //////////////////////////////////////////////////////////////////////////////////////////
