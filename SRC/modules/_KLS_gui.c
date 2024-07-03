@@ -243,7 +243,6 @@ void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
             _GUI_displayPost(&widget[0]->gui->display,GUI_EVENT_DESTROY);
             return;
         }
-        _GUI_widgetLink(*widget,NULL);
         _GUI_widgetDelete(*widget);
         *widget=NULL;
     }
@@ -300,7 +299,10 @@ CLASS_COMPILE(GUI_WIDGET)(
         self->core.input=(void*)GUI_coreDefault;
         *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
         *(void**)KLS_UNCONST(&self->gui)=parent?(void*)((CLASS GUI_WIDGET*)parent)->gui:(void*)self;
-        //GUI_widgetInsert(self,parent); // FIX ME
+        GUI_widgetInsert(self,parent);
+    ),
+    destructor()(
+        _GUI_widgetLink(self,NULL);
     )
 )
 
@@ -639,7 +641,6 @@ CLASS_COMPILE(GUI_BOX)(
 
         self->sliderV->core.input=(void*)_GUI_boxSliderInputV;
         self->sliderH->core.input=(void*)_GUI_boxSliderInputH;
-
     ),
     destructor()(
         GUI_widgetDelete((void*)&self->box);

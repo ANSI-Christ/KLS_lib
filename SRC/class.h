@@ -33,7 +33,7 @@
             void*(*f1)(void* _CLASS_ARGS_VAR(_name_))=(void*)M_JOIN(_ctor2_,_name_);\
             void*(*f2)(char,void* _CLASS_ARGS_VAR(_name_))=(void*)M_JOIN(_add_,_name_);\
             if( f1(self _CLASS_ARGS_CALL(_name_)) && f2(1,self _CLASS_ARGS_CALL(_name_)) )\
-                *(void**)&self=M_JOIN(_dtor_,_name_);\
+                *(void**)self=M_JOIN(_dtor_,_name_);\
             else{ M_JOIN(_dtor_,_name_)(self); self=(void*)0; }\
         } return self;\
     }\
