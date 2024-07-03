@@ -36,18 +36,6 @@ void GUI_displayInterrupt(GUI_t_DISPLAY *d){
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void *_GUI_widgetNew(void*(*constructor)(void*),unsigned int size,void *parent,const char *id){
-    CLASS GUI_WIDGET *self=NULL;
-    if(constructor && (self=KLS_malloc(size)) ){
-        memset(self,0,size);
-        *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
-        *(void**)KLS_UNCONST(&self->gui)=parent?(void*)((CLASS GUI_WIDGET*)parent)->gui:(void*)self;
-        if(!constructor(self)) KLS_freeData(self);
-        GUI_widgetInsert(self,parent);
-    }
-    return self;
-}
-
 void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
     if(p){
         if(p->last){
@@ -306,10 +294,13 @@ void _GUI_insertUp(CLASS GUI_WIDGET *w){
 
 
 CLASS_COMPILE(GUI_WIDGET)(
-    constructor(
+    constructor(parent,id)(
         self->core.draw=self->core.select=self->core.move=
         self->core.insert=self->core.update=(void*)GUI_coreDefault;
         self->core.input=(void*)GUI_coreDefault;
+        *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
+        *(void**)KLS_UNCONST(&self->gui)=parent?(void*)((CLASS GUI_WIDGET*)parent)->gui:(void*)self;
+        //GUI_widgetInsert(self,parent); // FIX ME
     )
 )
 
@@ -349,9 +340,7 @@ void _GUI_objTimer(CLASS GUI *g){
 }
 
 CLASS_COMPILE(GUI)(
-    constructor(
-        *(void**)KLS_UNCONST(&self->gui)=self;
-        *(void**)KLS_UNCONST(&self->parent)=NULL;
+    constructor()(
         *(void**)KLS_UNCONST(&self->service)=_GUI_objService;
         *(void**)KLS_UNCONST(&self->interrupt)=_GUI_objInterrupt;
         self->core.draw=(void*)_GUI_objDraw;
@@ -361,7 +350,7 @@ CLASS_COMPILE(GUI)(
         self->timer=KLS_timerCreate((void*)_GUI_objTimer,self);
         GUI_displayUpdate(&self->display);
     ),
-    destructor(
+    destructor()(
         KLS_timerDestroy(&self->timer);
         GUI_displayFree(&self->display);
     )
@@ -374,12 +363,12 @@ void _GUI_lblDraw(CLASS GUI_LABEL *self){
 }
 
 CLASS_COMPILE(GUI_LABEL)(
-    constructor(
+    constructor()(
         GUI_setText(&self->text,self->id);
         self->core.draw=(void*)_GUI_lblDraw;
         self->core.insert=(void*)_GUI_insertUp;
     ),
-    destructor(
+    destructor()(
         GUI_setText(&self->text,NULL);
     )
 )
@@ -400,12 +389,12 @@ void _GUI_btnInput(CLASS GUI_BUTTON *self,int e,GUI_t_INPUT *i){
 }
 
 CLASS_COMPILE(GUI_BUTTON)(
-    constructor(
+    constructor()(
         GUI_setText(&self->text,self->id);
         self->core.draw=(void*)_GUI_btnDraw;
         self->core.input=(void*)_GUI_btnInput;
     ),
-    destructor(
+    destructor()(
         GUI_setText(&self->text,NULL);
     )
 )
@@ -437,7 +426,7 @@ void _GUI_sliderDraw(CLASS GUI_SLIDER *self){
 }
 
 CLASS_COMPILE(GUI_SLIDER)(
-    constructor(
+    constructor()(
         self->v=KLS_INF;
         self->p=GUI_widgetNew(GUI_WIDGET)(self,NULL);
         self->p->movable=1;
@@ -447,7 +436,7 @@ CLASS_COMPILE(GUI_SLIDER)(
         self->core.draw=(void*)_GUI_sliderDraw;
         self->core.insert=(void*)_GUI_insertUp;
     ),
-    destructor(
+    destructor()(
         GUI_widgetDelete((void*)&self->p);
     )
 )
@@ -491,7 +480,7 @@ void _GUI_sliderUpdateH(CLASS GUI_SLIDER *self){
 }
 
 CLASS_COMPILE(GUI_SLIDER_H)(
-    constructor(
+    constructor()(
         CLASS GUI_SLIDER *s=(void*)self;
         s->core.update=(void*)_GUI_sliderUpdateH;
         s->core.input=(void*)_GUI_sliderInputH;
@@ -537,7 +526,7 @@ void _GUI_sliderUpdateV(CLASS GUI_SLIDER *self){
 }
 
 CLASS_COMPILE(GUI_SLIDER_V)(
-    constructor(
+    constructor()(
         CLASS GUI_SLIDER *s=(void*)self;
         s->core.update=(void*)_GUI_sliderUpdateV;
         s->core.input=(void*)_GUI_sliderInputV;
@@ -627,9 +616,9 @@ void _GUI_boxImplInsert(CLASS GUI_WIDGET *other){
 }
 
 CLASS_COMPILE(GUI_BOX)(
-    constructor(
-        self->sliderV=GUI_widgetNew(GUI_SLIDER_V)(self,NULL);
-        self->sliderH=GUI_widgetNew(GUI_SLIDER_H)(self,NULL);
+    constructor()(
+        self->sliderV=GUI_widgetNew(GUI_SLIDER_V)(self,NULL,0,0,5);
+        self->sliderH=GUI_widgetNew(GUI_SLIDER_H)(self,NULL,0,0,5);
         self->box=GUI_widgetNew(GUI_WIDGET)(self,NULL);
         self->box->x=self->box->y=1;
         {
@@ -646,15 +635,13 @@ CLASS_COMPILE(GUI_BOX)(
         self->box->core.select=(void*)_GUI_boxImplSelect;
         self->box->core.insert=(void*)_GUI_boxImplInsert;
 
-        self->sliderH->value=0;
-        self->sliderV->max=0;
-        self->sliderV->step=self->sliderH->step=5;
         self->sliderV->width=self->sliderH->height=10;
 
         self->sliderV->core.input=(void*)_GUI_boxSliderInputV;
         self->sliderH->core.input=(void*)_GUI_boxSliderInputH;
 
-    ),destructor(
+    ),
+    destructor()(
         GUI_widgetDelete((void*)&self->box);
         GUI_widgetDelete((void*)&self->sliderV);
         GUI_widgetDelete((void*)&self->sliderH);
@@ -759,7 +746,7 @@ void _GUI_textboxInput(CLASS GUI_TEXTBOX *self,int e,GUI_t_INPUT *i){
 }
 
 CLASS_COMPILE(GUI_TEXTBOX)(
-    constructor(
+    constructor()(
         self->editable=1;
         self->core.insert=(void*)_GUI_insertUp;
         self->core.input=(void*)_GUI_textboxInput;
@@ -770,7 +757,8 @@ CLASS_COMPILE(GUI_TEXTBOX)(
             CLASS GUI_WIDGET *w=((CLASS GUI_BOX*)self)->box->userData;
             w->core.draw=(void*)_GUI_textboxImplDraw;
         }
-    ),destructor(
+    ),
+    destructor()(
         GUI_setText(&self->text,NULL);
     )
 )
@@ -801,14 +789,15 @@ void _GUI_canvasInput(CLASS GUI_CANVAS *self,int e,GUI_t_INPUT *i){
 }
 
 CLASS_COMPILE(GUI_CANVAS)(
-    constructor(
+    constructor()(
         self->core.update=(void*)_GUI_canvasUpdate;
         self->core.input=(void*)_GUI_canvasInput;
         self->core.draw=(void*)_GUI_canvasDraw;
         self->core.insert=(void*)_GUI_insertUp;
         self->canvas=KLS_canvasNew(NULL,self->width,self->height,0,0,self->width,self->height);
         KLS_canvasClear(&self->canvas,&self->color);
-    ),destructor(
+    ),
+    destructor()(
         self->canvas.m._free=1;
         KLS_canvasFree(&self->canvas);
     )

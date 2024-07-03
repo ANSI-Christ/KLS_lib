@@ -27,6 +27,7 @@ extern double round(double x);
 extern double log2(double x);
 extern void _KLS_rgbGetInfo(int bits);
 
+
 #include "./os_dep/KLS_osDep.h"
 
 #include "./modules/_KLS_bitmap.c"
@@ -476,8 +477,8 @@ void *_KLS_letAddr(void *p){
 }
 
 
-#define __KLS_MAGIC(b) 0x##b,
-#define _KLS_MAGIC(s,...) {(KLS_size)(s),{M_FOREACH(__KLS_MAGIC,__VA_ARGS__)}}
+#define __KLS_MAGIC(_1_,_2_,b) 0x##b,
+#define _KLS_MAGIC(s,...) {(KLS_size)(s),{M_FOREACH(__KLS_MAGIC,-,__VA_ARGS__)}}
 
 static int _KLS_magic(int i){return _KLS_magic(i-1)+_KLS_magic(i+1);}
 

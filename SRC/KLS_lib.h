@@ -39,6 +39,7 @@
 #include "KLS_terminal.h"
 #include "KLS_0b.h"
 
+
 //typedef _Decimal32      dec32;
 //typedef _Decimal64      dec64;
 typedef void*         multitype;
@@ -47,6 +48,7 @@ typedef unsigned char KLS_byte;
 typedef int64_t       KLS_long;
 typedef uint64_t      KLS_size;
 typedef int           KLS_COLOR;
+
 
 
 #ifdef KLS_NOEXTERN
@@ -104,12 +106,12 @@ typedef int           KLS_COLOR;
 /////////////////////////////////////////////////////////////////////////////////////////////
 void *_KLS_letAddr(void *p);
 #define multitype(...) multitype
-#define _KLS_LET_UNPACK(_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__=*(KLS_TYPEOF(__VA_ARGS__)*)(*_1_); ) ++_1_;
-#define _KLS_LET_PACK(_1_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( __KLS_LET_PACK(M_EXTRACT _1_,__VA_ARGS__) )
+#define _KLS_LET_UNPACK(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__=*(KLS_TYPEOF(__VA_ARGS__)*)(*_1_); ) ++_1_;
+#define _KLS_LET_PACK(_0_,_1_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( __KLS_LET_PACK(M_EXTRACT _1_,__VA_ARGS__) )
 #define __KLS_LET_PACK(...) ___KLS_LET_PACK(__VA_ARGS__)
 #define ___KLS_LET_PACK(_1_,_2_,...)  *(KLS_TYPEOF(__VA_ARGS__)*)(*(_1_++)=_2_)=__VA_ARGS__; (_2_)+=sizeof(KLS_TYPEOF(__VA_ARGS__));
-#define _KLS_LET(...) for(;;({void **_1_=(&_1_)[_KLS_let==99]; if(_KLS_let==99)printf("let %p\n",_1_); M_FOREACH_A(_KLS_LET_UNPACK,_1_,__VA_ARGS__) goto KLS_MVN(mark);}))if(!8){KLS_MVN(mark): break;} else ({void *_1_; (&_1_);})[_KLS_let]
-#define _KLS_RETURN(...) {char *_1_[KLS_ARGS_COUNT(__VA_ARGS__)+KLS_ARGS_SIZE(__VA_ARGS__)/sizeof(void*)+1],**_2_=_1_,*_3_=(void*)(_2_+KLS_ARGS_COUNT(__VA_ARGS__)); M_FOREACH_A(_KLS_LET_PACK,(_2_,_3_),__VA_ARGS__) if(_KLS_let==99)printf("ret %p\n",_1_); return _KLS_letAddr(_1_);} return NULL
+#define _KLS_LET(...) for(;;({void **_1_=(&_1_)[_KLS_let==99]; if(_KLS_let==99)printf("let %p\n",_1_); M_FOREACH(_KLS_LET_UNPACK,_1_,__VA_ARGS__) goto KLS_MVN(mark);}))if(!8){KLS_MVN(mark): break;} else ({void *_1_; (&_1_);})[_KLS_let]
+#define _KLS_RETURN(...) {char *_1_[KLS_ARGS_COUNT(__VA_ARGS__)+KLS_ARGS_SIZE(__VA_ARGS__)/sizeof(void*)+1],**_2_=_1_,*_3_=(void*)(_2_+KLS_ARGS_COUNT(__VA_ARGS__)); M_FOREACH(_KLS_LET_PACK,(_2_,_3_),__VA_ARGS__) if(_KLS_let==99)printf("ret %p\n",_1_); return _KLS_letAddr(_1_);} return NULL
 #define _KLS_MAIN0()
 #define _KLS_MAIN1(...) argc
 #define _KLS_MAIN2(...) argc,argv
@@ -128,20 +130,21 @@ void *_KLS_letAddr(void *p);
 #define _KLS_CMP(_1_,_2_) (sizeof(_1_)==sizeof(_2_) ? __KLS_CMP(char,_1_,_2_, __KLS_CMP(short,_1_,_2_, __KLS_CMP(int,_1_,_2_, _KLS_CMPCAST(int,_1_)[0] ^ _KLS_CMPCAST(int,_2_)[0] || _KLS_CMPCAST(int,_1_)[1] ^ _KLS_CMPCAST(int,_2_)[1] ) ) ) : 1 )
 #define _KLS_CMP2(_a_,_b_) ({ KLS_TYPEOF(_a_) _1_=(_a_); KLS_TYPEOF(_b_) _2_=(_b_); _KLS_CMP(_1_,_2_); })
 #define _KLS_CMP3(_a_,_b_,_d_) (fabs((_a_)-(_b_))>(_d_))
-#define __KLS_AVERAGE(_s_,_arg_) M_WHEN(M_IS_ARG(_arg_))( (_s_)+=(_arg_); )
+#define __KLS_AVERAGE(_i_,_s_,_arg_) M_WHEN(M_IS_ARG(_arg_))( (_s_)+=(_arg_); )
 #define ____KLS_EXTREMUM(_op_,_1_,_c_) {KLS_TYPEOF(_c_) _3_=(_c_); if(_3_ _op_ _1_.x) memcpy(&_1_,&_3_,sizeof(_3_));}
 #define ___KLS_EXTREMUM(...) ____KLS_EXTREMUM(__VA_ARGS__)
-#define __KLS_EXTREMUM(_a_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( ___KLS_EXTREMUM(M_EXTRACT _a_, __VA_ARGS__) )
+#define __KLS_EXTREMUM(_i_,_a_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( ___KLS_EXTREMUM(M_EXTRACT _a_, __VA_ARGS__) )
 #define _KLS_EXTREMUM(_op_,_value_,...) ({\
     struct{KLS_TYPEOF(_value_) x;}_1_={(_value_)};\
-    M_FOREACH_A(__KLS_EXTREMUM,(_op_,_1_),__VA_ARGS__) _1_.x;\
+    M_FOREACH(__KLS_EXTREMUM,(_op_,_1_),__VA_ARGS__) _1_.x;\
 })
 #define _KLS_AVERAGE(_value_,...) ({\
-    double _1_=(_value_); M_FOREACH_A(__KLS_AVERAGE,_1_,__VA_ARGS__)\
+    double _1_=(_value_); M_FOREACH(__KLS_AVERAGE,_1_,__VA_ARGS__)\
     _1_/(KLS_ARGS_COUNT(__VA_ARGS__)+1);\
 })
 #define _KLS_TYPE_ALIGN(_expr_) ((sizeof(struct{char ________; _expr_;})-sizeof(char))%sizeof(struct{_expr_;})+1)
 char *_KLS_stringv(const char *format, va_list ap[2]);
+KLS_COLOR _KLS_rgbDetect(KLS_byte,KLS_byte,KLS_byte);
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 #define _KLS_ARRAY_AT(...) M_OVERLOAD(_KLS_ARRAY_AT_,__VA_ARGS__)(__VA_ARGS__)
@@ -212,25 +215,21 @@ typedef struct __KLS_t_HEAP_NODE{
     }_N_[1]={{ {_N_,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),PTHREAD_MUTEX_INITIALIZER}, {(void*)_N_,NULL,NULL,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),(_S_)}, {0}, {(void*)(((_KLS_t_HEAP_HEADER*)_N_)+1),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES)} }}
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-#define _KLS_THREAD_ARGS(...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
-#define _KLS_THREAD_PACK(_1_,...) ({unsigned int _2_=0,_3_; M_FOREACH_A(__KLS_THREAD_PACK,(_1_,_2_,_3_),__VA_ARGS__) _2_;})
-#define __KLS_THREAD_PACK(_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( ___KLS_THREAD_PACK(M_EXTRACT _1_, __VA_ARGS__) )
-#define ___KLS_THREAD_PACK(...) ____KLS_THREAD_PACK(__VA_ARGS__)
-#define ____KLS_THREAD_PACK(_p_,_o_,_m_,...) _m_=_o_%KLS_TYPE_ALIGN(__VA_ARGS__); _o_+=(_m_?KLS_TYPE_ALIGN(__VA_ARGS__)-_m_:0); M_WHEN(M_IS_ARG(_p_))(*(KLS_TYPEOF(__VA_ARGS__)*)(_p_+_o_)=__VA_ARGS__;) _o_+=sizeof(KLS_TYPEOF(__VA_ARGS__));
+#define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
+#define _KLS_THREAD_STRUCT(...) struct{M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char ____;}
+#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
+#define _KLS_THREAD_PACK(_str_,...) M_FOREACH(__KLS_THREAD_PACK,_str_,__VA_ARGS__)
+#define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
 #define _KLS_THREAD_CALL(_ttf_,_id_,_f_,...) ({\
-    char *_1_=KLS_malloc(_KLS_THREAD_PACK(,__VA_ARGS__));\
-    if(_1_) _KLS_THREAD_PACK(_1_,__VA_ARGS__); _ttf_(_id_,_f_,_1_,KLS_ARGS_COUNT(__VA_ARGS__));\
+    _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=KLS_malloc(sizeof(*KLS_MVN(_thr1))-sizeof(char));\
+    if(KLS_MVN(_thr1)){_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,_f_,KLS_MVN(_thr1),sizeof(*KLS_MVN(_thr1))!=sizeof(char));\
 })
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-#define _KLS_ARGS_COUNT(...) M_WHEN(M_IS_ARG(__VA_ARGS__))( 1+ )
-#define _KLS_ARGS_SIZE(...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( sizeof(KLS_TYPEOF(__VA_ARGS__))+ )
+#define _KLS_ARGS_COUNT(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( 1+ )
+#define _KLS_ARGS_SIZE(_1_,_2_,...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( sizeof(KLS_TYPEOF(__VA_ARGS__))+ )
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-KLS_COLOR _KLS_rgbDetect(KLS_byte,KLS_byte,KLS_byte);
-extern void *_GUI_widgetNew(void*(*)(void*),unsigned int,void*,const char*);
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define KLS_NAN  (0.0/0.0)
 #define KLS_INF  (1.0/0.0)
@@ -462,9 +461,9 @@ KLS_INIT(const KLS_byte _KLS_isfpnum[],={
 
 #define KLS_AVERAGE(...) _KLS_AVERAGE(__VA_ARGS__)
 
-#define KLS_ARGS_SIZE(...) (M_FOREACH(_KLS_ARGS_SIZE,__VA_ARGS__) 0)
+#define KLS_ARGS_SIZE(...) (M_FOREACH(_KLS_ARGS_SIZE,-,__VA_ARGS__) 0)
 
-#define KLS_ARGS_COUNT(...) (M_FOREACH(_KLS_ARGS_COUNT,__VA_ARGS__) 0)
+#define KLS_ARGS_COUNT(...) (M_FOREACH(_KLS_ARGS_COUNT,-,__VA_ARGS__) 0)
 
 #define KLS_RUNTIME(...) ({\
     struct timespec KLS_MVN(_rt1)={0},KLS_MVN(_rt2)={0};\
@@ -603,7 +602,7 @@ void SYS_timerDestroy(SYS_t_TIMER *timer);
 
 
 // THREAD SECTION
-#define KLS_THREAD_ARGS(...) M_IF(M_COUNT(__VA_ARGS__))(M_EXTRACT(struct{M_FOREACH(_KLS_THREAD_ARGS,__VA_ARGS__)}*), void*)
+#define KLS_THREAD_ARGS(...) M_IF(M_COUNT(__VA_ARGS__))(M_EXTRACT(struct{M_FOREACH(_KLS_THREAD_ARGS,-,__VA_ARGS__)}*), void*)
 
 #define KLS_THREAD_POLICY_OTHER  SCHED_OTHER
 #define KLS_THREAD_POLICY_FIFO   SCHED_FIFO
@@ -1206,8 +1205,8 @@ GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height)
 // WIDGETS SECTION
 
 #define CLASS_BEGIN__GUI_WIDGET \
-    constructor(\
-        self->able=self->visible=1;\
+    constructor(void *parent,const char *id)(\
+        self->visible=self->able=1;\
     ),\
     public(\
         struct{\
@@ -1238,7 +1237,10 @@ GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height)
 CLASS_END(GUI_WIDGET);
 
 #define CLASS_BEGIN__GUI_LABEL\
-    from(GUI_WIDGET),\
+    extends(GUI_WIDGET),\
+    constructor(void *parent,const char *id,const char *text)(\
+        super(self,parent,id);\
+    ),\
     public(\
         char *text;\
         KLS_COLOR color;\
@@ -1247,8 +1249,9 @@ CLASS_END(GUI_WIDGET);
 CLASS_END(GUI_LABEL);
 
 #define CLASS_BEGIN__GUI_BUTTON \
-    from(GUI_WIDGET),\
-    constructor(\
+    extends(GUI_WIDGET),\
+    constructor(void *parent,const char *id)(\
+        super(self,parent,id);\
         self->width=80;\
         self->height=20;\
         self->colorBorder=KLS_COLOR_BLACK;\
@@ -1268,10 +1271,11 @@ CLASS_END(GUI_LABEL);
 CLASS_END(GUI_BUTTON);
 
 #define CLASS_BEGIN__GUI_CANVAS \
-    from(GUI_WIDGET),\
-    constructor(\
-        self->width=300;\
-        self->height=300;\
+    extends(GUI_WIDGET),\
+    constructor(void *parent,const char *id,unsigned int width,unsigned int height)(\
+        super(self,parent,id);\
+        self->width=width;\
+        self->height=height;\
         self->color=KLS_COLOR_WHITE;\
     ),\
     public(\
@@ -1282,13 +1286,13 @@ CLASS_END(GUI_BUTTON);
 CLASS_END(GUI_CANVAS);
 
 
-#define CLASS_BEGIN__GUI_SLIDER abstract,\
-    from(GUI_WIDGET),\
-    constructor(\
-        self->min=0;\
-        self->max=100;\
-        self->step=1;\
-        self->value=30;\
+#define CLASS_BEGIN__GUI_SLIDER   abstract,\
+    extends(GUI_WIDGET),\
+    constructor(void *parent,const char *id,double min,double max,double step)(\
+        super(self,parent,id);\
+        self->min=self->value=min;\
+        self->max=max;\
+        self->step=step;\
         self->colorBorder=KLS_COLOR_BLACK;\
         self->colorBackground=KLS_COLOR_GREY;\
     ),\
@@ -1308,26 +1312,29 @@ CLASS_END(GUI_CANVAS);
 CLASS_END(GUI_SLIDER);
 
 #define CLASS_BEGIN__GUI_SLIDER_V \
-    from(GUI_SLIDER),\
-    constructor(\
+    extends(GUI_SLIDER),\
+    constructor(void *parent, const char *id,double min,double max,double step)(\
+        super(self,parent,id,min,max,step);\
         self->width=15;\
         self->height=100;\
     )
 CLASS_END(GUI_SLIDER_V);
 
 #define CLASS_BEGIN__GUI_SLIDER_H \
-    from(GUI_SLIDER),\
-    constructor(\
+    extends(GUI_SLIDER),\
+    constructor(void *parent, const char *id,double min,double max,double step)(\
+        super(self,parent,id,min,max,step);\
         self->width=100;\
         self->height=15;\
     )
 CLASS_END(GUI_SLIDER_H);
 
-#define CLASS_BEGIN__GUI_BOX \
-    from(GUI_WIDGET),\
-    constructor(\
-        self->width=self->widthMax=200;\
-        self->height=self->heightMax=100;\
+#define CLASS_BEGIN__GUI_BOX  abstract,\
+    extends(GUI_WIDGET),\
+    constructor(void *parent, const char *id,unsigned int width,unsigned int height)(\
+        super(self,parent,id);\
+        self->width=self->widthMax=width;\
+        self->height=self->heightMax=height;\
     ),\
     public(\
         CLASS GUI_WIDGET *box;\
@@ -1337,8 +1344,9 @@ CLASS_END(GUI_SLIDER_H);
 CLASS_END(GUI_BOX);
 
 #define CLASS_BEGIN__GUI_TEXTBOX \
-    from(GUI_BOX),\
-    constructor(\
+    extends(GUI_BOX),\
+    constructor(void *parent, const char *id,unsigned int width,unsigned int height)(\
+        super(self,NULL,NULL,width,height);\
         self->editable=1;\
         self->colorText=self->colorBorder=KLS_COLOR_BLACK;\
         self->colorBackground=KLS_COLOR_WHITE;\
@@ -1356,10 +1364,9 @@ CLASS_END(GUI_BOX);
 CLASS_END(GUI_TEXTBOX);
 
 #define CLASS_BEGIN__GUI \
-    from(GUI_BOX),\
-    constructor(\
-        self->width=640;\
-        self->height=480;\
+    extends(GUI_BOX),\
+    constructor(unsigned int width,unsigned int height)(\
+        super(self,NULL,NULL,width,height);\
         self->color=KLS_COLOR_GREY;\
     ),\
     public(\
@@ -1392,9 +1399,9 @@ void *GUI_widgetSelect(void *widget);
 void *GUI_widgetFind(void *widget,const char *id);
 void *GUI_widgetInsert(void *widget,void *parent);
 
-CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *parent,const char *id);
-#define GUI_widgetNew(_name_) _GUI_widgetNew((void*)_name_()->constructor,sizeof(CLASS _name_), __GUI_widgetNew
-#define __GUI_widgetNew(_parent_,_id_,...) (_parent_),(_id_))
+CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
+#define GUI_widgetNew(_name_) ({ CLASS _name_ *KLS_MVN(_wgt_)=KLS_malloc(sizeof(CLASS _name_)); if(KLS_MVN(_wgt_)){ memset(KLS_MVN(_wgt_),0,sizeof(*KLS_MVN(_wgt_))); if(!_name_()->constructor(KLS_MVN(_wgt_) __GUI_widgetNew
+#define __GUI_widgetNew(...) M_WHEN(M_IS_ARG(M_PEEK(__VA_ARGS__)))(,__VA_ARGS__) )) KLS_freeData(KLS_MVN(_wgt_)); }  KLS_MVN(_wgt_); }) // FIX ME
 
 
 #undef KLS_INIT

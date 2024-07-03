@@ -1,9 +1,11 @@
+#define NOMINMAX
 #include <windows.h>
 #include <imagehlp.h>
 #include <ws2tcpip.h>
 #include <winsock2.h>
 
 #include "__KLS_WinApi.h"
+
 
 KLS_byte KLS_fsDirCreate(const char *directory){
     return directory && !mkdir(directory);
@@ -63,15 +65,15 @@ unsigned int KLS_sysInfoCores(){
 typedef char sigset_t;
 
 
-#define _KLS_PTHREAD_KILL(_sig_) static void _pthread_kill_##_sig_(){raise(_sig_);}
-M_FOREACH(_KLS_PTHREAD_KILL,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+#define _KLS_PTHREAD_KILL(_1_,_2_,_sig_) static void _pthread_kill_##_sig_(){raise(_sig_);}
+M_FOREACH(_KLS_PTHREAD_KILL,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
 #undef _KLS_PTHREAD_KILL
 
 static void *_pthread_killFunc(int sig){
-#define _KLS_PTHREAD_KILL(_sig_) case _sig_:return _pthread_kill_##_sig_;
+#define _KLS_PTHREAD_KILL(_1_,_2_,_sig_) case _sig_:return _pthread_kill_##_sig_;
     if(KLS_signalGetString(sig));
         switch(sig){
-            M_FOREACH(_KLS_PTHREAD_KILL,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+            M_FOREACH(_KLS_PTHREAD_KILL,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
         }
     return NULL;
 #undef _KLS_PTHREAD_KILL
@@ -156,7 +158,7 @@ typedef KLS_TYPEOF(socket(0,0,0)) _NET_t_SOCKET;
 
 #define _NET_NOPULSE
 
-#define __NET_ERR2POSIX(_1_,_2_) if(_1_==M_JOIN(WSAE,_2_)) return M_JOIN(E,_2_);
+#define __NET_ERR2POSIX(_0_,_1_,_2_) if(_1_==M_JOIN(WSAE,_2_)) return M_JOIN(E,_2_);
 
 #define _NET_ERRNO(...)   _NET_errnoTranslate( M_IF(M_IS_ARG(__VA_ARGS__)) ((__VA_ARGS__),WSAGetLastError()) )
 
@@ -183,7 +185,7 @@ typedef KLS_TYPEOF(socket(0,0,0)) _NET_t_SOCKET;
 
 
 int _NET_errnoTranslate(int e){
-    M_FOREACH_A(__NET_ERR2POSIX,e,NOTSOCK,INTR,TIMEDOUT,OPNOTSUPP,NETUNREACH,DESTADDRREQ,MSGSIZE,PROTOTYPE,ADDRINUSE,ADDRNOTAVAIL,NETDOWN,NETRESET,CONNABORTED,CONNRESET,NOBUFS,ISCONN,NOTCONN,CONNREFUSED,HOSTUNREACH,ALREADY,INPROGRESS,AGAIN,WOULDBLOCK)
+    M_FOREACH(__NET_ERR2POSIX,e,NOTSOCK,INTR,TIMEDOUT,OPNOTSUPP,NETUNREACH,DESTADDRREQ,MSGSIZE,PROTOTYPE,ADDRINUSE,ADDRNOTAVAIL,NETDOWN,NETRESET,CONNABORTED,CONNRESET,NOBUFS,ISCONN,NOTCONN,CONNREFUSED,HOSTUNREACH,ALREADY,INPROGRESS,AGAIN,WOULDBLOCK)
     return e;
 }
 

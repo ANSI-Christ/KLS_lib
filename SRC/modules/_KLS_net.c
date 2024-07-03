@@ -1,6 +1,6 @@
 
 #ifndef _NET_ERRNO
-    #define _NET_ERRNO(...) _1_
+    #define _NET_ERRNO(...) __VA_ARGS__
     #define _NET_FUNC_DEF(_f_,...) _f_(__VA_ARGS__)
 #else
     #define _NET_FUNC_DEF(_f_,...) ({ KLS_TYPEOF(_f_(__VA_ARGS__)) _1_=_f_(__VA_ARGS__); errno=_NET_ERRNO(); _1_; })

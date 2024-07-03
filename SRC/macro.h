@@ -26,10 +26,8 @@
 #define M_ASSERT(_condition_,...) typedef struct{char _[(_condition_)?1:-1]);}
 
 #define M_OVERLOAD(macros,...) M_JOIN(macros,M_COUNT(__VA_ARGS__))
-#define M_FOREACH(macros,...) M_LOOP(_M_FOREACH_MAP1(macros,__VA_ARGS__,()()(),()()(),()()(),0))
-#define M_FOREACH_A(macros,arg,...) M_LOOP(_M_FOREACH_MAP_A1(macros,arg,__VA_ARGS__,()()(),()()(),()()(),0))
-
-#define M_LOOP(...)  _M_LOOP1(_M_LOOP1(_M_LOOP1(__VA_ARGS__)))
+#define M_FOREACH(macros,arg,...) M_LOOP(_M_FOREACH_MAP1(macros,arg,__VA_ARGS__,()()(),()()(),()()(),0))
+#define M_LOOP(...)  _M_LOOP4(__VA_ARGS__)  // FIX ME _M_LOOP1(_M_LOOP1(_M_LOOP1(__VA_ARGS__)))
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -66,10 +64,8 @@
 #define _M_CMP(_1_,_2_) _M_IS_PAREN( __COMPARE_ ## _1_ ( __COMPARE_ ## _2_) (()) )
 #define _M_COUNT(...) __M_COUNT(__VA_ARGS__)
 #define _M_IS_ARG(...) __M_IS_ARG( __M_COMMA(__VA_ARGS__), __M_COMMA(__M_TRIGGER_COMMA_ __VA_ARGS__), __M_COMMA(__VA_ARGS__ (~)), __M_COMMA(__M_TRIGGER_COMMA_ __VA_ARGS__ (~)) )
-#define _M_FOREACH_MAP0(macros, x, peek, ...) macros(x) _M_FOREACH_MAP_NEXT(peek, _M_FOREACH_MAP1)(macros, peek, __VA_ARGS__)
-#define _M_FOREACH_MAP1(macros, x, peek, ...) macros(x) _M_FOREACH_MAP_NEXT(peek, _M_FOREACH_MAP0)(macros, peek, __VA_ARGS__)
-#define _M_FOREACH_MAP_A0(macros, arg, x, peek, ...) macros(arg,x) _M_FOREACH_MAP_NEXT(peek, _M_FOREACH_MAP_A1)(macros,arg, peek, __VA_ARGS__)
-#define _M_FOREACH_MAP_A1(macros, arg, x, peek, ...) macros(arg,x) _M_FOREACH_MAP_NEXT(peek, _M_FOREACH_MAP_A0)(macros,arg, peek, __VA_ARGS__)
+#define _M_FOREACH_MAP0(macros, arg, x, peek, ...) macros(M_COUNT(__VA_ARGS__),arg,x) _M_FOREACH_MAP_NEXT(peek, _M_FOREACH_MAP1)(macros, arg, peek, __VA_ARGS__)
+#define _M_FOREACH_MAP1(macros, arg, x, peek, ...) macros(M_COUNT(__VA_ARGS__),arg,x) _M_FOREACH_MAP_NEXT(peek, _M_FOREACH_MAP0)(macros, arg, peek, __VA_ARGS__)
 #define _M_FOREACH_MAP_NEXT0(test, next, ...) next _M_FOREACH_MAP_OUT
 #define _M_FOREACH_MAP_NEXT1(test, next) _M_FOREACH_MAP_NEXT0(test, next, 0)
 #define _M_FOREACH_MAP_NEXT(test, next) _M_FOREACH_MAP_NEXT1(_M_FOREACH_MAP_GET_END test, next)
