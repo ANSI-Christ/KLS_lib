@@ -107,11 +107,13 @@ typedef int           KLS_COLOR;
 void *_KLS_letAddr(void *p);
 #define multitype(...) multitype
 #define _KLS_LET_UNPACK(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__=*(KLS_TYPEOF(__VA_ARGS__)*)(*_1_); ) ++_1_;
-#define _KLS_LET_PACK(_0_,_1_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( __KLS_LET_PACK(M_EXTRACT _1_,__VA_ARGS__) )
+#define _KLS_LET_PACK(_1_,_2_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( __KLS_LET_PACK(_1_,M_EXTRACT _2_,__VA_ARGS__) )
 #define __KLS_LET_PACK(...) ___KLS_LET_PACK(__VA_ARGS__)
-#define ___KLS_LET_PACK(_1_,_2_,...)  *(KLS_TYPEOF(__VA_ARGS__)*)(*(_1_++)=_2_)=__VA_ARGS__; (_2_)+=sizeof(KLS_TYPEOF(__VA_ARGS__));
+#define ___KLS_LET_PACK(_index_,_1_,_2_,...)  _1_->_##_index_=(__VA_ARGS__); *_2_++=&_1_->_##_index_;
+#define _KLS_LET_STRUCT(...) struct{void *p[KLS_ARGS_COUNT(__VA_ARGS__)]; M_FOREACH(__KLS_LET_STRUCT,-,__VA_ARGS__)}
+#define __KLS_LET_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) _##_index_; )
 #define _KLS_LET(...) for(;;({void **_1_=(&_1_)[_KLS_let==99]; if(_KLS_let==99)printf("let %p\n",_1_); M_FOREACH(_KLS_LET_UNPACK,_1_,__VA_ARGS__) goto KLS_MVN(mark);}))if(!8){KLS_MVN(mark): break;} else ({void *_1_; (&_1_);})[_KLS_let]
-#define _KLS_RETURN(...) {char *_1_[KLS_ARGS_COUNT(__VA_ARGS__)+KLS_ARGS_SIZE(__VA_ARGS__)/sizeof(void*)+1],**_2_=_1_,*_3_=(void*)(_2_+KLS_ARGS_COUNT(__VA_ARGS__)); M_FOREACH(_KLS_LET_PACK,(_2_,_3_),__VA_ARGS__) if(_KLS_let==99)printf("ret %p\n",_1_); return _KLS_letAddr(_1_);} return NULL
+#define _KLS_RETURN(...) { _KLS_LET_STRUCT(__VA_ARGS__) _1_[1]; void **_2_=(void*)_1_; M_FOREACH(_KLS_LET_PACK,(_1_,_2_),__VA_ARGS__) if(_KLS_let==99)printf("ret %p\n",_1_); return _KLS_letAddr(_1_);} return NULL
 #define _KLS_MAIN0()
 #define _KLS_MAIN1(...) argc
 #define _KLS_MAIN2(...) argc,argv
@@ -217,9 +219,9 @@ typedef struct __KLS_t_HEAP_NODE{
 /////////////////////////////////////////////////////////////////////////////////////////////
 #define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
 #define _KLS_THREAD_STRUCT(...) struct{M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char ____;}
-#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
+#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) _##_index_; )
 #define _KLS_THREAD_PACK(_str_,...) M_FOREACH(__KLS_THREAD_PACK,_str_,__VA_ARGS__)
-#define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
+#define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->_##_index_=(__VA_ARGS__); )
 #define _KLS_THREAD_CALL(_ttf_,_id_,_f_,...) ({\
     _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=KLS_malloc(sizeof(*KLS_MVN(_thr1))-sizeof(char));\
     if(KLS_MVN(_thr1)){_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,_f_,KLS_MVN(_thr1),sizeof(*KLS_MVN(_thr1))!=sizeof(char));\

@@ -32,7 +32,7 @@
         if(self){\
             void*(*f1)(void* _CLASS_ARGS_VAR(_name_))=(void*)M_JOIN(_ctor2_,_name_);\
             void*(*f2)(char,void* _CLASS_ARGS_VAR(_name_))=(void*)M_JOIN(_add_,_name_);\
-            if( f1(self _CLASS_ARGS_ITER(_name_)) && f2(1,self _CLASS_ARGS_ITER(_name_)) )\
+            if( f1(self _CLASS_ARGS_CALL(_name_)) && f2(1,self _CLASS_ARGS_CALL(_name_)) )\
                 *(void**)&self=M_JOIN(_dtor_,_name_);\
             else{ M_JOIN(_dtor_,_name_)(self); self=(void*)0; }\
         } return self;\
@@ -42,7 +42,7 @@
         if(*(void**)c==(void*)1){\
             *(void**)c=(void*)0;\
             M_WHEN(_CLASS_EXT(_name_))( _CLASS_EXT(_name_)(); )\
-            { _CLASS_ARGS_ZERO(_name_) _ctor_##_name_(c _CLASS_ARGS_ITER(_name_)); }\
+            { _CLASS_ARGS_ZERO(_name_) _ctor_##_name_(c _CLASS_ARGS_CALL(_name_)); }\
             _dtor_##_name_(c);\
             *(void**)c=(void*)M_IF(_CLASS_ABS(_name_))(0,_ctor_##_name_);\
         } return c;\
@@ -123,17 +123,18 @@
 #define _CLASS_CTR_ARGS(_name_) M_FOREACH(__CLASS_CTR_ARGS,-,M_JOIN(_CLASS_DECL,_name_))
 #define _CLASS_CTR_BODY(_name_) M_FOREACH(__CLASS_CTR_BODY,-,M_JOIN(_CLASS_DECL,_name_))
 
-#define __CLASS_ARGS_STD(_index_,_name_,...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( ,__VA_ARGS__ )
-#define __CLASS_ARGS_VAR(_index_,_name_,...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( ,struct M_JOIN(M_JOIN(_,_index_),_name_) M_JOIN(_,_index_) )
-#define __CLASS_ARGS_ITER(_index_,_name_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( ,M_JOIN(_,_index_) )
-#define __CLASS_ARGS_DEF(_index_,_name_,...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( struct M_JOIN(M_JOIN(_,_index_),_name_){__VA_ARGS__;}; )
-#define __CLASS_ARGS_ZERO(_index_,_name_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( struct M_JOIN(M_JOIN(_,_index_),_name_) M_JOIN(_,_index_)={}; )
+#define __CLASS_ARGS_STD(_index_,_name_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( ,__VA_ARGS__ )
+#define __CLASS_ARGS_VAR(_index_,_name_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( ,struct M_JOIN(_##_index_,_name_) _##_index_ )
+#define __CLASS_ARGS_CALL(_index_,_name_,...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( ,M_JOIN(_,_index_) )
+#define __CLASS_ARGS_DEF(_index_,_name_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( struct M_JOIN(_##_index_,_name_){__VA_ARGS__;}; )
+#define __CLASS_ARGS_ZERO1(_index_,_name_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( struct M_JOIN(_##_index_,_name_) _##_index_; )
+#define __CLASS_ARGS_ZERO2(_index_,_name_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( memset(&_##_index_,0,sizeof(_##_index_)); )
 
 #define _CLASS_ARGS_STD(_name_)  M_FOREACH(__CLASS_ARGS_STD,_name_,_CLASS_CTR_ARGS(_name_))
 #define _CLASS_ARGS_VAR(_name_)  M_FOREACH(__CLASS_ARGS_VAR,_name_,_CLASS_CTR_ARGS(_name_))
-#define _CLASS_ARGS_ITER(_name_) M_FOREACH(__CLASS_ARGS_ITER,_name_,_CLASS_CTR_ARGS(_name_))
+#define _CLASS_ARGS_CALL(_name_) M_FOREACH(__CLASS_ARGS_CALL,_name_,_CLASS_CTR_ARGS(_name_))
 #define _CLASS_ARGS_DEF(_name_)  M_FOREACH(__CLASS_ARGS_DEF,_name_,_CLASS_CTR_ARGS(_name_))
-#define _CLASS_ARGS_ZERO(_name_) M_FOREACH(__CLASS_ARGS_ZERO,_name_,_CLASS_CTR_ARGS(_name_))
+#define _CLASS_ARGS_ZERO(_name_) M_FOREACH(__CLASS_ARGS_ZERO1,_name_,_CLASS_CTR_ARGS(_name_)) M_FOREACH(__CLASS_ARGS_ZERO2,-,_CLASS_CTR_ARGS(_name_))
 
 #define _CLASS_COMPILE(...) M_FOREACH(__CLASS_CTR_BODY,-,__VA_ARGS__)}else{M_FOREACH(__CLASS_DTR,-,__VA_ARGS__)}return self;}
 
