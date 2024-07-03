@@ -28,7 +28,7 @@ void sigInterp(int s){
     printf("\n\ninterrp\n\n");
 }
 
-int main(int argc,char **argv){
+int mainNet(int argc,char **argv){
     int s;
     NET_t_MANAGER m=NET_new(10,0,0);
     NET_t_UNIT u;
@@ -112,13 +112,12 @@ void sigInterp2(int s){
 void mainW(){
     int i;
     KLS_t_TIMER timers[]={KLS_timerCreate(0,0),KLS_timerCreate(0,0)};
-    CLASS GUI *gui=GUI_widgetNew(GUI)(NULL,"gui");
+    CLASS GUI *gui=GUI_widgetNew(GUI)(640,480);
     CLASS GUI_BUTTON *b1=GUI_widgetNew(GUI_BUTTON)(gui,"b1");
-    CLASS GUI_SLIDER *s1=GUI_widgetNew(GUI_SLIDER_H)(gui,"s1");
-    CLASS GUI_SLIDER *s2=GUI_widgetNew(GUI_SLIDER_V)(gui,"s2");
-    CLASS GUI_BOX *box=GUI_widgetNew(GUI_BOX)(gui,"box");
-    CLASS GUI_CANVAS *cnv=GUI_widgetNew(GUI_CANVAS)(gui,"plot");
-    CLASS GUI_LABEL *dateTime=GUI_widgetNew(GUI_LABEL)(gui,"dateTime");
+    CLASS GUI_SLIDER *s1=GUI_widgetNew(GUI_SLIDER_H)(gui,"s1",0,100,1);
+    CLASS GUI_SLIDER *s2=GUI_widgetNew(GUI_SLIDER_V)(gui,"s2",-99,0,1.5);
+    CLASS GUI_CANVAS *cnv=GUI_widgetNew(GUI_CANVAS)(gui,"plot",300,200);
+    CLASS GUI_LABEL *dateTime=GUI_widgetNew(GUI_LABEL)(gui,"dateTime",NULL);
 
     KLS_signalSetHandler(SIGINT,KLS_SIGNAL_MODE_UNBLOCK,SIG_IGN);
 
@@ -151,33 +150,20 @@ void mainW(){
 
     s1->x=50;
     s1->y=80;
-
     s1->onChange=KLS_LMBD(void,(CLASS GUI_SLIDER *s){
         printf("s1 value:%f\n",s->value);
     });
 
     s2->detachable=1;
-
-    s2->max=99.;
-    s2->min=-99;
-    s2->max=1;
-    s2->step=1.3;
     s2->x=50;
     s2->y=100;
     s2->onChange=KLS_LMBD(void,(CLASS GUI_SLIDER *s){
         printf("s2 value:%f\n",s->value);
     });
 
-    box->x=120;
-    box->y=20;
-    box->movable=box->resizable=1;
-    box->core.draw=KLS_LMBD(void,(CLASS GUI_BOX *self){
-        KLS_COLOR clr[]={KLS_COLOR_BLACK,KLS_COLOR_LIGHT_GREY};
-        GUI_widgetDrawRect(self,0,0,clr,clr+1);
-    });
 
-    {
-        CLASS _GUI_TEXTBOX *t=GUI_widgetNew(GUI_TEXTBOX)(gui,"textbox");
+    if(1){
+        CLASS _GUI_TEXTBOX *t=GUI_widgetNew(GUI_TEXTBOX)(gui,"textbox",200,200);
         t->x=10;
         t->y=300;
         t->colorBackground=KLS_COLOR_LIGHT_GREY;
@@ -195,8 +181,87 @@ void mainW(){
         //printf("event=%d\n",s);
     }
 
-   // for(i=0;i<KLS_ARRAY_LEN(timers);++i)
-     //   KLS_timerDestroy(timers+i);
+    for(i=0;i<KLS_ARRAY_LEN(timers);++i)
+        KLS_timerDestroy(timers+i);
     GUI_widgetDelete(&gui);
 }
 
+
+#define CLASS_BEGIN__A \
+    constructor(float x,float y)(\
+    )
+CLASS_END(A);
+CLASS_COMPILE(A)(
+
+);
+
+#define CLASS_BEGIN__B \
+    extends(A),\
+    constructor(float x,float y,float z)(\
+        super(self,x,y);\
+    )
+CLASS_END(B);
+CLASS_COMPILE(B)(
+
+);
+
+#define CLASS_BEGIN__C \
+    extends(A),\
+    constructor()(\
+        super(self,4,5);\
+    )
+CLASS_END(C);
+CLASS_COMPILE(C)(
+
+);
+
+multitype mftx(int x){
+    float a=x*1.3;
+    int b=x<<1;
+    char c='0'+x;
+    return (a,b,c);
+}
+
+void _task1(KLS_THREAD_ARGS(int x,int y,int z) i){
+    float a;
+    int b;
+    char c;
+    printf("%d %d %d\n",i->x,i->y,i->z);
+    printf("%d\n",KLS_MIN(3,0,1,2,0,3));
+    let(,,c)=mftx(2);
+    printf("%f %d %c\n\n",a,b,c);
+}
+
+int main()
+{
+    {
+        KLS_t_THREAD t=KLS_threadCreate(0);
+
+        KLS_threadTask(t,_task1,2,3,4);
+
+        KLS_threadDestroyLater(&t);
+
+    }
+    {
+        CLASS A c;
+        A()->constructor(&c,1,2);
+        printf("dtor %p\n",c.destructor);
+    }
+
+     {
+        CLASS A c;
+        B()->constructor(&c,1,2,3);
+        printf("dtor %p\n",c.destructor);
+    }
+
+    {
+        CLASS A c;
+        C()->constructor(&c);
+        printf("dtor %p\n",c.destructor);
+    }
+    #define _M1(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))(printf("bla\n");)
+    M_FOREACH(_M1,-,)
+    //printf("%f, %f, %d\n",c.x,c.y,c.z);
+
+    return 0;
+}
