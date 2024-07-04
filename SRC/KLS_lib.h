@@ -1401,8 +1401,8 @@ void *GUI_widgetFind(void *widget,const char *id);
 void *GUI_widgetInsert(void *widget,void *parent);
 
 CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
-#define GUI_widgetNew(_name_) ({ void *KLS_MVN(_wgt_)=KLS_malloc(sizeof(CLASS _name_)); if(KLS_MVN(_wgt_)){ memset(KLS_MVN(_wgt_),0,sizeof(CLASS _name_)); if(!_name_()->constructor(KLS_MVN(_wgt_) __GUI_widgetNew
-#define __GUI_widgetNew(...) M_WHEN(M_IS_ARG(M_PEEK(__VA_ARGS__)))(,__VA_ARGS__) )) KLS_freeData(KLS_MVN(_wgt_)); }  KLS_MVN(_wgt_); })
+#define GUI_widgetNew(_name_) ({ void *KLS_MVN(_wgt_)=KLS_malloc(sizeof(CLASS _name_)); if(!_name_()->constructor(KLS_MVN(_wgt_) __GUI_widgetNew
+#define __GUI_widgetNew(...) M_WHEN(M_IS_ARG(M_PEEK(__VA_ARGS__)))(,__VA_ARGS__) )) KLS_freeData(KLS_MVN(_wgt_)); KLS_MVN(_wgt_); })
 
 
 #undef KLS_INIT
