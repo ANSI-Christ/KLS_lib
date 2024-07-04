@@ -184,38 +184,38 @@ signed char KLS_bitGet(void *data,unsigned int index){
     return !!(*( ((KLS_byte*)data)+(index>>3) ) & 1<<(index%8));
 }
 
-void KLS_memmove(void *dst,const void *src,KLS_size size){
-    int *d; const int *s;
-    if(dst<src){
-        for(;size & (sizeof(*d)-1); --size,*(char*)dst=*(const char*)src, ++dst, ++src);
-        for(d=dst,s=src,size/=sizeof(*d); size; --size,*d=*s,++d,++s);
+void KLS_memmove(void *to,const void *from,KLS_size size){
+    union{const char *c; const KLS_size *i;} f={.c=from};
+    union{char *c; KLS_size *i;} t={.c=to};
+    if(to<from){
+        while(size & (sizeof(*f.i)-1)){ --size; *t.c=*f.c; ++t.c; ++f.c; }
+        size/=sizeof(*f.i);
+        while(size){ --size; *t.i=*f.i; ++t.i; ++f.i; };
         return;
     }
-    for(dst+=size,src+=size;size & (sizeof(*d)-1); --size,*(char*)--dst=*(char*)--src);
-    for(d=dst,s=src,size/=sizeof(*d); size; --size,*--d=*--s);
+    t.c+=size; f.c+=size;
+    while(size & (sizeof(*f.i)-1)){ --size; *--t.c=*--f.c; }
+    size/=sizeof(*f.i);
+    while(size){ --size; *--t.i=*--f.i; }
 }
 
 void KLS_swap(void *var1,void *var2,KLS_size size){
-#define _KLS_SWP(t,x,y) *((t*)x) ^= *((t*)y)
-    while(size & (sizeof(int)-1)){
-        _KLS_SWP(char,var1,var2);
-        _KLS_SWP(char,var2,var1);
-        _KLS_SWP(char,var1,var2);
-        ++var1;
-        ++var2;
+    union{char *c; KLS_size *i;} a={.c=var1}, b={.c=var2};
+    while(size & (sizeof(*a.i)-1)){
+        *a.c^=*b.c;
+        *b.c^=*a.c;
+        *a.c^=*b.c;
+        ++a.c; ++b.c;
         --size;
     }
-    size/=sizeof(int);
+    size/=sizeof(*a.i);
     while(size){
-        _KLS_SWP(int,var1,var2);
-        _KLS_SWP(int,var2,var1);
-        _KLS_SWP(int,var1,var2);
-        var1+=sizeof(int);
-        var2+=sizeof(int);
+        *a.i^=*b.i;
+        *b.i^=*a.i;
+        *a.i^=*b.i;
+        ++a.i; ++b.i;
         --size;
     }
-
-#undef _KLS_SWP
 }
 
 void KLS_revers(void *array,KLS_size arraySize,KLS_size elementSize){

@@ -32,7 +32,10 @@
         if(self){\
             void*(*f1)(void* _CLASS_ARGS_VAR(_name_))=(void*)M_JOIN(_ctor2_,_name_);\
             void*(*f2)(char,void* _CLASS_ARGS_VAR(_name_))=(void*)M_JOIN(_add_,_name_);\
-            M_IF(_CLASS_EXT(_name_))( _CLASS_CLEAR(((char*)self)+sizeof(CLASS _CLASS_EXT(_name_)),sizeof(CLASS _name_)-sizeof(CLASS _CLASS_EXT(_name_))) , _CLASS_CLEAR(self,sizeof(CLASS _name_)) )\
+            M_IF(_CLASS_EXT(_name_))(\
+                _CLASS_CLEAR(((char*)self)+sizeof(CLASS _CLASS_EXT(_name_)),sizeof(CLASS _name_)-sizeof(CLASS _CLASS_EXT(_name_))) ,\
+                _CLASS_CLEAR(self,sizeof(CLASS _name_))\
+            )\
             if( f1(self _CLASS_ARGS_CALL(_name_)) && f2(1,self _CLASS_ARGS_CALL(_name_)) )\
                 *(void**)self=M_JOIN(_dtor_,_name_);\
             else{ M_JOIN(_dtor_,_name_)(self); self=(void*)0; }\
@@ -139,7 +142,12 @@
 
 #define _CLASS_COMPILE(...) M_FOREACH(__CLASS_CTR_BODY,-,__VA_ARGS__)}else{M_FOREACH(__CLASS_DTR,-,__VA_ARGS__)}return self;}
 
-#define _CLASS_CLEAR(_v_,_s_) if(_s_){char *_1_=((char*)(_v_))+(_s_); do{ *--_1_=0;}while(_1_!=_v_);}
+#define _CLASS_CLEAR(_v_,_s_) \
+    if(_s_){\
+        union{void *v;char *c;int *i} _1_={.v=_v_}; int _2_=_s_; \
+        while(_2_ & (sizeof(*_1_.i)-1)){ --_2_; *_1_.c=0; ++_1_.c; } _2_/=sizeof(*_1_.i);\
+        while(_2_){ --_2_; *_1_.i=0; ++_1_.i; }\
+    }
 
 #define _CLASS_SUPER(_name_) \
     M_WHEN(_CLASS_EXT(_name_))(\
