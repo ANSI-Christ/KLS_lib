@@ -1373,11 +1373,13 @@ CLASS_END(GUI_TEXTBOX);
     public(\
         const char *title;\
         int (* const service)(CLASS GUI *self);\
+        void (* const update)(CLASS GUI *self);\
         void (* const interrupt)(CLASS GUI *self);\
         KLS_COLOR color;\
+        KLS_byte fps:6;\
     ),\
     private(\
-        CLASS GUI_WIDGET *focus, *select;\
+        void *focus, *select, *block;\
         KLS_t_TIMER timer;\
         GUI_t_DISPLAY display;\
         unsigned int flags;\
@@ -1397,6 +1399,7 @@ KLS_byte GUI_widgetInFocus(void *widget);
 KLS_byte GUI_widgetIsSelected(void *widget);
 
 void *GUI_widgetSelect(void *widget);
+void *GUI_widgetBlockOn(void *widget); // return prev (this function help create widgets that blocking parents, for example message box or warning box)
 void *GUI_widgetFind(void *widget,const char *id);
 void *GUI_widgetInsert(void *widget,void *parent);
 

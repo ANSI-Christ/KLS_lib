@@ -31,7 +31,6 @@ void GUI_displayUpdate(GUI_t_DISPLAY *d){
 
 void GUI_displayInterrupt(GUI_t_DISPLAY *d){
     _GUI_displayPost(d,GUI_EVENT_INTERRUPT);
-    _GUI_displayPost(d,GUI_EVENT_UPDATE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +80,7 @@ KLS_byte _GUI_widgetIn(CLASS GUI_WIDGET *w,int x,int y){
 
 void *_GUI_widgetByXY(CLASS GUI_WIDGET *w,int x,int y){
     CLASS GUI_WIDGET *p=NULL;
-    if(w && _GUI_widgetIn((w=(void*)w->gui),x,y)){
+    if(w && _GUI_widgetIn(w,x,y)){
 _mark:
         p=w; w=w->last;
         while(w){
@@ -157,11 +156,11 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
         }
         if((e & GUI_EVENT_RELEASE) && (short)key==GUI_KEY_LB && ((gui->flags&=~31) & 32)){
             gui->flags&=~32;
-            if(w->detachable){
+            if(w->detachable && gui->block!=w){
                 CLASS GUI_WIDGET *dst=w->parent;
                 w->m.options&=~(KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V);
                 _GUI_widgetLink(w,NULL);
-                if((gui=_GUI_widgetByXY((void*)gui,gui->display.input.mouse.x,gui->display.input.mouse.y))) dst=(void*)gui;
+                if((gui=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y))) dst=(void*)gui;
                 _GUI_widgetLink(w,dst);
                 w->x=w->m.subColumn-w->parent->m.subColumn;
                 w->y=w->m.subRow-w->parent->m.subRow;
@@ -176,7 +175,7 @@ void _GUI_inputService(CLASS GUI *gui,int event,int key){
     if(event){
         if(!(gui->flags & 63)){ // current widget isn't moving or resizing
             if( (event & GUI_EVENT_CURSOR)
-            && (gui->focus=_GUI_widgetByXY((void*)gui,gui->display.input.mouse.x,gui->display.input.mouse.y))!=gui->select )
+            && (gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y))!=gui->select )
                 return;
             if( ((event & (GUI_EVENT_RELEASE|GUI_EVENT_PRESS)) && ((short)key==GUI_KEY_LB || (short)key==GUI_KEY_RB || (short)key==GUI_KEY_WHEEL))
             || (event & GUI_EVENT_WHEEL) )
@@ -197,7 +196,7 @@ void _GUI_inputService(CLASS GUI *gui,int event,int key){
 
 void _GUI_widgetGetFocus(CLASS GUI *gui,int event){
     if(gui->flags & 63) return; // current widget moving or resizing
-    if(event) gui->focus=_GUI_widgetByXY((void*)gui,gui->display.input.mouse.x,gui->display.input.mouse.y);
+    if(event) gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -268,11 +267,16 @@ void *GUI_widgetFind(void *widget,const char *id){
 void *GUI_widgetSelect(void *widget){
     if(widget){
         CLASS GUI *gui=((CLASS GUI_WIDGET*)widget)->gui;
-        (gui->select=widget)->core.select(widget);
+        ((CLASS GUI_WIDGET*)(gui->select=widget))->core.select(widget);
         _GUI_widgetReorder(gui->select);
         return gui->select;
     }
     return NULL;
+}
+
+void *GUI_widgetBlockOn(void *widget){
+    if(widget) KLS_swap(&widget,&((CLASS GUI_WIDGET*)widget)->gui->block,sizeof(widget));
+    return widget;
 }
 
 KLS_byte GUI_widgetInFocus(void *widget){
@@ -308,7 +312,7 @@ CLASS_COMPILE(GUI_WIDGET)(
 
 int _GUI_objService(CLASS GUI *gui){
     int e;
-    KLS_timerStart(gui->timer,100,0,NULL,NULL);
+    KLS_timerStart(gui->timer,(gui->fps ? 1000./gui->fps : 0),0,NULL,NULL);
     e=GUI_displayEvent(&gui->display);
     KLS_timerStop(gui->timer);
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
@@ -327,6 +331,10 @@ void _GUI_objInterrupt(CLASS GUI *gui){
     GUI_displayInterrupt(&gui->display);
 }
 
+void _GUI_objFps(CLASS GUI *g){
+    GUI_displayUpdate(&g->display);
+}
+
 void _GUI_objDraw(CLASS GUI *self){
     GUI_widgetDrawRect(self,0,0,NULL,&self->color);
 }
@@ -337,20 +345,19 @@ void _GUI_objUpdate(CLASS GUI *self){
     GUI_displaySetSize(&self->display,self->width,self->height);
 }
 
-void _GUI_objTimer(CLASS GUI *g){
-    GUI_displayUpdate(&g->display);
-}
+
 
 CLASS_COMPILE(GUI)(
     constructor()(
         *(void**)KLS_UNCONST(&self->service)=_GUI_objService;
+        *(void**)KLS_UNCONST(&self->update)=_GUI_objFps;
         *(void**)KLS_UNCONST(&self->interrupt)=_GUI_objInterrupt;
         self->core.draw=(void*)_GUI_objDraw;
         self->core.update=(void*)_GUI_objUpdate;
-        self->focus=self->select=(void*)self;
+        self->focus=self->select=self->block=(void*)self;
         self->display=GUI_displayNew((self->title=self->id),self->x,self->y,self->width,self->height);
-        self->timer=KLS_timerCreate((void*)_GUI_objTimer,self);
-        GUI_displayUpdate(&self->display);
+        self->timer=KLS_timerCreate((void*)self->update,self);
+        self->update(&self->display);
     ),
     destructor()(
         KLS_timerDestroy(&self->timer);
@@ -758,6 +765,7 @@ CLASS_COMPILE(GUI_TEXTBOX)(
             CLASS GUI_WIDGET *w=((CLASS GUI_BOX*)self)->box->userData;
             w->core.draw=(void*)_GUI_textboxImplDraw;
         }
+        _GUI_tbSetPos(self,NULL,1);
     ),
     destructor()(
         GUI_setText(&self->text,NULL);
