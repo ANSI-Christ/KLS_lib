@@ -157,10 +157,10 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
         if((e & GUI_EVENT_RELEASE) && (short)key==GUI_KEY_LB && ((gui->flags&=~31) & 32)){
             gui->flags&=~32;
             if(w->detachable && gui->block!=w){
-                CLASS GUI_WIDGET *dst=w->parent;
+                CLASS GUI_WIDGET *dst=w->parent, *tmp;
                 w->m.options&=~(KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V);
                 _GUI_widgetLink(w,NULL);
-                if((gui=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y))) dst=(void*)gui;
+                if( (tmp=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y)) ) dst=tmp;
                 _GUI_widgetLink(w,dst);
                 w->x=w->m.subColumn-w->parent->m.subColumn;
                 w->y=w->m.subRow-w->parent->m.subRow;
