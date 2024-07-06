@@ -1367,7 +1367,7 @@ CLASS_END(GUI_TEXTBOX);
 #define CLASS_BEGIN__GUI \
     extends(GUI_BOX),\
     constructor(unsigned int width,unsigned int height)(\
-        super(self,NULL,NULL,width,height);\
+        super(self,self,NULL,width,height);\
         self->color=KLS_COLOR_GREY;\
     ),\
     public(\

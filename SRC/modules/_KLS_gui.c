@@ -134,21 +134,20 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
         CLASS GUI *gui=w->gui;
         if((e & GUI_EVENT_CURSOR) && (gui->flags & 16)){
             int dx=gui->display.input.mouse.dx, dy=gui->display.input.mouse.dy;
-            e=0;
+            key=0;
             if(w->resizable){
-                gui->flags|=32; e=0;
-                if(gui->flags & 1){w->width+=dx; e|=2;}
-                if(gui->flags & 2){w->width-=dx; w->x+=dx; e|=3;}
-                if(gui->flags & 4){w->height+=dy; e|=2;}
-                if(gui->flags & 8){w->height-=dy; w->y+=dy; e|=3;}
+                gui->flags|=32;
+                if(gui->flags & 1){w->width+=dx; key|=2;}
+                if(gui->flags & 2){w->width-=dx; w->x+=dx; key|=3;}
+                if(gui->flags & 4){w->height+=dy; key|=2;}
+                if(gui->flags & 8){w->height-=dy; w->y+=dy; key|=3;}
             }
-            if((w->movable|w->detachable) && !e){
-                gui->flags|=32; e=1;
+            if((w->movable|w->detachable) && !key){
+                gui->flags|=32; key=1;
                 w->x+=dx;w->y+=dy;
                 if(w->detachable) w->m.options|=KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V;
             }
-            if(e & 1) w->core.move(w);
-            e=0;
+            if(key & 1) w->core.move(w);
         }
         if((e & GUI_EVENT_PRESS) && (short)key==GUI_KEY_LB){
             int x=gui->display.input.mouse.x-w->m.subColumn, y=gui->display.input.mouse.y-w->m.subRow;
@@ -298,11 +297,18 @@ void _GUI_insertUp(CLASS GUI_WIDGET *w){
 
 CLASS_COMPILE(GUI_WIDGET)(
     constructor(parent,id)(
-        self->core.draw=self->core.select=self->core.move=
-        self->core.insert=self->core.update=(void*)GUI_coreDefault;
-        self->core.input=(void*)GUI_coreDefault;
         *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
-        *(void**)KLS_UNCONST(&self->gui)=parent?(void*)((CLASS GUI_WIDGET*)parent)->gui:(void*)self;
+        self->core.draw=(void*)GUI_coreDefault;
+        self->core.move=(void*)GUI_coreDefault;
+        self->core.input=(void*)GUI_coreDefault;
+        self->core.select=(void*)GUI_coreDefault;
+        self->core.insert=(void*)GUI_coreDefault;
+        self->core.update=(void*)GUI_coreDefault;
+        if(parent==self){
+            *(void**)KLS_UNCONST(&self->gui)=(void*)self;
+            parent=NULL;
+        }
+        if(parent) *(void**)KLS_UNCONST(&self->gui)=((CLASS GUI_WIDGET*)parent)->gui;
         GUI_widgetInsert(self,parent);
     ),
     destructor()(
@@ -312,7 +318,7 @@ CLASS_COMPILE(GUI_WIDGET)(
 
 int _GUI_objService(CLASS GUI *gui){
     int e;
-    KLS_timerStart(gui->timer,(gui->fps ? 1000./gui->fps : 0),0,NULL,NULL);
+    if(gui->fps) KLS_timerStart(gui->timer,1000/gui->fps,0,NULL,NULL);
     e=GUI_displayEvent(&gui->display);
     KLS_timerStop(gui->timer);
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
