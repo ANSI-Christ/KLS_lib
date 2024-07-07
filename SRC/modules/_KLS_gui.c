@@ -2,13 +2,16 @@
 extern void _GUI_displayEmit(GUI_t_DISPLAY *d,int emitType,int value);
 
 void _GUI_setMouse(GUI_t_DISPLAY *d,int x,int y){
-    d->_.x=d->input.mouse.x;
-    d->_.y=d->input.mouse.y;
-    if(x<d->m._.rc) d->input.mouse.x=x;
-    if(y<d->m._.rr) d->input.mouse.y=y;
-    d->input.mouse.dx=d->input.mouse.x-d->_.x;
-    d->input.mouse.dy=d->input.mouse.y-d->_.y;
+    if(x<d->m._.rc){
+        d->input.mouse.dx=x-d->input.mouse.x;
+        d->input.mouse.x=x;
+    }else d->input.mouse.dx=0;
+    if(y<d->m._.rr){
+        d->input.mouse.dy=y-d->input.mouse.y;
+        d->input.mouse.y=y;
+    }else d->input.mouse.dy=0;
 }
+
 
 int _GUI_setKeyboard(GUI_t_DISPLAY *d,int event,int symb,int code){
     d->input.key=d->input.keys;
@@ -56,7 +59,7 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
 }
 
 void _GUI_widgetReorder(CLASS GUI_WIDGET *w){
-    if(w){
+    if(w!=w->parent){
         if(w->next) GUI_widgetInsert(w,w->parent);
         _GUI_widgetReorder(w->parent);
     }
@@ -106,11 +109,7 @@ void _GUI_widgetDelete(CLASS GUI_WIDGET *w){
 
 void _GUI_widgetUpdate(CLASS GUI_WIDGET *w){
     w->core.update(w);
-    if(w->parent){
-        KLS_byte opt=w->m.options;
-        w->m=KLS_matrixGetMatrix(&w->parent->m,w->y,w->x,w->height,w->width);
-        w->m.options|=opt;
-    }else w->m=KLS_matrixGetMatrix(&w->gui->display.m,0,0,w->height,w->width);
+    w->m=KLS_matrixGetMatrix(&w->parent->m,w->y,w->x,w->height,w->width);
     w=w->last;
     while(w){
         _GUI_widgetUpdate(w);
@@ -133,24 +132,25 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
     if(w){
         CLASS GUI *gui=w->gui;
         if((e & GUI_EVENT_CURSOR) && (gui->flags & 16)){
-            int dx=gui->display.input.mouse.dx, dy=gui->display.input.mouse.dy;
+            KLS_TYPEOF(gui->display.input.mouse) const * const m=&gui->display.input.mouse;
             key=0;
             if(w->resizable){
                 gui->flags|=32;
-                if(gui->flags & 1){w->width+=dx; key|=2;}
-                if(gui->flags & 2){w->width-=dx; w->x+=dx; key|=3;}
-                if(gui->flags & 4){w->height+=dy; key|=2;}
-                if(gui->flags & 8){w->height-=dy; w->y+=dy; key|=3;}
+                key=gui->flags&15;
+                if(gui->flags & 1){w->width+=m->dx;}
+                if(gui->flags & 2){w->width-=m->dx; w->x+=m->dx;}
+                if(gui->flags & 4){w->height+=m->dy;}
+                if(gui->flags & 8){w->height-=m->dy; w->y+=m->dy;}
             }
             if((w->movable|w->detachable) && !key){
-                gui->flags|=32; key=1;
-                w->x+=dx;w->y+=dy;
+                gui->flags|=32;
+                w->x=m->x-w->parent->m.subColumn-gui->wmv[0];
+                w->y=m->y-w->parent->m.subRow-gui->wmv[1];
                 if(w->detachable) w->m.options|=KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V;
             }
-            if(key & 1) w->core.move(w);
         }
         if((e & GUI_EVENT_PRESS) && (short)key==GUI_KEY_LB){
-            int x=gui->display.input.mouse.x-w->m.subColumn, y=gui->display.input.mouse.y-w->m.subRow;
+            int x=gui->wmv[0]=gui->display.input.mouse.x-w->m.subColumn, y=gui->wmv[1]=gui->display.input.mouse.y-w->m.subRow;
             gui->flags |= 16 | ((x<4)<<1) | ((x>w->width-4)) | ((y<4)<<3) | ((y>w->height-4)<<2);
         }
         if((e & GUI_EVENT_RELEASE) && (short)key==GUI_KEY_LB && ((gui->flags&=~31) & 32)){
@@ -286,6 +286,15 @@ KLS_byte GUI_widgetIsSelected(void *widget){
     return ((CLASS GUI_WIDGET*)widget)->gui->select==widget;
 }
 
+KLS_byte GUI_widgetRectChanges(void *widget){
+#define _w_ ((CLASS GUI_WIDGET *)widget)
+    return (_w_->x+_w_->parent->m.subColumn!=_w_->m.subColumn)
+        | ((_w_->y+_w_->parent->m.subRow!=_w_->m.subRow)<<1)
+        | ((_w_->width!=_w_->m.columns)<<2)
+        | ((_w_->height!=_w_->m.rows)<<3);
+#undef _w_
+}
+
 void GUI_coreDefault(){}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -299,7 +308,6 @@ CLASS_COMPILE(GUI_WIDGET)(
     constructor(parent,id)(
         *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
         self->core.draw=(void*)GUI_coreDefault;
-        self->core.move=(void*)GUI_coreDefault;
         self->core.input=(void*)GUI_coreDefault;
         self->core.select=(void*)GUI_coreDefault;
         self->core.insert=(void*)GUI_coreDefault;
@@ -364,10 +372,13 @@ CLASS_COMPILE(GUI)(
         self->display=GUI_displayNew((self->title=self->id),self->x,self->y,self->width,self->height);
         self->timer=KLS_timerCreate((void*)self->update,self);
         self->update(&self->display);
+        *(void**)KLS_UNCONST(&self->parent)=self;
+        ((CLASS GUI_WIDGET*)self)->m=KLS_matrixGetMatrix(&self->display.m,0,0,self->height,self->width);
     ),
     destructor()(
         KLS_timerDestroy(&self->timer);
         GUI_displayFree(&self->display);
+        *(void**)KLS_UNCONST(&self->parent)=NULL;
     )
 )
 
@@ -458,10 +469,6 @@ CLASS_COMPILE(GUI_SLIDER)(
 
 
 
-void _GUI_sliderPosMoveH(CLASS GUI_WIDGET *self){
-    CLASS GUI_SLIDER *s=self->parent;
-    s->value=KLS_interpol(s->min,0,s->max,s->width-self->width,self->x);
-}
 
 void _GUI_sliderInputH(CLASS GUI_SLIDER *self,int e,GUI_t_INPUT *i){
     if(e & GUI_EVENT_PRESS){
@@ -486,6 +493,7 @@ void _GUI_sliderUpdateH(CLASS GUI_SLIDER *self){
     if(p->x<0) p->x=0;
     if((p->width=self->width/++pix)<5) p->width=5;
     if(p->x>self->width-p->width) p->x=self->width-p->width;
+    if(GUI_widgetRectChanges(p)&1) self->value=KLS_interpol(self->min,0,self->max,self->width-p->width,p->x);
     _GUI_sliderValue(self);
     if(KLS_CMP(self->value,self->v,self->step/10.)){
         p->x=KLS_interpol(0,self->min,self->width-p->width,self->max,(self->v=self->value));
@@ -499,16 +507,9 @@ CLASS_COMPILE(GUI_SLIDER_H)(
         CLASS GUI_SLIDER *s=(void*)self;
         s->core.update=(void*)_GUI_sliderUpdateH;
         s->core.input=(void*)_GUI_sliderInputH;
-        s->p->core.move=(void*)_GUI_sliderPosMoveH;
+        _GUI_sliderUpdateH(s);
     )
 )
-
-
-
-void _GUI_sliderPosMoveV(CLASS GUI_WIDGET *self){
-    CLASS GUI_SLIDER *s=self->parent;
-    s->value=KLS_interpol(s->max,0,s->min,s->height-self->height,self->y);
-}
 
 void _GUI_sliderInputV(CLASS GUI_SLIDER *self,int e,GUI_t_INPUT *i){
     if(e & GUI_EVENT_PRESS){
@@ -533,6 +534,7 @@ void _GUI_sliderUpdateV(CLASS GUI_SLIDER *self){
     if(p->y<0) p->y=0;
     if((p->height=self->height/++pix)<5) p->height=5;
     if(p->y>self->height-p->height) p->y=self->height-p->height;
+    if(GUI_widgetRectChanges(p)&2) self->value=KLS_interpol(self->max,0,self->min,self->height-p->height,p->y);
     _GUI_sliderValue(self);
     if(KLS_CMP(self->value,self->v,self->step/10.)){
         p->y=KLS_interpol(0,self->max,self->height-p->height,self->min,(self->v=self->value));
@@ -545,7 +547,7 @@ CLASS_COMPILE(GUI_SLIDER_V)(
         CLASS GUI_SLIDER *s=(void*)self;
         s->core.update=(void*)_GUI_sliderUpdateV;
         s->core.input=(void*)_GUI_sliderInputV;
-        s->p->core.move=(void*)_GUI_sliderPosMoveV;
+        _GUI_sliderUpdateV(s);
     )
 )
 
@@ -781,7 +783,7 @@ CLASS_COMPILE(GUI_TEXTBOX)(
 
 
 void _GUI_canvasUpdate(CLASS GUI_CANVAS *self){
-    if(self->width!=self->canvas.m._.rc || self->height!=self->canvas.m._.rr){
+    if(GUI_widgetRectChanges(self)&12){
         KLS_t_CANVAS cnv=KLS_canvasNew(NULL,self->width,self->height,self->canvas.left,self->canvas.up,self->canvas.right,self->canvas.down);
         KLS_matrixTransform(&self->canvas.m,&cnv.m,NULL,NULL);
         KLS_canvasFree(&self->canvas); self->canvas=cnv;
@@ -790,8 +792,9 @@ void _GUI_canvasUpdate(CLASS GUI_CANVAS *self){
 
 void _GUI_canvasDraw(CLASS GUI_CANVAS *self){
     const unsigned int w=self->width,h=self->height;
-    KLS_t_MATRIX * const m=&((CLASS GUI_WIDGET*)self)->m;
-    KLS_COLOR *p=self->canvas.m.data, *d;
+    const KLS_COLOR *p=self->canvas.m.data;
+    const KLS_t_MATRIX * const m=&((CLASS GUI_WIDGET*)self)->m;
+    KLS_COLOR *d;
     unsigned int x,y;
     for(y=0;y<h;++y)
         for(x=0;x<w;++x,++p)
@@ -810,7 +813,11 @@ CLASS_COMPILE(GUI_CANVAS)(
         self->core.draw=(void*)_GUI_canvasDraw;
         self->core.insert=(void*)_GUI_insertUp;
         self->canvas=KLS_canvasNew(NULL,self->width,self->height,0,0,self->width,self->height);
-        KLS_canvasClear(&self->canvas,&self->color);
+        ((CLASS GUI_WIDGET*)self)->m=KLS_matrixGetMatrix(&self->canvas.m,0,0,self->height,self->width);
+        {
+            KLS_COLOR color=KLS_COLOR_WHITE;
+            KLS_canvasClear(&self->canvas,&color);
+        }
     ),
     destructor()(
         self->canvas.m._free=1;

@@ -36,7 +36,7 @@ KLS_t_MATRIX KLS_matrixGetMatrix(const KLS_t_MATRIX *matrix,int row,int column,u
             if(m._.bh>(rows=matrix->_.bh+matrix->_.br)) m._.bh=rows;
             if((int)(m._.bh-=m._.br)<0) m._.bh=0;
         }
-        m.options=16;
+        m.options|=16;
         m._free=0;
     }
     return m;

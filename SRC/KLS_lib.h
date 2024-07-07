@@ -383,7 +383,6 @@ typedef struct{
 typedef struct{
     struct{
         union{void *p; unsigned long l; int i;} osDep[6];
-        int x,y;
     }_;
     const char *title;
     int x,y,width,height;
@@ -1212,7 +1211,6 @@ GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height)
     public(\
         struct{\
             void (*draw)(void *self);\
-            void (*move)(void *self);\
             void (*update)(void *self);\
             void (*select)(void *self);\
             void (*insert)(void *other);\
@@ -1237,6 +1235,7 @@ GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height)
     )
 CLASS_END(GUI_WIDGET);
 
+
 #define CLASS_BEGIN__GUI_LABEL\
     extends(GUI_WIDGET),\
     constructor(void *parent,const char *id,const char *text)(\
@@ -1248,6 +1247,7 @@ CLASS_END(GUI_WIDGET);
         KLS_byte align;\
     )
 CLASS_END(GUI_LABEL);
+
 
 #define CLASS_BEGIN__GUI_BUTTON \
     extends(GUI_WIDGET),\
@@ -1271,18 +1271,17 @@ CLASS_END(GUI_LABEL);
     )
 CLASS_END(GUI_BUTTON);
 
+
 #define CLASS_BEGIN__GUI_CANVAS \
     extends(GUI_WIDGET),\
     constructor(void *parent,const char *id,unsigned int width,unsigned int height)(\
         super(self,parent,id);\
         self->width=width;\
         self->height=height;\
-        self->color=KLS_COLOR_WHITE;\
     ),\
     public(\
         KLS_t_CANVAS canvas;\
         KLS_t_POINT p;\
-        KLS_COLOR color;\
     )
 CLASS_END(GUI_CANVAS);
 
@@ -1312,6 +1311,7 @@ CLASS_END(GUI_CANVAS);
     )
 CLASS_END(GUI_SLIDER);
 
+
 #define CLASS_BEGIN__GUI_SLIDER_V \
     extends(GUI_SLIDER),\
     constructor(void *parent, const char *id,double min,double max,double step)(\
@@ -1321,6 +1321,7 @@ CLASS_END(GUI_SLIDER);
     )
 CLASS_END(GUI_SLIDER_V);
 
+
 #define CLASS_BEGIN__GUI_SLIDER_H \
     extends(GUI_SLIDER),\
     constructor(void *parent, const char *id,double min,double max,double step)(\
@@ -1329,6 +1330,7 @@ CLASS_END(GUI_SLIDER_V);
         self->height=15;\
     )
 CLASS_END(GUI_SLIDER_H);
+
 
 #define CLASS_BEGIN__GUI_BOX  abstract,\
     extends(GUI_WIDGET),\
@@ -1343,6 +1345,7 @@ CLASS_END(GUI_SLIDER_H);
         int widthMax, heightMax;\
     )
 CLASS_END(GUI_BOX);
+
 
 #define CLASS_BEGIN__GUI_TEXTBOX \
     extends(GUI_BOX),\
@@ -1364,6 +1367,7 @@ CLASS_END(GUI_BOX);
     )
 CLASS_END(GUI_TEXTBOX);
 
+
 #define CLASS_BEGIN__GUI \
     extends(GUI_BOX),\
     constructor(unsigned int width,unsigned int height)(\
@@ -1383,6 +1387,7 @@ CLASS_END(GUI_TEXTBOX);
         KLS_t_TIMER timer;\
         GUI_t_DISPLAY display;\
         unsigned int flags;\
+        int wmv[2];\
     )
 CLASS_END(GUI);
 
@@ -1397,6 +1402,7 @@ void GUI_widgetDrawText(void *widget,int x,int y,KLS_byte align,const char *text
 KLS_byte GUI_setText(char **variable,const char *format,...);
 KLS_byte GUI_widgetInFocus(void *widget);
 KLS_byte GUI_widgetIsSelected(void *widget);
+KLS_byte GUI_widgetRectChanges(void *widget); // returns (x<<0) | (y<<1) | (width<<2) | (height<<3)
 
 void *GUI_widgetSelect(void *widget);
 void *GUI_widgetBlockOn(void *widget); // return prev (this function help create widgets that blocking parents, for example message box or warning box)
