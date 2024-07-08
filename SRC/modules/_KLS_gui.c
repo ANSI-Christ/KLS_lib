@@ -59,7 +59,7 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
 }
 
 void _GUI_widgetReorder(CLASS GUI_WIDGET *w){
-    if(w!=w->parent){
+    if(w!=(void*)w->gui){
         if(w->next) GUI_widgetInsert(w,w->parent);
         _GUI_widgetReorder(w->parent);
     }
@@ -225,13 +225,25 @@ void GUI_widgetDrawRect(void *widget,int marginH,int marginV,const void *color,c
 }
 
 void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
-    if(widget && *widget){
-        if((void*)(*widget)==(*widget)->gui && ((*widget)->gui->flags & (1<<31))){
-            _GUI_displayPost(&widget[0]->gui->display,GUI_EVENT_DESTROY);
-            return;
+    if(widget){
+        CLASS GUI_WIDGET * const w=*widget;
+        if(w){
+            if(w->gui && w->gui->flags & (1<<31) ){
+                if(w!=(void*)w->gui){
+                    if(w->gui->trash){
+                        GUI_widgetInsert(w,w->gui->trash);
+                        return;
+                    }
+                    w->core.insert=(void*)GUI_coreDefault;
+                    w->gui->trash=w;
+                    return;
+                }
+                _GUI_displayPost(&w->gui->display,GUI_EVENT_DESTROY);
+                return;
+            }
+            _GUI_widgetDelete(w);
+            *widget=NULL;
         }
-        _GUI_widgetDelete(*widget);
-        *widget=NULL;
     }
 }
 
@@ -334,6 +346,7 @@ int _GUI_objService(CLASS GUI *gui){
         _GUI_widgetDraw((void*)gui);
         GUI_displayDraw(&gui->display);
         gui->flags&=~(1<<31); // loop flag off
+        GUI_widgetDelete((void*)&gui->trash);
     }
     return e;
 }
