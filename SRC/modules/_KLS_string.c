@@ -1,14 +1,19 @@
 
 char *_KLS_stringv(const char *format, va_list ap[2]){
     char *str=NULL;
-    long len=vsnprintf(NULL,0,format,ap[0])+1; va_end(ap[0]);
-    if(len>0 && (str=KLS_malloc(len)) ) vsnprintf(str,len,format,ap[1]);
+    if(format){
+        long len=vsnprintf(NULL,0,format,ap[0])+1; va_end(ap[0]);
+        if(len>0 && (str=KLS_malloc(len)) ) vsnprintf(str,len,format,ap[1]);
+    }
     va_end(ap[0]); va_end(ap[1]);
     return str;
 }
 
-char *KLS_string(const char *format, ...){
-    return KLS_stringv(format);
+char *KLS_string(char **variable,const char *format,...){
+    if(variable){
+        KLS_free(*variable);
+        return *variable=KLS_stringv(format);
+    } return KLS_stringv(format);
 }
 
 unsigned int KLS_stringWordCount(const char *string,const char *word){
@@ -73,14 +78,14 @@ KLS_t_VECTOR KLS_stringSplit(const char *string, const char *separator){
         if( !(v=KLS_vectorNew(cnt,sizeof(char*),KLS_ptrDeleter)).data )
             return v;
         while( (end=strstr(string,separator)) ){
-            if( !(tmp=KLS_string("%.*s",(int)(KLS_PTRSUB(end,string)),string)) ){
+            if( !(tmp=KLS_string(NULL,"%.*s",(int)(KLS_PTRSUB(end,string)),string)) ){
                 KLS_vectorFree(&v);
                 return v;
             }
             KLS_vectorPushBack(&v,&tmp);
             string=end+lenSep;
         }
-        if( (tmp=KLS_string("%s",string)) )
+        if( (tmp=KLS_string(NULL,"%s",string)) )
             KLS_vectorPushBack(&v,&tmp);
         else KLS_vectorFree(&v);
     }

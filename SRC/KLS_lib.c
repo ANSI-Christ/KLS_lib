@@ -255,7 +255,7 @@ int KLS_sysCmd(char **output,const char *cmdFormat,...){
                 char buf[1024],chk=0;
                 while(fgets(buf,sizeof(buf)-1,f)){
                     chk=1;
-                    str=KLS_string("%s%s",*output,buf);
+                    str=KLS_string(NULL,"%s%s",*output,buf);
                     KLS_freeData(*output);
                     if(!(*output=str))
                         break;
@@ -263,7 +263,7 @@ int KLS_sysCmd(char **output,const char *cmdFormat,...){
                 pclose(f);
                 if(*output) return 0;
                 if(chk) return -3;
-                *output=KLS_string("%s","\0");
+                *output=KLS_string(NULL,"%s","\0");
                 return !*output;
             }
             return -2;

@@ -33,14 +33,18 @@ int _GUI_setKey(GUI_t_DISPLAY *d,MSG *e,int event){
         GUI_KCASE(LBUTTON,LB);
         GUI_KCASE(MBUTTON,WHEEL);
         GUI_KCASE(NONAME,ALT);
+        GUI_KCASE(PRIOR,PAGEUP);
+        GUI_KCASE(NEXT,PAGEDOWN);
+        GUI_KCASE(INSERT,INS);
         default:{
             unsigned char k[2],s[256];
             if(GetKeyboardState(s) && ToAscii(e->wParam,e->lParam,s,k,0)==1)
                 return _GUI_setKeyboard(d,event,k[0],e->wParam);
         }
-    } return 0;
+    } printf("win key:%x\n",e->wParam); return GUI_EVENT_UPDATE;
 #undef GUI_KCASE
 }
+
 
 int GUI_displayEvent(GUI_t_DISPLAY *d){
 #define GUI_KCASE(_ev_) case WM_##_ev_: _GUI_KCASE

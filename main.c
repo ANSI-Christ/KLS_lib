@@ -119,6 +119,8 @@ void mainW(){
     CLASS GUI_CANVAS *cnv=GUI_widgetNew(GUI_CANVAS)(gui,"plot",300,200);
     CLASS GUI_LABEL *dateTime=GUI_widgetNew(GUI_LABEL)(gui,"dateTime",NULL);
 
+    gui->setFps(gui,30);
+
     KLS_signalSetHandler(SIGINT,KLS_SIGNAL_MODE_UNBLOCK,SIG_IGN);
 
     KLS_timerStart(timers[1],0,1000,KLS_LMBD(void,(CLASS GUI_LABEL *l){

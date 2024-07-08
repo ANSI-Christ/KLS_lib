@@ -121,7 +121,7 @@ void *_KLS_letAddr(void *p);
 #define return(...) M_IF(M_COUNT(M_REMAINED(__VA_ARGS__)))(_KLS_RETURN,return)(__VA_ARGS__)
 #define main(...)\
     __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
-    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){ KLS_libInit(); KLS_execNameSet(argv[0]); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)(__VA_ARGS__));}\
+    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_libInit(); KLS_execNameSet(argv[0]); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)(__VA_ARGS__));}\
     KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -697,7 +697,7 @@ int KLS_stringLen(const char *format,...);
 void KLS_stringRect(const char *string,const KLS_t_FONT *font,int *width,int *height);
 
 char *KLS_stringReadFile(const char *filePath);
-char *KLS_string(const char *format, ...) KLS_ATTR(format,(__printf__, 1, 2));
+char *KLS_string(char **variable,const char *format, ...) KLS_ATTR(format,(__printf__, 2, 3));
 char *KLS_stringReplace(const char *string, const char *from, const char *to);
 char *KLS_stringJoinList(const char **stringList, int stringListLen, const char *separator);
 
@@ -767,7 +767,7 @@ void KLS_ptrDeleter(void *data); //std deleter for: vector/list/queue/matrix whe
 //    char *ptr;
 //    for(i=0;i<m.rows;++i)
 //       for(j=0;j<m.columns;++j){
-//           ptr=KLS_string("%d,%d",i+1,j+1);
+//           ptr=KLS_string(NULL,"%d,%d",i+1,j+1);
 //           KLS_matrixPutElement(&m,i,j,&ptr);
 //       }
 //    KLS_matrixFree(&m);  // inside calls KLS_ptrDeleter for all elements
@@ -1376,17 +1376,17 @@ CLASS_END(GUI_TEXTBOX);
     ),\
     public(\
         const char *title;\
-        int (* const service)(CLASS GUI *self);\
-        void (* const update)(CLASS GUI *self);\
-        void (* const interrupt)(CLASS GUI *self);\
+        int (* const service)(void *self);\
+        void (* const update)(void *self);\
+        void (* const interrupt)(void *self);\
+        void (* const setFps)(void *self,KLS_byte fps);\
         KLS_COLOR color;\
-        KLS_byte fps:6;\
     ),\
     private(\
-        void *focus, *select, *block;\
+        void *focus, *select, *block, *trash;\
         KLS_t_TIMER timer;\
         GUI_t_DISPLAY display;\
-        unsigned int flags;\
+        unsigned int flags,tout;\
         int wmv[2];\
     )
 CLASS_END(GUI);
@@ -1399,10 +1399,10 @@ void GUI_widgetDrawRect(void *widget,int marginH,int marginV,const void *color,c
 void GUI_widgetDrawRectExt(void *widget,int x,int y,int w,int h,const void *color,const void *fill);
 void GUI_widgetDrawText(void *widget,int x,int y,KLS_byte align,const char *text,const void *color);
 
-KLS_byte GUI_setText(char **variable,const char *format,...);
 KLS_byte GUI_widgetInFocus(void *widget);
+KLS_byte GUI_widgetIsMoved(void *widget);    // returns (x<<0) | (y<<1)
+KLS_byte GUI_widgetIsResized(void *widget);  // returns (width<<0) | (height<<1)
 KLS_byte GUI_widgetIsSelected(void *widget);
-KLS_byte GUI_widgetRectChanges(void *widget); // returns (x<<0) | (y<<1) | (width<<2) | (height<<3)
 
 void *GUI_widgetSelect(void *widget);
 void *GUI_widgetBlockOn(void *widget); // return prev (this function help create widgets that blocking parents, for example message box or warning box)

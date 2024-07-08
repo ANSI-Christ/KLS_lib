@@ -96,15 +96,9 @@ _mark:
 }
 
 void _GUI_widgetDelete(CLASS GUI_WIDGET *w){
-    CLASS GUI_WIDGET *c;
     w->destructor(w);
-    c=w->child;
+    while(w->child) _GUI_widgetDelete(w->child);
     KLS_free(w);
-    while((w=(void*)c)){
-        c=w->next;
-        _GUI_widgetDelete((void*)w);
-    }
-    return;
 }
 
 void _GUI_widgetUpdate(CLASS GUI_WIDGET *w){
@@ -200,11 +194,6 @@ void _GUI_widgetGetFocus(CLASS GUI *gui,int event){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-KLS_byte GUI_setText(char **variable,const char *format,...){
-    char *s=*variable; *variable=NULL; KLS_free(s);
-    return format && (*variable=KLS_stringv(format));
-}
-
 void GUI_widgetDrawRectExt(void *widget,int x,int y,int w,int h,const void *color,const void *fill){
     KLS_t_MATRIX *m=&((CLASS GUI_WIDGET*)widget)->m;
     int i,j;
@@ -286,13 +275,14 @@ KLS_byte GUI_widgetIsSelected(void *widget){
     return ((CLASS GUI_WIDGET*)widget)->gui->select==widget;
 }
 
-KLS_byte GUI_widgetRectChanges(void *widget){
-#define _w_ ((CLASS GUI_WIDGET *)widget)
-    return (_w_->x+_w_->parent->m.subColumn!=_w_->m.subColumn)
-        | ((_w_->y+_w_->parent->m.subRow!=_w_->m.subRow)<<1)
-        | ((_w_->width!=_w_->m.columns)<<2)
-        | ((_w_->height!=_w_->m.rows)<<3);
-#undef _w_
+KLS_byte GUI_widgetIsMoved(void *widget){
+    return (((CLASS GUI_WIDGET*)widget)->x+((CLASS GUI_WIDGET*)widget)->parent->m.subColumn!=((CLASS GUI_WIDGET*)widget)->m.subColumn)
+        | ((((CLASS GUI_WIDGET*)widget)->y+((CLASS GUI_WIDGET*)widget)->parent->m.subRow!=((CLASS GUI_WIDGET*)widget)->m.subRow)<<1);
+}
+
+KLS_byte GUI_widgetIsResized(void *widget){
+    return (((CLASS GUI_WIDGET*)widget)->width!=((CLASS GUI_WIDGET*)widget)->m.columns)
+        | ((((CLASS GUI_WIDGET*)widget)->height!=((CLASS GUI_WIDGET*)widget)->m.rows)<<1);
 }
 
 void GUI_coreDefault(){}
@@ -324,9 +314,16 @@ CLASS_COMPILE(GUI_WIDGET)(
     )
 )
 
+void _GUI_setFps(CLASS GUI *self,KLS_byte fps){
+    if(fps){
+        if(!self->timer) self->timer=KLS_timerCreate(self->update,self);
+        self->tout=1000/fps;
+    }else KLS_timerDestroy(&self->timer);
+}
+
 int _GUI_objService(CLASS GUI *gui){
     int e;
-    if(gui->fps) KLS_timerStart(gui->timer,1000/gui->fps,0,NULL,NULL);
+    KLS_timerStart(gui->timer,gui->tout,0,NULL,NULL);
     e=GUI_displayEvent(&gui->display);
     KLS_timerStop(gui->timer);
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
@@ -345,8 +342,8 @@ void _GUI_objInterrupt(CLASS GUI *gui){
     GUI_displayInterrupt(&gui->display);
 }
 
-void _GUI_objFps(CLASS GUI *g){
-    GUI_displayUpdate(&g->display);
+void _GUI_objFps(CLASS GUI *self){
+    GUI_displayUpdate(&self->display);
 }
 
 void _GUI_objDraw(CLASS GUI *self){
@@ -359,18 +356,22 @@ void _GUI_objUpdate(CLASS GUI *self){
     GUI_displaySetSize(&self->display,self->width,self->height);
 }
 
-
+void _GUI_objInput(CLASS GUI *self,int e,GUI_t_INPUT *i){
+    GUI_BOX()->core.input(self,e,i);
+    if(e & GUI_EVENT_PRESS) self->movable=self->detachable=self->resizable=0;
+}
 
 CLASS_COMPILE(GUI)(
     constructor()(
         *(void**)KLS_UNCONST(&self->service)=_GUI_objService;
         *(void**)KLS_UNCONST(&self->update)=_GUI_objFps;
         *(void**)KLS_UNCONST(&self->interrupt)=_GUI_objInterrupt;
+        *(void**)KLS_UNCONST(&self->setFps)=_GUI_setFps;
         self->core.draw=(void*)_GUI_objDraw;
         self->core.update=(void*)_GUI_objUpdate;
+        self->core.input=(void*)_GUI_objInput;
         self->focus=self->select=self->block=(void*)self;
         self->display=GUI_displayNew((self->title=self->id),self->x,self->y,self->width,self->height);
-        self->timer=KLS_timerCreate((void*)self->update,self);
         self->update(&self->display);
         *(void**)KLS_UNCONST(&self->parent)=self;
         ((CLASS GUI_WIDGET*)self)->m=KLS_matrixGetMatrix(&self->display.m,0,0,self->height,self->width);
@@ -390,12 +391,12 @@ void _GUI_lblDraw(CLASS GUI_LABEL *self){
 
 CLASS_COMPILE(GUI_LABEL)(
     constructor()(
-        GUI_setText(&self->text,self->id);
+        KLS_string(&self->text,self->id);
         self->core.draw=(void*)_GUI_lblDraw;
         self->core.insert=(void*)_GUI_insertUp;
     ),
     destructor()(
-        GUI_setText(&self->text,NULL);
+        KLS_string(&self->text,NULL);
     )
 )
 
@@ -416,12 +417,12 @@ void _GUI_btnInput(CLASS GUI_BUTTON *self,int e,GUI_t_INPUT *i){
 
 CLASS_COMPILE(GUI_BUTTON)(
     constructor()(
-        GUI_setText(&self->text,self->id);
+        KLS_string(&self->text,self->id);
         self->core.draw=(void*)_GUI_btnDraw;
         self->core.input=(void*)_GUI_btnInput;
     ),
     destructor()(
-        GUI_setText(&self->text,NULL);
+        KLS_string(&self->text,NULL);
     )
 )
 
@@ -493,7 +494,7 @@ void _GUI_sliderUpdateH(CLASS GUI_SLIDER *self){
     if(p->x<0) p->x=0;
     if((p->width=self->width/++pix)<5) p->width=5;
     if(p->x>self->width-p->width) p->x=self->width-p->width;
-    if(GUI_widgetRectChanges(p)&1) self->value=KLS_interpol(self->min,0,self->max,self->width-p->width,p->x);
+    if(GUI_widgetIsMoved(p)) self->value=KLS_interpol(self->min,0,self->max,self->width-p->width,p->x);
     _GUI_sliderValue(self);
     if(KLS_CMP(self->value,self->v,self->step/10.)){
         p->x=KLS_interpol(0,self->min,self->width-p->width,self->max,(self->v=self->value));
@@ -534,7 +535,7 @@ void _GUI_sliderUpdateV(CLASS GUI_SLIDER *self){
     if(p->y<0) p->y=0;
     if((p->height=self->height/++pix)<5) p->height=5;
     if(p->y>self->height-p->height) p->y=self->height-p->height;
-    if(GUI_widgetRectChanges(p)&2) self->value=KLS_interpol(self->max,0,self->min,self->height-p->height,p->y);
+    if(GUI_widgetIsMoved(p)) self->value=KLS_interpol(self->max,0,self->min,self->height-p->height,p->y);
     _GUI_sliderValue(self);
     if(KLS_CMP(self->value,self->v,self->step/10.)){
         p->y=KLS_interpol(0,self->max,self->height-p->height,self->min,(self->v=self->value));
@@ -768,7 +769,7 @@ CLASS_COMPILE(GUI_TEXTBOX)(
         self->core.input=(void*)_GUI_textboxInput;
         self->core.draw=(void*)_GUI_textboxDraw;
         self->core.update=(void*)_GUI_textboxUpdate;
-        GUI_setText(&self->text,"\000");
+        KLS_string(&self->text,"\000");
         {
             CLASS GUI_WIDGET *w=((CLASS GUI_BOX*)self)->box->userData;
             w->core.draw=(void*)_GUI_textboxImplDraw;
@@ -776,14 +777,14 @@ CLASS_COMPILE(GUI_TEXTBOX)(
         _GUI_tbSetPos(self,NULL,1);
     ),
     destructor()(
-        GUI_setText(&self->text,NULL);
+        KLS_string(&self->text,NULL);
     )
 )
 
 
 
 void _GUI_canvasUpdate(CLASS GUI_CANVAS *self){
-    if(GUI_widgetRectChanges(self)&12){
+    if(GUI_widgetIsResized(self)){
         KLS_t_CANVAS cnv=KLS_canvasNew(NULL,self->width,self->height,self->canvas.left,self->canvas.up,self->canvas.right,self->canvas.down);
         KLS_matrixTransform(&self->canvas.m,&cnv.m,NULL,NULL);
         KLS_canvasFree(&self->canvas); self->canvas=cnv;

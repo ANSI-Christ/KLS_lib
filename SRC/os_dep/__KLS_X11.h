@@ -53,7 +53,7 @@ int _GUI_setKey(GUI_t_DISPLAY *d,XKeyEvent *e,int event){
         GUI_KCASE(Alt_R,ALT);
         default: if(k<256) return _GUI_setKeyboard(d,event,s[0],k);
     }
-    return 0;
+    return GUI_EVENT_UPDATE;
 #undef GUI_KCASE
 }
 
