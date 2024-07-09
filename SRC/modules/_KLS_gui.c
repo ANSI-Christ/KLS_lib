@@ -590,6 +590,14 @@ void _GUI_boxSliderInputV(CLASS GUI_SLIDER *self,int e,GUI_t_INPUT *i){
     if(e & GUI_EVENT_PRESS){
         short key=i->key;
         if(key==GUI_KEY_UP || key==GUI_KEY_DOWN) return;
+        if(key==GUI_KEY_PAGEUP){
+            self->value+=((CLASS GUI_BOX*)self->parent)->box->height;
+            return;
+        }
+        if(key==GUI_KEY_PAGEDOWN){
+            self->value-=((CLASS GUI_BOX*)self->parent)->box->height;
+            return;
+        }
     }
     if(e & GUI_EVENT_WHEEL) return;
     GUI_widgetSelect(self->parent);
@@ -604,7 +612,7 @@ void _GUI_boxInput(CLASS GUI_BOX *self,int e,GUI_t_INPUT *i){
         short key=i->key;
         if(self->sliderH->visible && (key==GUI_KEY_LEFT || key==GUI_KEY_RIGHT))
             GUI_widgetSelect(self->sliderH);
-        if(self->sliderV->visible && (key==GUI_KEY_UP || key==GUI_KEY_DOWN))
+        if(self->sliderV->visible && (key==GUI_KEY_UP || key==GUI_KEY_DOWN || key==GUI_KEY_PAGEUP || key==GUI_KEY_PAGEDOWN))
             GUI_widgetSelect(self->sliderV);
     }
 }
@@ -723,8 +731,16 @@ void _GUI_tbSetPos(CLASS GUI_TEXTBOX *self,const char *select,char rect){
         }
         if(rect){
             KLS_stringRect(self->text,f,&self->widthMax,&self->heightMax);
-            self->widthMax+=self->pos.w<<1;
-            self->heightMax+=self->pos.h+2;
+            self->widthMax+=self->pos.w;
+            self->heightMax+=self->pos.h;
+        }
+        if(self->sliderH->visible){
+            if(self->pos.x<self->sliderH->value) self->sliderH->value=self->pos.x;
+            if(self->pos.x+self->pos.w>self->sliderH->value+self->box->width) self->sliderH->value=(double)self->pos.x+self->pos.w-self->box->width;
+        }
+        if(self->sliderV->visible){
+            if(self->pos.y<-self->sliderV->value) self->sliderV->value=-(double)self->pos.y;
+            if(self->pos.y+self->pos.h>self->box->height-self->sliderV->value) self->sliderV->value=-((double)self->pos.y+self->pos.h-self->box->height);
         }
     }
 }
@@ -755,19 +771,40 @@ void _GUI_textboxInput(CLASS GUI_TEXTBOX *self,int e,GUI_t_INPUT *i){
                         KLS_free(self->text);
                         (self->text=s)[l]=0;
                     } return;
-                    case GUI_KEY_BCSP: l-=KLS_arrayRemove(self->text,l,1,self->pos.i-1); self->text[l]=0; _GUI_tbSetPos(self,self->text+self->pos.i-1,1); return;
-                    case GUI_KEY_DEL: l-=KLS_arrayRemove(self->text,l,1,self->pos.i); self->text[l]=0; _GUI_tbSetPos(self,NULL,1); return;
-                    case GUI_KEY_LEFT: _GUI_tbSetPos(self,self->text+self->pos.i-1,0); return;
-                    case GUI_KEY_RIGHT: _GUI_tbSetPos(self,self->text+self->pos.i+1,0); return;
-                    case GUI_KEY_HOME: _GUI_tbSetPos(self,self->text+self->pos.i-self->pos.x/self->pos.w,0); return;
-                    case GUI_KEY_END: _GUI_tbSetPos(self,KLS_stringPosition(self->text+self->pos.i,NULL,0,self->widthMax,0),0); return;
-                    case GUI_KEY_UP: if(self->pos.y) _GUI_tbSetPos(self,KLS_stringPosition(self->text,NULL,0,self->pos.x,self->pos.y-self->pos.h),0); return;
+                    case GUI_KEY_BCSP:
+                        l-=KLS_arrayRemove(self->text,l,1,self->pos.i-1);
+                        self->text[l]=0;
+                        _GUI_tbSetPos(self,self->text+self->pos.i-1,1);
+                        return;
+                    case GUI_KEY_DEL:
+                        l-=KLS_arrayRemove(self->text,l,1,self->pos.i);
+                        self->text[l]=0;
+                        _GUI_tbSetPos(self,NULL,1);
+                        return;
+                    case GUI_KEY_LEFT:
+                        _GUI_tbSetPos(self,self->text+self->pos.i-1,0);
+                        return;
+                    case GUI_KEY_RIGHT:
+                        _GUI_tbSetPos(self,self->text+self->pos.i+1,0);
+                        return;
+                    case GUI_KEY_HOME:
+                        _GUI_tbSetPos(self,self->text+self->pos.i-self->pos.x/self->pos.w,0);
+                        return;
+                    case GUI_KEY_END:
+                        _GUI_tbSetPos(self,KLS_stringPosition(self->text+self->pos.i,NULL,0,self->widthMax,0),0);
+                        return;
+                    case GUI_KEY_UP:
+                        if(self->pos.y) _GUI_tbSetPos(self,KLS_stringPosition(self->text,NULL,0,self->pos.x,self->pos.y-self->pos.h),0);
+                        return;
                     case GUI_KEY_DOWN:{
                         const char *s=KLS_stringPosition(self->text+self->pos.i,NULL,0,self->pos.x,self->pos.h);
                         const char *c=self->text+self->pos.i;
                         while(c!=s && *c!='\n') ++c;
                         if(c!=s) _GUI_tbSetPos(self,s,0);
                     } return;
+                    case GUI_KEY_PAGEUP: case GUI_KEY_PAGEDOWN:
+                        if(self->sliderV->visible) GUI_widgetSelect(self->sliderV);
+                        return;
             }
             if(key && key<256 && strchr(symb,(char)key)){
                 char *s=KLS_malloc(++l+1);
@@ -823,7 +860,7 @@ void _GUI_canvasDraw(CLASS GUI_CANVAS *self){
 }
 
 void _GUI_canvasInput(CLASS GUI_CANVAS *self,int e,GUI_t_INPUT *i){
-    KLS_canvasAtPix(&self->canvas,i->mouse.x-self->canvas.m.subColumn,i->mouse.y-self->canvas.m.subRow,&self->p);
+    if(e & GUI_EVENT_CURSOR) KLS_canvasAtPix(&self->canvas,i->mouse.x-self->canvas.m.subColumn,i->mouse.y-self->canvas.m.subRow,&self->p);
 }
 
 CLASS_COMPILE(GUI_CANVAS)(
