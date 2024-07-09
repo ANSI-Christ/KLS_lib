@@ -102,10 +102,10 @@ void _GUI_widgetDelete(CLASS GUI_WIDGET *w){
 }
 
 void _GUI_widgetUpdate(CLASS GUI_WIDGET *w){
-    w->core.update(w);
-    w->m=KLS_matrixGetMatrix(&w->parent->m,w->y,w->x,w->height,w->width);
     w=w->last;
     while(w){
+        w->core.update(w);
+        w->m=KLS_matrixGetMatrix(&w->parent->m,w->y,w->x,w->height,w->width);
         _GUI_widgetUpdate(w);
         w=w->prev;
     }
@@ -166,7 +166,7 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
 
 void _GUI_inputService(CLASS GUI *gui,int event,int key){
     if(event){
-        if(!(gui->flags & 63)){ // current widget isn't moving or resizing
+        if(!(gui->flags & 32)){ // current widget isn't moving or resizing
             if( (event & GUI_EVENT_CURSOR)
             && (gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y))!=gui->select )
                 return;
@@ -188,7 +188,7 @@ void _GUI_inputService(CLASS GUI *gui,int event,int key){
 }
 
 void _GUI_widgetGetFocus(CLASS GUI *gui,int event){
-    if(gui->flags & 63) return; // current widget moving or resizing
+    if(gui->flags & 32) return; // current widget moving or resizing
     if(event) gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
 }
 
@@ -228,18 +228,22 @@ void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
     if(widget){
         CLASS GUI_WIDGET * const w=*widget;
         if(w){
-            if(w->gui && w->gui->flags & (1<<31) ){
-                if(w!=(void*)w->gui){
-                    if(w->gui->trash){
-                        GUI_widgetInsert(w,w->gui->trash);
+            if(w->gui){
+                if(GUI_widgetIsSelected(w))
+                    w->gui->select=w->gui->focus=NULL;
+                if(w->gui->flags & (1<<31)){
+                    if(w!=(void*)w->gui){
+                        if(w->gui->trash){
+                            GUI_widgetInsert(w,w->gui->trash);
+                            return;
+                        }
+                        w->core.insert=(void*)GUI_coreDefault;
+                        w->gui->trash=w;
                         return;
                     }
-                    w->core.insert=(void*)GUI_coreDefault;
-                    w->gui->trash=w;
+                    _GUI_displayPost(&w->gui->display,GUI_EVENT_DESTROY);
                     return;
                 }
-                _GUI_displayPost(&w->gui->display,GUI_EVENT_DESTROY);
-                return;
             }
             _GUI_widgetDelete(w);
             *widget=NULL;
@@ -341,6 +345,8 @@ int _GUI_objService(CLASS GUI *gui){
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
         gui->flags|=(1<<31); // loop flag on
         _GUI_inputService(gui,e & ~GUI_EVENT_UPDATE,gui->display.input.key);
+        gui->core.update(gui);
+        gui->parent->m=gui->display.m;
         _GUI_widgetUpdate((void*)gui);
         _GUI_widgetGetFocus(gui,e & ~GUI_EVENT_UPDATE);
         _GUI_widgetDraw((void*)gui);
