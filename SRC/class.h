@@ -127,7 +127,7 @@
 #define __CLASS_ARGS_CALL(_index_,_name_,...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( ,M_JOIN(_,_index_) )
 #define __CLASS_ARGS_DEF(_index_,_name_,...)   M_WHEN(M_IS_ARG(__VA_ARGS__))( struct M_JOIN(_##_index_,_name_){__VA_ARGS__;}; )
 #define __CLASS_ARGS_ZERO1(_index_,_name_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( struct M_JOIN(_##_index_,_name_) _##_index_; )
-#define __CLASS_ARGS_ZERO2(_index_,_name_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( memset(&_##_index_,0,sizeof(_##_index_)); )
+#define __CLASS_ARGS_ZERO2(_index_,_name_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _CLASS_CLEAR(&_##_index_,sizeof(_##_index_)); )
 
 #define _CLASS_ARGS_STD(_name_)  M_FOREACH(__CLASS_ARGS_STD,_name_,_CLASS_CTR_ARGS(_name_))
 #define _CLASS_ARGS_VAR(_name_)  M_FOREACH(__CLASS_ARGS_VAR,_name_,_CLASS_CTR_ARGS(_name_))
