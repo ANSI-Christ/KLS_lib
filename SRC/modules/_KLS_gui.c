@@ -55,6 +55,7 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
         if(w->next) w->next->prev=w->prev;
         else p->last=w->prev;
         w->prev=w->next=NULL;
+        *(void**)KLS_UNCONST(&w->parent)=NULL;
     }
 }
 
@@ -153,8 +154,8 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
                 CLASS GUI_WIDGET *dst=w->parent, *tmp;
                 w->m.options&=~(KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V);
                 _GUI_widgetLink(w,NULL);
-                if( (tmp=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y)) ) dst=tmp;
-                _GUI_widgetLink(w,dst);
+                tmp=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
+                _GUI_widgetLink(w,tmp?tmp:dst);
                 w->x=w->m.subColumn-w->parent->m.subColumn;
                 w->y=w->m.subRow-w->parent->m.subRow;
             }
@@ -238,7 +239,7 @@ void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
                             return;
                         }
                         w->core.insert=(void*)GUI_coreDefault;
-                        w->gui->trash=w;
+                        _GUI_widgetLink((w->gui->trash=w),NULL);
                         return;
                     }
                     _GUI_displayPost(&w->gui->display,GUI_EVENT_DESTROY);
@@ -860,7 +861,7 @@ void _GUI_canvasDraw(CLASS GUI_CANVAS *self){
 }
 
 void _GUI_canvasInput(CLASS GUI_CANVAS *self,int e,GUI_t_INPUT *i){
-    if(e & GUI_EVENT_CURSOR) KLS_canvasAtPix(&self->canvas,i->mouse.x-self->canvas.m.subColumn,i->mouse.y-self->canvas.m.subRow,&self->p);
+    KLS_canvasAtPix(&self->canvas,i->mouse.x-self->canvas.m.subColumn,i->mouse.y-self->canvas.m.subRow,&self->p);
 }
 
 CLASS_COMPILE(GUI_CANVAS)(

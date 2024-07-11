@@ -40,8 +40,7 @@
 #include "KLS_0b.h"
 
 
-//typedef _Decimal32      dec32;
-//typedef _Decimal64      dec64;
+
 typedef void*         multitype;
 typedef void*         KLS_any;
 typedef unsigned char KLS_byte;
@@ -49,8 +48,11 @@ typedef int64_t       KLS_long;
 typedef uint64_t      KLS_size;
 typedef int           KLS_COLOR;
 
+#define multitype(...) multitype
 
 
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef KLS_NOEXTERN
     #define KLS_INIT(var, ...) var __VA_ARGS__
 #else
@@ -105,7 +107,6 @@ typedef int           KLS_COLOR;
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 void *_KLS_letAddr(void *p);
-#define multitype(...) multitype
 #define _KLS_LET_UNPACK(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__=*(KLS_TYPEOF(__VA_ARGS__)*)(*_1_); ) ++_1_;
 #define _KLS_LET_PACK(_1_,...) M_FOREACH(__KLS_LET_PACK,_1_,__VA_ARGS__)
 #define __KLS_LET_PACK(_index_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _1_->_##_index_=(__VA_ARGS__); *_1_->i++=&_1_->_##_index_; )
@@ -125,6 +126,7 @@ void *_KLS_letAddr(void *p);
     KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
+#define _KLS_ARGS_COUNT(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( 1+ )
 #define _KLS_ALLOC(...) {__VA_ARGS__}) )
 #define _KLS_CMPCAST(_t_,_a_) ((unsigned _t_*)&(_a_))
 #define __KLS_CMP(_t_,_1_,_2_,...) ( sizeof(_1_)==sizeof(_t_) ? *_KLS_CMPCAST(_t_,_1_) ^ *_KLS_CMPCAST(_t_,_2_) : (__VA_ARGS__) )
@@ -227,10 +229,8 @@ typedef struct __KLS_t_HEAP_NODE{
 })
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-#define _KLS_ARGS_COUNT(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( 1+ )
-#define _KLS_ARGS_SIZE(_1_,_2_,...)  M_WHEN(M_IS_ARG(__VA_ARGS__))( sizeof(KLS_TYPEOF(__VA_ARGS__))+ )
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 #define KLS_NAN  (0.0/0.0)
 #define KLS_INF  (1.0/0.0)
@@ -460,8 +460,6 @@ KLS_INIT(const KLS_byte _KLS_isfpnum[],={
 #define KLS_CMP(...) M_OVERLOAD(_KLS_CMP,__VA_ARGS__)(__VA_ARGS__)
 
 #define KLS_AVERAGE(...) _KLS_AVERAGE(__VA_ARGS__)
-
-#define KLS_ARGS_SIZE(...) (M_FOREACH(_KLS_ARGS_SIZE,-,__VA_ARGS__) 0)
 
 #define KLS_ARGS_COUNT(...) (M_FOREACH(_KLS_ARGS_COUNT,-,__VA_ARGS__) 0)
 
