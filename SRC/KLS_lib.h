@@ -9,7 +9,7 @@
 //     -fms-extensions  ( for inheritance [C11] )
 //     -Wfloat-equal    ( warnings: float a=2.2,b=2.2; a==b; instead of fabs(a-b) )
 //     -O               ( optimization [O,O2,O3] ) )
-//     -D               ( [_KLS_MALLOC_HEAP=xxxx, _KLS_UNIT_TESTS, _KLS_MEMORY_DEBUG, _KLS_RUN_INFO ] ; see also KLS_sysDefs.h )
+//     -D               ( [ _KLS_MALLOC_HEAP=xxxx, _KLS_UNIT_TESTS, _KLS_MEMORY_DEBUG ] ; see also KLS_sysDefs.h )
 // link with:
 //     windows: -lm -lc -lpthread -lrt -lgdi32 -lws2_32
 //     solaris: -lm -lc -lpthread -lrt -lX11 -lsocket

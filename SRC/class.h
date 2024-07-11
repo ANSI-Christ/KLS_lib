@@ -135,7 +135,7 @@
 #define _CLASS_ARGS_DEF(_name_)  M_FOREACH(__CLASS_ARGS_DEF,_name_,_CLASS_CTR_ARGS(_name_))
 #define _CLASS_ARGS_ZERO(_name_) M_FOREACH(__CLASS_ARGS_ZERO1,_name_,_CLASS_CTR_ARGS(_name_)) M_FOREACH(__CLASS_ARGS_ZERO2,-,_CLASS_CTR_ARGS(_name_))
 
-#define _CLASS_COMPILE(...) {M_FOREACH(__CLASS_CTR_BODY,-,__VA_ARGS__)}}else{M_FOREACH(__CLASS_DTR,-,__VA_ARGS__)}return self;}
+#define _CLASS_COMPILE(...) {M_FOREACH(__CLASS_CTR_BODY,-,__VA_ARGS__)}}else{M_FOREACH(__CLASS_DTR,-,__VA_ARGS__)}return self; (void)self;}
 
 #define _CLASS_CLEAR(_v_,_s_) \
     if(_s_){\
