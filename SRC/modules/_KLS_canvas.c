@@ -32,7 +32,7 @@ KLS_t_CANVAS KLS_canvasNew(void *buffer,unsigned int pixWidth,unsigned int pixHe
 KLS_t_CANVAS KLS_canvasSub(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,unsigned int pixWidth,unsigned int pixHeight,double left,double up,double right,double down){
     KLS_t_CANVAS c={{0}};
     if(canvas && canvas->m.data){
-        c.m=KLS_matrixGetMatrix(&canvas->m,pixelY,pixelX,pixHeight,pixWidth);
+        c.m=KLS_matrixGetMatrix(&canvas->m,pixelY,pixelX,pixHeight,pixWidth,0);
         c.up=up; c.left=left; c.down=down; c.right=right;
         c._dv=pixHeight/fabs(c.up-c.down); c._dh=pixWidth/fabs(c.left-c.right);
     }
@@ -46,7 +46,7 @@ KLS_t_CANVAS KLS_canvasSub2(const KLS_t_CANVAS *canvas,double left,double up,dou
         _KLS_drawInterpol(canvas,&w,&h);
         w-=x; h-=y;
         if(w>0 && h>0){
-            c.m=KLS_matrixGetMatrix(&canvas->m,y,x,h,w);
+            c.m=KLS_matrixGetMatrix(&canvas->m,y,x,h,w,0);
             c.up=up; c.left=left; c.down=down; c.right=right;
             c._dv=h/fabs(c.up-c.down); c._dh=w/fabs(c.left-c.right);
         }

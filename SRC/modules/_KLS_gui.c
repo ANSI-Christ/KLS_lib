@@ -109,10 +109,11 @@ void _GUI_widgetDelete(CLASS GUI_WIDGET *w){
 }
 
 void _GUI_widgetUpdate(CLASS GUI_WIDGET *w){
+    w->core.update(w);
+    if(w==w->gui) w->m=w->gui->display.m;
+    else w->m=KLS_matrixGetMatrix(&w->parent->m,w->y,w->x,w->height,w->width,w->m.options);
     w=w->last;
     while(w){
-        w->core.update(w);
-        w->m=KLS_matrixGetMatrix(&w->parent->m,w->y,w->x,w->height,w->width);
         _GUI_widgetUpdate(w);
         w=w->prev;
     }
@@ -194,9 +195,9 @@ void _GUI_inputService(CLASS GUI *gui,int event,int key){
     }
 }
 
-void _GUI_widgetGetFocus(CLASS GUI *gui,int event){
+void _GUI_widgetGetFocus(CLASS GUI *gui){
     if(gui->flags & 32) return; // current widget moving or resizing
-    if(event) gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
+    gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -237,7 +238,7 @@ void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
         if(w){
             if(w->gui){
                 if(GUI_widgetIsSelected(w))
-                    w->gui->select=w->gui->focus=NULL;
+                    w->gui->select=NULL;
                 if(w->gui->flags & (1<<31)){
                     if(w!=(void*)w->gui){
                         if(w->gui->trash){
@@ -259,7 +260,7 @@ void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
 }
 
 void *GUI_widgetInsert(void *widget,void *parent){
-    if(widget && parent){
+    if(widget && parent && widget!=parent){
         _GUI_widgetLink(widget,NULL);
         _GUI_widgetLink(widget,parent);
         return ((CLASS GUI_WIDGET*)widget)->parent;
@@ -278,7 +279,8 @@ void *GUI_widgetFind(void *widget,const char *id){
 void *GUI_widgetSelect(void *widget){
     if(widget){
         CLASS GUI *gui=((CLASS GUI_WIDGET*)widget)->gui;
-        ((CLASS GUI_WIDGET*)(gui->select=widget))->core.select(widget);
+        gui->select=widget;
+        ((CLASS GUI_WIDGET*)widget)->core.select(widget);
         _GUI_widgetReorder(gui->select);
         return gui->select;
     }
@@ -299,6 +301,7 @@ KLS_byte GUI_widgetIsSelected(void *widget){
 }
 
 KLS_byte GUI_widgetIsMoved(void *widget){
+    if(widget==((CLASS GUI_WIDGET*)widget)->gui) return 0;
     return (((CLASS GUI_WIDGET*)widget)->x+((CLASS GUI_WIDGET*)widget)->parent->m.subColumn!=((CLASS GUI_WIDGET*)widget)->m.subColumn)
         | ((((CLASS GUI_WIDGET*)widget)->y+((CLASS GUI_WIDGET*)widget)->parent->m.subRow!=((CLASS GUI_WIDGET*)widget)->m.subRow)<<1);
 }
@@ -319,18 +322,20 @@ void _GUI_insertUp(CLASS GUI_WIDGET *w){
 
 CLASS_COMPILE(GUI_WIDGET)(
     constructor(parent,id)(
-        *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
         self->core.draw=(void*)GUI_coreDefault;
         self->core.input=(void*)GUI_coreDefault;
         self->core.select=(void*)GUI_coreDefault;
         self->core.insert=(void*)GUI_coreDefault;
         self->core.update=(void*)GUI_coreDefault;
+        *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
         if(parent==self){
             *(void**)KLS_UNCONST(&self->gui)=(void*)self;
             parent=NULL;
         }
-        if(parent) *(void**)KLS_UNCONST(&self->gui)=((CLASS GUI_WIDGET*)parent)->gui;
-        GUI_widgetInsert(self,parent);
+        if(parent){
+            *(void**)KLS_UNCONST(&self->gui)=((CLASS GUI_WIDGET*)parent)->gui;
+            _GUI_widgetLink(self,parent);
+        }
     ),
     destructor()(
         _GUI_widgetLink(self,NULL);
@@ -349,17 +354,16 @@ int _GUI_objService(CLASS GUI *gui){
     KLS_timerStart(gui->timer,gui->tout,0,NULL,NULL);
     e=GUI_displayEvent(&gui->display);
     KLS_timerStop(gui->timer);
+    gui->movable=gui->detachable=gui->resizable=0;
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
-        gui->flags|=(1<<31); // loop flag on
+        gui->flags|=(1<<31); // service flag on
         _GUI_inputService(gui,e & ~GUI_EVENT_UPDATE,gui->display.input.key);
-        gui->core.update(gui);
-        gui->parent->m=gui->display.m;
         _GUI_widgetUpdate((void*)gui);
-        _GUI_widgetGetFocus(gui,e & ~GUI_EVENT_UPDATE);
+        gui->flags&=~(1<<31); // service flag off
+        GUI_widgetDelete(&gui->trash);
+        _GUI_widgetGetFocus(gui);
         _GUI_widgetDraw((void*)gui);
         GUI_displayDraw(&gui->display);
-        gui->flags&=~(1<<31); // loop flag off
-        GUI_widgetDelete((void*)&gui->trash);
     }
     return e;
 }
@@ -382,11 +386,6 @@ void _GUI_objUpdate(CLASS GUI *self){
     GUI_displaySetSize(&self->display,self->width,self->height);
 }
 
-void _GUI_objInput(CLASS GUI *self,int e,GUI_t_INPUT *i){
-    GUI_BOX()->core.input(self,e,i);
-    if(e & GUI_EVENT_PRESS) self->movable=self->detachable=self->resizable=0;
-}
-
 CLASS_COMPILE(GUI)(
     constructor()(
         *(void**)KLS_UNCONST(&self->service)=_GUI_objService;
@@ -395,17 +394,14 @@ CLASS_COMPILE(GUI)(
         *(void**)KLS_UNCONST(&self->setFps)=_GUI_setFps;
         self->core.draw=(void*)_GUI_objDraw;
         self->core.update=(void*)_GUI_objUpdate;
-        self->core.input=(void*)_GUI_objInput;
         self->focus=self->select=self->block=(void*)self;
         self->display=GUI_displayNew((self->title=self->id),self->x,self->y,self->width,self->height);
         self->update(&self->display);
-        *(void**)KLS_UNCONST(&self->parent)=self;
-        ((CLASS GUI_WIDGET*)self)->m=KLS_matrixGetMatrix(&self->display.m,0,0,self->height,self->width);
+        ((CLASS GUI_WIDGET*)self)->m=self->display.m;
     ),
     destructor()(
         KLS_timerDestroy(&self->timer);
         GUI_displayFree(&self->display);
-        *(void**)KLS_UNCONST(&self->parent)=NULL;
     )
 )
 
@@ -877,7 +873,7 @@ CLASS_COMPILE(GUI_CANVAS)(
         self->core.draw=(void*)_GUI_canvasDraw;
         self->core.insert=(void*)_GUI_insertUp;
         self->canvas=KLS_canvasNew(NULL,self->width,self->height,0,0,self->width,self->height);
-        ((CLASS GUI_WIDGET*)self)->m=KLS_matrixGetMatrix(&self->canvas.m,0,0,self->height,self->width);
+        ((CLASS GUI_WIDGET*)self)->m=self->canvas.m;
         {
             KLS_COLOR color=KLS_COLOR_WHITE;
             KLS_canvasClear(&self->canvas,&color);

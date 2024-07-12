@@ -795,7 +795,7 @@ void *KLS_matrixAt(const KLS_t_MATRIX *matrix,int row,int column);
 
 KLS_byte KLS_matrixTransform(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg);
 
-KLS_t_MATRIX KLS_matrixGetMatrix(const KLS_t_MATRIX *matrix,int row,int column,unsigned int rows,unsigned int columns);
+KLS_t_MATRIX KLS_matrixGetMatrix(const KLS_t_MATRIX *matrix,int row,int column,unsigned int rows,unsigned int columns,KLS_byte options);
 KLS_t_MATRIX KLS_matrixNew(void *matrix,unsigned int countRow,unsigned int countColumn,unsigned int elementSize,void(*deleter)(void *element));
 
 

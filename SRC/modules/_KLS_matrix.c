@@ -5,7 +5,7 @@ KLS_t_MATRIX KLS_matrixNew(void *data,unsigned int countRow,unsigned int countCo
     return m;
 }
 
-KLS_t_MATRIX KLS_matrixGetMatrix(const KLS_t_MATRIX *matrix,int row,int column,unsigned int rows,unsigned int columns){
+KLS_t_MATRIX KLS_matrixGetMatrix(const KLS_t_MATRIX *matrix,int row,int column,unsigned int rows,unsigned int columns,KLS_byte options){
     KLS_t_MATRIX m={0};
     if(matrix && matrix->data){
         m=*matrix;
@@ -36,7 +36,7 @@ KLS_t_MATRIX KLS_matrixGetMatrix(const KLS_t_MATRIX *matrix,int row,int column,u
             if(m._.bh>(rows=matrix->_.bh+matrix->_.br)) m._.bh=rows;
             if((int)(m._.bh-=m._.br)<0) m._.bh=0;
         }
-        m.options|=16;
+        m.options=16|options;
         m._free=0;
     }
     return m;
