@@ -308,13 +308,17 @@ typedef struct{
 
 
 typedef struct{
-    const char *bitmap; // [256][height]
-    const unsigned char bitmapWidth;  // pixels
-    const unsigned char bitmapHeight; // pixels
+    const char *symbols;
+    const unsigned char symbolWidth;  // pixels
+    const unsigned char symbolHeight; // pixels
+}KLS_t_FONT_BITMAP;
+
+typedef struct{
+    const KLS_t_FONT_BITMAP *bitmap;
     unsigned char intervalSymbol;     // pixels default 2;
     unsigned char intervalRow;        // pixels default 2;
-    unsigned short width;             // pixels default =bitmapWidth
-    unsigned short height;            // pixels default =bitmapHeight
+    unsigned short width;             // pixels default = bitmap->symbolWidth
+    unsigned short height;            // pixels default = bitmap->symbolHeight
 }KLS_t_FONT;
 
 
@@ -1238,9 +1242,11 @@ CLASS_END(GUI_WIDGET);
     extends(GUI_WIDGET),\
     constructor(void *parent,const char *id,const char *text)(\
         super(self,parent,id);\
+        self->font=KLS_fontBase;\
     ),\
     public(\
         char *text;\
+        KLS_t_FONT font;\
         KLS_COLOR color;\
         KLS_byte align;\
     )
@@ -1253,6 +1259,7 @@ CLASS_END(GUI_LABEL);
         super(self,parent,id);\
         self->width=80;\
         self->height=20;\
+        self->font=KLS_fontBase;\
         self->colorBorder=KLS_COLOR_BLACK;\
         self->colorOff=KLS_COLOR_GREY;\
         self->colorOn=KLS_COLOR_DARK_GREY;\
@@ -1260,6 +1267,7 @@ CLASS_END(GUI_LABEL);
     ),\
     public(\
         char *text;\
+        KLS_t_FONT font;\
         KLS_COLOR colorOn;\
         KLS_COLOR colorOff;\
         KLS_COLOR colorText;\
@@ -1350,11 +1358,13 @@ CLASS_END(GUI_BOX);
     constructor(void *parent, const char *id,unsigned int width,unsigned int height)(\
         super(self,parent,id,width,height);\
         self->editable=1;\
+        self->font=KLS_fontBase;\
         self->colorText=self->colorBorder=KLS_COLOR_BLACK;\
         self->colorBackground=KLS_COLOR_WHITE;\
     ),\
     public(\
         char *text;\
+        KLS_t_FONT font;\
         KLS_COLOR colorText;\
         KLS_COLOR colorBorder;\
         KLS_COLOR colorBackground;\
@@ -1393,9 +1403,10 @@ void GUI_coreDefault();
 
 void GUI_widgetDelete(CLASS GUI_WIDGET **widget);
 
+void GUI_widgetDrawText(void *widget,int x,int y,const char *text,const void *color);
 void GUI_widgetDrawRect(void *widget,int marginH,int marginV,const void *color,const void *fill);
 void GUI_widgetDrawRectExt(void *widget,int x,int y,int w,int h,const void *color,const void *fill);
-void GUI_widgetDrawText(void *widget,int x,int y,KLS_byte align,const char *text,const void *color);
+void GUI_widgetDrawTextExt(void *widget,int x,int y,const KLS_t_FONT *font,KLS_byte align,const char *text,const void *color);
 
 KLS_byte GUI_widgetInFocus(void *widget);
 KLS_byte GUI_widgetIsMoved(void *widget);    // returns (x<<0) | (y<<1)

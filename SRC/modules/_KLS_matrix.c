@@ -536,24 +536,24 @@ void KLS_matrixPutString(KLS_t_MATRIX *matrix,int row,int column,const void *ele
         {
         const KLS_byte alignC=(align&7)>>1;
         const KLS_byte alignR=((align>>3)&7)>>1;
-        const KLS_byte symbWidth=((font->bitmapWidth-1)>>3)+1;
-        const KLS_byte symbHeight=font->bitmapHeight*symbWidth;
+        const KLS_byte symbWidth=((font->bitmap->symbolWidth-1)>>3)+1;
+        const KLS_byte symbHeight=font->bitmap->symbolHeight*symbWidth;
 
-        const unsigned int mask=1<<(font->bitmapWidth-1);
+        const unsigned int mask=1<<(font->bitmap->symbolWidth-1);
         const unsigned int ofsR=font->height+font->intervalRow;
         const unsigned int ofsC=font->width+font->intervalSymbol;
         
         int r=row-_KLS_matrixGetRowAlign(string,ofsR,font->intervalRow,alignR);
         int c=column-_KLS_matrixGetColumnAlign(string,ofsC,font->intervalSymbol,alignC);
-        char *p=malloc(font->bitmapHeight*font->bitmapWidth + font->height*font->width);
+        char *p=malloc(font->bitmap->symbolHeight*font->bitmap->symbolWidth + font->height*font->width);
 
         if(p){
             int i,j;
-            KLS_t_MATRIX letter=KLS_matrixNew(p,font->bitmapHeight,font->bitmapWidth,sizeof(char),NULL);
-            KLS_t_MATRIX symb=KLS_matrixNew(p+font->bitmapHeight*font->bitmapWidth,font->height,font->width,sizeof(char),NULL);
+            KLS_t_MATRIX letter=KLS_matrixNew(p,font->bitmap->symbolHeight,font->bitmap->symbolWidth,sizeof(char),NULL);
+            KLS_t_MATRIX symb=KLS_matrixNew(p+font->bitmap->symbolHeight*font->bitmap->symbolWidth,font->height,font->width,sizeof(char),NULL);
             while(*string){
                 unsigned char id=*string;
-                const char *bm=font->bitmap+id*symbHeight;
+                const char *bm=font->bitmap->symbols+id*symbHeight;
                 ++string;
 
                 if(id=='\n'){
@@ -564,7 +564,7 @@ void KLS_matrixPutString(KLS_t_MATRIX *matrix,int row,int column,const void *ele
 
                 for(i=0,p=letter.data;i<letter.rows;++i,bm+=symbWidth)
                     for(j=0;j<letter.columns;++j,++p)
-                        *p=*(bm+((font->bitmapWidth-1-j)>>3)) & (mask>>j);
+                        *p=*(bm+((font->bitmap->symbolWidth-1-j)>>3)) & (mask>>j);
 
                 KLS_matrixTransform(&letter,&symb,NULL,NULL);
 

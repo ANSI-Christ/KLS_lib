@@ -1,4 +1,4 @@
-const char _KLS_bitMapSymbols[256][12]={
+static const char _KLS_bitMapSymbols[256][12]={
         //['\ ']
     {KLS_0b00000000 ,
      KLS_0b00000000 ,
@@ -2592,4 +2592,5 @@ const char _KLS_bitMapSymbols[256][12]={
      KLS_0b00000000 },
 };
 
-const KLS_t_FONT KLS_fontBase={(const char*)&_KLS_bitMapSymbols,5,KLS_ARRAY_LEN(*_KLS_bitMapSymbols),2,2,5,KLS_ARRAY_LEN(*_KLS_bitMapSymbols)};
+static const KLS_t_FONT_BITMAP _KLS_bitMapBase={(const char*)_KLS_bitMapSymbols,5,KLS_ARRAY_LEN(*_KLS_bitMapSymbols)};
+const KLS_t_FONT KLS_fontBase={&_KLS_bitMapBase,2,2,5,KLS_ARRAY_LEN(*_KLS_bitMapSymbols)};

@@ -11,8 +11,9 @@ char *_KLS_stringv(const char *format, va_list ap[2]){
 
 char *KLS_string(char **variable,const char *format,...){
     if(variable){
+        char *s=KLS_stringv(format);
         KLS_free(*variable);
-        return *variable=KLS_stringv(format);
+        return *variable=s;
     } return KLS_stringv(format);
 }
 

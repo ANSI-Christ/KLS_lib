@@ -224,8 +224,12 @@ void GUI_widgetDrawRectExt(void *widget,int x,int y,int w,int h,const void *colo
     }
 }
 
-void GUI_widgetDrawText(void *widget,int x,int y,KLS_byte align,const char *text,const void *color){
-    KLS_matrixPutString(&((CLASS GUI_WIDGET*)widget)->m,y,x,color,NULL,align,text);
+void GUI_widgetDrawText(void *widget,int x,int y,const char *text,const void *color){
+    KLS_matrixPutString(&((CLASS GUI_WIDGET*)widget)->m,y,x,color,NULL,0,text);
+}
+
+void GUI_widgetDrawTextExt(void *widget,int x,int y,const KLS_t_FONT *font,KLS_byte align,const char *text,const void *color){
+    KLS_matrixPutString(&((CLASS GUI_WIDGET*)widget)->m,y,x,color,font,align,text);
 }
 
 void GUI_widgetDrawRect(void *widget,int marginH,int marginV,const void *color,const void *fill){
@@ -354,7 +358,6 @@ int _GUI_objService(CLASS GUI *gui){
     KLS_timerStart(gui->timer,gui->tout,0,NULL,NULL);
     e=GUI_displayEvent(&gui->display);
     KLS_timerStop(gui->timer);
-    gui->movable=gui->detachable=gui->resizable=0;
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
         gui->flags|=(1<<31); // service flag on
         _GUI_inputService(gui,e & ~GUI_EVENT_UPDATE,gui->display.input.key);
@@ -408,7 +411,7 @@ CLASS_COMPILE(GUI)(
 
 
 void _GUI_lblDraw(CLASS GUI_LABEL *self){
-    GUI_widgetDrawText(self,1,1,self->align,self->text,&self->color);
+    GUI_widgetDrawTextExt(self,1,1,&self->font,self->align,self->text,&self->color);
 }
 
 CLASS_COMPILE(GUI_LABEL)(
@@ -425,7 +428,7 @@ CLASS_COMPILE(GUI_LABEL)(
 
 void _GUI_btnDraw(CLASS GUI_BUTTON *self){
     GUI_widgetDrawRect(self,0,0,&self->colorBorder,self->isPressed?&self->colorOn:&self->colorOff);
-    GUI_widgetDrawText(self,self->width>>1,self->height>>1,KLS_ALIGN_H_MID|KLS_ALIGN_V_MID,self->text,&self->colorText);
+    GUI_widgetDrawTextExt(self,self->width>>1,self->height>>1,&self->font,KLS_ALIGN_H_MID|KLS_ALIGN_V_MID,self->text,&self->colorText);
     if(GUI_widgetInFocus(self)) GUI_widgetDrawRect(self,1,1,&self->colorBorder,NULL);
 }
 
@@ -701,8 +704,8 @@ CLASS_COMPILE(GUI_BOX)(
 void _GUI_textboxImplDraw(CLASS GUI_WIDGET *self){
     CLASS GUI_TEXTBOX *t=(void*)(self->parent->parent);
     if(t->able && t->editable)
-        GUI_widgetDrawRectExt(self,t->pos.x,t->pos.y,2,t->pos.h,&t->colorText,NULL);
-    GUI_widgetDrawText(self,1,1,0,t->text,&t->colorText);
+        GUI_widgetDrawRectExt(self,t->pos.x,t->pos.y,t->pos.w,t->pos.h,&t->colorText,NULL);
+    GUI_widgetDrawTextExt(self,1,1,&t->font,0,t->text,&t->colorText);
 }
 
 void _GUI_textboxDraw(CLASS GUI_TEXTBOX *self){
@@ -710,15 +713,15 @@ void _GUI_textboxDraw(CLASS GUI_TEXTBOX *self){
 }
 
 void _GUI_textboxUpdate(CLASS GUI_TEXTBOX *self){
-    //if(newText) _GUI_tbSetPos(self,self->text+self->pos.i);
     GUI_BOX()->core.update(self);
+    //_GUI_tbSetPos(self,self->text+self->pos.i,1);
 }
 
 void _GUI_tbSetPos(CLASS GUI_TEXTBOX *self,const char *select,char rect){
+    const KLS_t_FONT * const f=&self->font;
+    self->pos.h=f->height+f->intervalRow;
+    self->pos.w=f->width+f->intervalSymbol;
     if(self->text){
-        const KLS_t_FONT *f=&KLS_fontBase;
-        self->pos.h=f->height+f->intervalRow;
-        self->pos.w=f->width+f->intervalSymbol;
         if(select){
             const char *s=self->text;
             self->pos.y=self->pos.x=0;
@@ -732,17 +735,19 @@ void _GUI_tbSetPos(CLASS GUI_TEXTBOX *self,const char *select,char rect){
             self->pos.y*=self->pos.h;
             self->pos.x*=self->pos.w;
         }
-        if(rect){
+        if(rect){ // FIX ME dergaetsya
             KLS_stringRect(self->text,f,&self->widthMax,&self->heightMax);
-            self->widthMax+=self->pos.w;
-            self->heightMax+=self->pos.h;
+            self->widthMax+=self->pos.w+f->intervalSymbol;
+            self->heightMax+=self->pos.h+f->intervalRow;
+            if(self->heightMax>self->height) self->widthMax+=self->pos.w;
+            if(self->widthMax>self->width) self->heightMax+=self->pos.h;
         }
-        if(self->sliderH->visible){
+        if(self->widthMax>self->width){
             if(self->pos.x<self->sliderH->value) self->sliderH->value=self->pos.x;
             if(self->pos.x+self->pos.w>self->sliderH->value+self->box->width) self->sliderH->value=(double)self->pos.x+self->pos.w-self->box->width;
         }
-        if(self->sliderV->visible){
-            if(self->pos.y<-self->sliderV->value) self->sliderV->value=-(double)self->pos.y;
+        if(self->heightMax>self->height){
+            if(self->pos.y<-self->sliderV->value) self->sliderV->value=-self->pos.y;
             if(self->pos.y+self->pos.h>self->box->height-self->sliderV->value) self->sliderV->value=-((double)self->pos.y+self->pos.h-self->box->height);
         }
     }
@@ -757,22 +762,20 @@ void _GUI_textboxInput(CLASS GUI_TEXTBOX *self,int e,GUI_t_INPUT *i){
     if((e & GUI_EVENT_PRESS) && self->editable){
         short key=i->key;
         if(key==GUI_KEY_LB || key==GUI_KEY_RB || key==GUI_KEY_WHEEL){
-            _GUI_tbSetPos(self,KLS_stringPosition(self->text,NULL,0,i->mouse.x+self->sliderH->value,i->mouse.y-self->sliderV->value),0);
+            _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,i->mouse.x+self->sliderH->value,i->mouse.y-self->sliderV->value),0);
         }else{
-            static const char *symb="`=\\qwertyuiop[]asdfghjkl;\'zxcvbnm,/!@#$%^&*()_|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?\n .-+1234567890";
             unsigned int l=strlen(self->text);
             switch(key){
                     case GUI_KEY_ENTER: if((i->key & GUI_KEY_CTRL)) return; key='\n'; break;
                     case GUI_KEY_TAB: {
-                        char *s=KLS_malloc((l+=4)+1);
-                        sprintf(s,"%s",self->text); key=' ';
+                        char *s=KLS_malloc((l+=5)); *s=0;
+                        strcat(s,self->text); KLS_free(self->text);
+                        key=' ';
                         KLS_arrayInsert(s,l,1,self->pos.i,&key);
                         KLS_arrayInsert(s,l,1,self->pos.i,&key);
                         KLS_arrayInsert(s,l,1,self->pos.i,&key);
                         KLS_arrayInsert(s,l,1,self->pos.i,&key);
-                        _GUI_tbSetPos(self,self->text+self->pos.i+4,1);
-                        KLS_free(self->text);
-                        (self->text=s)[l]=0;
+                        _GUI_tbSetPos(self,(self->text=s)+self->pos.i+4,1);
                     } return;
                     case GUI_KEY_BCSP:
                         l-=KLS_arrayRemove(self->text,l,1,self->pos.i-1);
@@ -794,13 +797,13 @@ void _GUI_textboxInput(CLASS GUI_TEXTBOX *self,int e,GUI_t_INPUT *i){
                         _GUI_tbSetPos(self,self->text+self->pos.i-self->pos.x/self->pos.w,0);
                         return;
                     case GUI_KEY_END:
-                        _GUI_tbSetPos(self,KLS_stringPosition(self->text+self->pos.i,NULL,0,self->widthMax,0),0);
+                        _GUI_tbSetPos(self,KLS_stringPosition(self->text+self->pos.i,&self->font,0,self->widthMax,0),0);
                         return;
                     case GUI_KEY_UP:
-                        if(self->pos.y) _GUI_tbSetPos(self,KLS_stringPosition(self->text,NULL,0,self->pos.x,self->pos.y-self->pos.h),0);
+                        if(self->pos.y) _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y-self->pos.h),0);
                         return;
                     case GUI_KEY_DOWN:{
-                        const char *s=KLS_stringPosition(self->text+self->pos.i,NULL,0,self->pos.x,self->pos.h);
+                        const char *s=KLS_stringPosition(self->text+self->pos.i,&self->font,0,self->pos.x,self->pos.h);
                         const char *c=self->text+self->pos.i;
                         while(c!=s && *c!='\n') ++c;
                         if(c!=s) _GUI_tbSetPos(self,s,0);
@@ -809,13 +812,11 @@ void _GUI_textboxInput(CLASS GUI_TEXTBOX *self,int e,GUI_t_INPUT *i){
                         if(self->sliderV->visible) GUI_widgetSelect(self->sliderV);
                         return;
             }
-            if(key && key<256 && strchr(symb,(char)key)){
-                char *s=KLS_malloc(++l+1);
-                sprintf(s,"%s",self->text);
+            if(key && key<256 && strchr("`=\\qwertyuiop[]asdfghjkl;\'zxcvbnm,/!@#$%^&*()_|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?\n .-+1234567890",(char)key)){
+                char *s=KLS_malloc((l+=2)); *s=0;
+                strcat(s,self->text); KLS_free(self->text);
                 KLS_arrayInsert(s,l,1,self->pos.i,&key);
-                KLS_free(self->text);
-                (self->text=s)[l]=0;
-                _GUI_tbSetPos(self,self->text+self->pos.i+1,1);
+                _GUI_tbSetPos(self,(self->text=s)+self->pos.i+1,1);
             }
         }
     }
@@ -833,7 +834,6 @@ CLASS_COMPILE(GUI_TEXTBOX)(
             CLASS GUI_WIDGET *w=((CLASS GUI_BOX*)self)->box->userData;
             w->core.draw=(void*)_GUI_textboxImplDraw;
         }
-        _GUI_tbSetPos(self,NULL,1);
     ),
     destructor()(
         KLS_string(&self->text,NULL);
