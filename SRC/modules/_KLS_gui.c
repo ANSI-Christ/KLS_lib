@@ -45,10 +45,8 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
             w->prev=p->last;
             p->last=w;
         }else p->child=p->last=w;
-        if(w->parent!=p){
-            *(void**)KLS_UNCONST(&w->parent)=p;
-            p->core.insert(w);
-        }
+        *(void**)KLS_UNCONST(&w->parent)=p;
+        p->core.insert(w);
     }else if( (p=w->parent) ){
         if(w->prev) w->prev->next=w->next;
         else p->child=w->next;
@@ -61,7 +59,15 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
 
 void _GUI_widgetReorder(CLASS GUI_WIDGET *w){
     if(w!=(void*)w->gui){
-        if(w->next) GUI_widgetInsert(w,w->parent);
+        if(w->next){
+            if(w->prev) w->prev->next=w->next;
+            else w->parent->child=w->next;
+            w->next->prev=w->prev;
+            w->next=NULL;
+            w->parent->last->next=w;
+            w->prev=w->parent->last;
+            w->parent->last=w;
+        }
         _GUI_widgetReorder(w->parent);
     }
 }
@@ -151,11 +157,11 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
         if((e & GUI_EVENT_RELEASE) && (short)key==GUI_KEY_LB && ((gui->flags&=~31) & 32)){
             gui->flags&=~32;
             if(w->detachable && gui->block!=w){
-                CLASS GUI_WIDGET *dst=w->parent, *tmp;
+                CLASS GUI_WIDGET *from=w->parent, *to;
                 w->m.options&=~(KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V);
                 _GUI_widgetLink(w,NULL);
-                tmp=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
-                _GUI_widgetLink(w,tmp?tmp:dst);
+                to=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
+                _GUI_widgetLink(w,to?to:from);
                 w->x=w->m.subColumn-w->parent->m.subColumn;
                 w->y=w->m.subRow-w->parent->m.subRow;
             }
