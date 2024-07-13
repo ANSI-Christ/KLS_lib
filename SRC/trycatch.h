@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "macro.h"
 
@@ -34,6 +35,7 @@ struct _TRYCATCH *_TryCatch();
 #define _CATCH1(_type_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _CATCH
 #define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(EXCEPTION->data); _CATCH
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
+#define _THROW_EXIT() exit(-1) // pthread_exit(NULL)
 #define _THROW0() ({\
     struct _TRYCATCH *_1_=_TryCatch();\
     if(_1_){\
@@ -42,7 +44,7 @@ struct _TRYCATCH *_TryCatch();
             else printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->e->type,_1_->e->where);\
         }else printf("\nterminate called after throwing at [" _THROW_INFO "]\n\n");\
     }else printf("\nterminate called after throwing at [" _THROW_INFO "]\n\n");\
-    exit(-1);\
+    _THROW_EXIT();\
 })
 #define _THROW1(_type_,...) ({\
     struct _TRYCATCH *_1_=_TryCatch();\
@@ -54,15 +56,13 @@ struct _TRYCATCH *_TryCatch();
             longjmp(*_1_->jmp,1);\
         )\
     }printf("\nterminate called after throwing an instance of \'" M_STRING(_type_) "\' at [" _THROW_INFO "]\n\n");\
-    exit(-1);\
+    _THROW_EXIT();\
 })
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef TRY_CATCH_IMPL
-
-#include <pthread.h>
 
 static struct{
     void(*f)(void *arg);
