@@ -91,7 +91,7 @@ unsigned char TryCatchInit(){
 void TryCatchClose(){
     if(_tcInit.init){
         _TryCatchDeleter(pthread_getspecific(_tcInit.key));
-        pthread_key_delete(_tcInit.key);
+        pthread_key_delete(_tcInit.key); _tcInit.init=0;
     }
 }
 
