@@ -31,8 +31,8 @@ struct _TRYCATCH{ jmp_buf *jmp; struct _EXCEPTION e[1]; char buffer[95], final;}
 struct _TRYCATCH *_TryCatch();
 #define _CATCH(...) {__VA_ARGS__ break;}}
 #define _CATCH0() else{ _CATCH
-#define _CATCH1(_type_) else if( !strcmp(EXCEPTION->type,#_type_) ) { _CATCH
-#define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,#_type_) ) { _type_ _var_= *(_type_*)(EXCEPTION->data); _CATCH
+#define _CATCH1(_type_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _CATCH
+#define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(EXCEPTION->data); _CATCH
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
     struct _TRYCATCH *_1_=_TryCatch();\
@@ -44,16 +44,16 @@ struct _TRYCATCH *_TryCatch();
     }else printf("\nterminate called after throwing at [" _THROW_INFO "]\n\n");\
     exit(-1);\
 })
-#define _THROW1(_t_,...) ({\
+#define _THROW1(_type_,...) ({\
     struct _TRYCATCH *_1_=_TryCatch();\
     if(_1_ && _1_->jmp){\
-        _1_->e->type=#_t_; _1_->e->where=_THROW_INFO;\
+        _1_->e->type=M_STRING(_type_); _1_->e->where=_THROW_INFO;\
         if(_1_->e->data!=_1_->buffer){free(_1_->e->data); _1_->e->data=_1_->buffer;}\
         M_IF(M_COUNT(__VA_ARGS__))(\
-            M_EXTRACT( if( sizeof(_t_)<=sizeof(_1_->buffer) || (_1_->e->data=malloc(sizeof(_t_))) ) { *(_t_*)(_1_->e->data)=(_t_)__VA_ARGS__; longjmp(*_1_->jmp,1);} ),\
+            M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->e->data=malloc(sizeof(_type_))) ) { *(_type_*)(_1_->e->data)=(_type_)__VA_ARGS__; longjmp(*_1_->jmp,1);} ),\
             longjmp(*_1_->jmp,1);\
         )\
-    }printf("\nterminate called after throwing an instance of \'" #_t_ "\' at [" _THROW_INFO "]\n\n");\
+    }printf("\nterminate called after throwing an instance of \'" M_STRING(_type_) "\' at [" _THROW_INFO "]\n\n");\
     exit(-1);\
 })
 
