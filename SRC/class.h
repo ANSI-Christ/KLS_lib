@@ -45,9 +45,9 @@
             *(void**)c=(void*)M_IF(_CLASS_ABS(_name_))(0,_ctor_##_name_);\
         } return c;\
     }\
-    void *M_JOIN(_impl_,_name_)(const char _##__LINE__##ctr,CLASS _name_ *self _CLASS_ARGS_STD(_name_) ){\
-        if(!_##__LINE__##ctr){_CLASS_DTR(_name_)}\
-        if(_##__LINE__##ctr){_CLASS_SUPER(_name_) {_CLASS_CTR_BODY(_name_)} _CLASS_COMPILE
+    void *M_JOIN(_impl_,_name_)(const char M_JOIN(M_JOIN(_,M_LINE()),ctr),CLASS _name_ *self _CLASS_ARGS_STD(_name_) ){\
+        if(!M_JOIN(M_JOIN(_,M_LINE()),ctr)){_CLASS_DTR(_name_)}\
+        if(M_JOIN(M_JOIN(_,M_LINE()),ctr)){_CLASS_SUPER(_name_) {_CLASS_CTR_BODY(_name_)} _CLASS_COMPILE
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

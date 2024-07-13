@@ -416,7 +416,7 @@ void _GUI_lblDraw(CLASS GUI_LABEL *self){
 
 CLASS_COMPILE(GUI_LABEL)(
     constructor()(
-        KLS_string(&self->text,self->id);
+        KLS_string(&self->text,text);
         self->core.draw=(void*)_GUI_lblDraw;
         self->core.insert=(void*)_GUI_insertUp;
     ),
@@ -744,11 +744,11 @@ void _GUI_tbSetPos(CLASS GUI_TEXTBOX *self,const char *select,char rect){
         }
         if(self->widthMax>self->width){
             if(self->pos.x<self->sliderH->value) self->sliderH->value=self->pos.x;
-            if(self->pos.x+self->pos.w>self->sliderH->value+self->box->width) self->sliderH->value=(double)self->pos.x+self->pos.w-self->box->width;
+            if(self->pos.x+self->pos.w>self->sliderH->value+self->box->width) self->sliderH->value=self->pos.x+self->pos.w-self->box->width;
         }
         if(self->heightMax>self->height){
             if(self->pos.y<-self->sliderV->value) self->sliderV->value=-self->pos.y;
-            if(self->pos.y+self->pos.h>self->box->height-self->sliderV->value) self->sliderV->value=-((double)self->pos.y+self->pos.h-self->box->height);
+            if(self->pos.y+self->pos.h>self->box->height-self->sliderV->value) self->sliderV->value=-(self->pos.y+self->pos.h-self->box->height);
         }
     }
 }
@@ -829,7 +829,7 @@ CLASS_COMPILE(GUI_TEXTBOX)(
         self->core.input=(void*)_GUI_textboxInput;
         self->core.draw=(void*)_GUI_textboxDraw;
         self->core.update=(void*)_GUI_textboxUpdate;
-        KLS_string(&self->text,"\000");
+        KLS_string(&self->text,"%s","\000");
         {
             CLASS GUI_WIDGET *w=((CLASS GUI_BOX*)self)->box->userData;
             w->core.draw=(void*)_GUI_textboxImplDraw;

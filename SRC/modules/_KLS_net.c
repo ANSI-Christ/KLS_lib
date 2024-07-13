@@ -543,7 +543,7 @@ void _NET_tcpCli(NET_t_UNIT u,_NET_t_POLL *p,time_t t){
             break;
         }
         if(p->revents & _NET_POLL_RD){
-            if(recv(p->fd,&p,1,MSG_NOSIGNAL|MSG_PEEK)){
+            if(recv(p->fd,(void*)&p,1,MSG_NOSIGNAL|MSG_PEEK)){
                 u->_.timeout=u->_.pulse=t;
                 u->handler(u,NET_EVENT_RECEIVE);
                 return;

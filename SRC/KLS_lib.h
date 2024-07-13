@@ -1371,7 +1371,7 @@ CLASS_END(GUI_BOX);
         KLS_byte editable:1;\
     ),\
     private(\
-        struct{int x,y; unsigned int i,w,h;}pos;\
+        struct{int i,x,y,w,h;}pos;\
     )
 CLASS_END(GUI_TEXTBOX);
 
