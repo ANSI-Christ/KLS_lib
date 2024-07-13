@@ -34,6 +34,7 @@
 
 #include "macro.h"
 #include "class.h"
+#include "trycatch.h"
 
 #include "KLS_sysDefs.h"
 #include "KLS_terminal.h"
@@ -161,38 +162,6 @@ KLS_COLOR _KLS_rgbDetect(KLS_byte,KLS_byte,KLS_byte);
 #define _KLS_ARRAY_AT_16(_i_) (_KLS_ARRAY_AT_14(_i_)*_i_[15]+_i_[14])
 #define _KLS_ARRAY_AT_18(_i_) (_KLS_ARRAY_AT_16(_i_)*_i_[17]+_i_[16])
 #define _KLS_ARRAY_AT_20(_i_) (_KLS_ARRAY_AT_18(_i_)*_i_[19]+_i_[18])
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-typedef struct{ const char *type, *where; void *data; }_KLS_t_EXCEPTION;
-typedef struct{ jmp_buf *jmp; _KLS_t_EXCEPTION e[1]; char buffer[95], final;}_KLS_t_TRYCATCH;
-_KLS_t_TRYCATCH *_KLS_tryCatch();
-#define _KLS_CATCH(...) {__VA_ARGS__ break;}}
-#define _KLS_CATCH0() else{ _KLS_CATCH
-#define _KLS_CATCH1(_type_) else if( !strcmp(KLS_EXCEPTION->type,#_type_) ) { _KLS_CATCH
-#define _KLS_CATCH2(_type_,_var_) else if( !strcmp(KLS_EXCEPTION->type,#_type_) ) { _type_ _var_= *(_type_*)(KLS_EXCEPTION->data); _KLS_CATCH
-#define _KLS_THROW_INFO M_FILE() ":" M_STRING(M_LINE())
-#define _KLS_THROW0() ({\
-    _KLS_t_TRYCATCH *_1_=_KLS_tryCatch();\
-    if(_1_){\
-        if(_1_->e->type){\
-            if(_1_->jmp) longjmp(*_1_->jmp,1);\
-            else printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->e->type,_1_->e->where);\
-        }else printf("\nterminate called after throwing at [" _KLS_THROW_INFO "]\n\n");\
-    }else printf("\nterminate called after throwing at [" _KLS_THROW_INFO "]\n\n");\
-    exit(-1);\
-})
-#define _KLS_THROW1(_t_,...) ({\
-    _KLS_t_TRYCATCH *_1_=_KLS_tryCatch();\
-    if(_1_ && _1_->jmp){\
-        _1_->e->type=#_t_; _1_->e->where=_KLS_THROW_INFO;\
-        if(_1_->e->data!=_1_->buffer){KLS_free(_1_->e->data); _1_->e->data=_1_->buffer;}\
-        M_IF(M_COUNT(__VA_ARGS__))(\
-            M_EXTRACT( if( sizeof(_t_)<=sizeof(_1_->buffer) || (_1_->e->data=KLS_malloc(sizeof(_t_))) ) { *(_t_*)(_1_->e->data)=(_t_)__VA_ARGS__; longjmp(*_1_->jmp,1);} ),\
-            longjmp(*_1_->jmp,1);\
-        )\
-    }printf("\nterminate called after throwing an instance of \'" #_t_ "\' at [" _KLS_THROW_INFO "]\n\n");\
-    exit(-1);\
-})
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 struct __KLS_t_HEAP_NODE;
@@ -1000,18 +969,6 @@ void KLS_log(const char *format, ...) KLS_ATTR(format,(__printf__,1,2));
 void _KLS_log(const char *file, unsigned int line,const char *func,const char *format, ...);
 #define KLS_log(...) _KLS_log(M_FILE(),M_LINE(),M_FUNCTION(),__VA_ARGS__)
 
-
-
-// TRY CATCH SECTION
-
-#define KLS_TRY(...)     if( ({jmp_buf _1tc_; _KLS_t_TRYCATCH *_2tc_=_KLS_tryCatch(); void *_3tc_=_2tc_->jmp; char _4tc_; _2tc_->jmp=&_1tc_; if( (_4tc_=!setjmp(_1tc_)) )do{__VA_ARGS__}while(!5); _2tc_->jmp=_3tc_; _2tc_->final=!_4tc_; _4tc_;}) );else for(;;KLS_THROW()) if(!5);
-#define KLS_CATCH(...)   M_OVERLOAD(_KLS_CATCH,__VA_ARGS__)(__VA_ARGS__)
-#define KLS_FINALLY(...) if( ({char *_1tc_=&_KLS_tryCatch()->final; char _2tc_=*_1tc_; *_1tc_=0; _2tc_;}) ){__VA_ARGS__}
-#define KLS_THROW(...)   M_IF(M_COUNT(__VA_ARGS__))(_KLS_THROW1,_KLS_THROW0)(__VA_ARGS__)
-#define KLS_EXCEPTION    ((const _KLS_t_EXCEPTION*)(_KLS_tryCatch()->e))
-#define KLS_DEBUG(...)   KLS_TRY(__VA_ARGS__)KLS_CATCH()(printf("\nKLS_DEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),KLS_EXCEPTION->type,KLS_EXCEPTION->where); getchar();)
-
-void KLS_tryCatchSetSignalInitializer(void(*f)(void *arg),void *arg);
 
 
 

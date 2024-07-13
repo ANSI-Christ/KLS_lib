@@ -1,5 +1,6 @@
 #define KLS_NOEXTERN
 #define _KLS_SYS_SHOW
+#define TRY_CATCH_IMPL
 #include "KLS_lib.h"
 #include <dirent.h>
 #include <errno.h>
@@ -43,7 +44,6 @@ extern void _KLS_rgbGetInfo(int bits);
 #include "./modules/_KLS_matrix.c"
 #include "./modules/_KLS_canvas.c"
 #include "./modules/_KLS_signal.c"
-#include "./modules/_KLS_tc.c"
 #include "./modules/_KLS_log.c"
 #include "./modules/_KLS_timer.c"
 #include "./modules/_KLS_regex.c"
@@ -529,7 +529,7 @@ static void _KLS_magicChecker(){
 
 void _KLS_libClose(){
     KLS_execKill();
-    _KLS_tryCatchClose();
+    TryCatchClose();
     _KLS_logClose();
     _NET_close();
     _KLS_threadClose();
@@ -554,9 +554,9 @@ void KLS_libInit(){
         
         KLS_RGB(0,0,0);
         if(!_NET_init()) printf("KLS: can't starts sockets!\n");
+        if(!TryCatchInit()) printf("KLS: can't init try / catch\n");
         _KLS_letInit();
         _KLS_threadInit();
-        _KLS_tryCatchInit();
         _KLS_logInit();
         atexit(_KLS_libClose);
     )
