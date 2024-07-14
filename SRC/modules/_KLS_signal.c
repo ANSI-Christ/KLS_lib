@@ -13,7 +13,8 @@ void *KLS_signalSetHandler(int sigNum,int mode,void(*handler)(int sigNum)){
         mode=(mode==KLS_SIGNAL_MODE_BLOCK ? SIG_BLOCK : SIG_UNBLOCK);
         pthread_sigmask(mode,s,NULL);
     }
-    return signal(sigNum,(void*)handler);
+    if(handler) return signal(sigNum,(void*)handler);
+    return NULL;
 }
 
 KLS_byte KLS_signalSend(pthread_t tid,int sigNum){
