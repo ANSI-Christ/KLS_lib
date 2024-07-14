@@ -82,7 +82,7 @@ KLS_byte _KLS_timerInit(){
             if(pthread_attr_init(a)) break;
             if(pthread_attr_setstacksize(a,40<<10)) break;
             if(pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED)) break;
-            if(pthread_attr_setinheritsched(a,PTHREAD_EXPLICIT_SCHED)) break;
+            if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
             #ifdef PTHREAD_FPU_ENABLED
             if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
             #endif

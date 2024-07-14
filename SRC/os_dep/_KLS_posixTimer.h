@@ -81,7 +81,7 @@ SYS_t_TIMER SYS_timerCreate(void(*callback)(SYS_t_TIMER timer,void *arg),void *a
             .sigev_notify_attributes=(void*)a,
         };
         if(pthread_attr_init(a)) s.sigev_notify_attributes=NULL;
-        pthread_attr_setinheritsched(a,PTHREAD_EXPLICIT_SCHED);
+        pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED);
         #ifdef PTHREAD_FPU_ENABLED
         pthread_setfpustate(a,PTHREAD_FPU_ENABLED);
         #endif

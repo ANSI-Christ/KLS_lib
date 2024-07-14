@@ -8,7 +8,7 @@ KLS_byte _KLS_threadAttr(void *a,size_t s){
     do{
         if(pthread_attr_init(a)) return 0;
         if(s && pthread_attr_setstacksize(a,s<<10)) break;
-        if(pthread_attr_setinheritsched(a,PTHREAD_EXPLICIT_SCHED)) break;
+        if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
         #ifdef PTHREAD_FPU_ENABLED
         if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
         #endif

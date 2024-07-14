@@ -177,9 +177,9 @@ typedef struct __KLS_t_HEAP_NODE{
 /////////////////////////////////////////////////////////////////////////////////////////////
 #define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
 #define _KLS_THREAD_STRUCT(...) struct{M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char last;}
-#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) _##_index_; )
+#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
 #define _KLS_THREAD_PACK(_str_,...) M_FOREACH(__KLS_THREAD_PACK,_str_,__VA_ARGS__)
-#define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->_##_index_=(__VA_ARGS__); )
+#define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
 #define _KLS_THREAD_CALL(_ttf_,_id_,_f_,...) ({\
     _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=KLS_malloc(KLS_OFFSET(*KLS_MVN(_thr1),last));\
     if(KLS_MVN(_thr1)){_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,_f_,KLS_MVN(_thr1),KLS_OFFSET(*KLS_MVN(_thr1),last));\
