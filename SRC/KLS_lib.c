@@ -1,6 +1,7 @@
-#define KLS_NOEXTERN
 #define _KLS_SYS_SHOW
+#define KLS_NOEXTERN
 #define TRY_CATCH_IMPL
+#define MULTITYPE_IMPL
 #include "KLS_lib.h"
 #include <dirent.h>
 #include <errno.h>
@@ -470,11 +471,6 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
     return ~crc;
 }
 
-void *_KLS_letAddr(void *p){
-    void *x=&_KLS_let;
-    memcpy(&x,&p,sizeof(p));
-    return x;
-}
 
 
 #define __KLS_MAGIC(_1_,_2_,b) 0x##b,
@@ -539,12 +535,6 @@ void _KLS_libClose(){
     printf("KLS: exit!\n");
 }
 
-void _KLS_letInit(){
-    void *p1, *p2;
-    for(;;({void **p; p1=&p; _KLS_let=(void**)p1-(void**)p2; return;}))
-        *({void *p; p2=&p; &p;})=NULL;
-}
-
 void KLS_libInit(){
     KLS_ONCE(
         const int test=1;
@@ -555,7 +545,7 @@ void KLS_libInit(){
         KLS_RGB(0,0,0);
         if(!_NET_init()) printf("KLS: can't starts sockets!\n");
         if(!TryCatchInit()) printf("KLS: can't init try / catch\n");
-        _KLS_letInit();
+        multitypeInit();
         _KLS_threadInit();
         _KLS_logInit();
         atexit(_KLS_libClose);
@@ -574,12 +564,10 @@ void KLS_libRunInfo(){
         "     cores: %u\n"
         "       ram: %u mb\n"
         "   display: %d bit\n"
-        "      _for: %d mb\n"
         ,os[KLS_SYS_OS], KLS_SYS_BITNESS==sizeof(int*)*8 ? KLS_SYS_BITNESS : (unsigned )sizeof(void*)*8,
         endian[KLS_ENDIAN], proc[KLS_ENDIAN],
         KLS_sysInfoCores(),(unsigned int)(ram>>20),
-        (int)KLS_COLOR_BITS,
-        (int)_KLS_let
+        (int)KLS_COLOR_BITS
     );
 }
 

@@ -35,6 +35,7 @@
 #include "macro.h"
 #include "class.h"
 #include "trycatch.h"
+#include "multitype.h"
 
 #include "KLS_sysDefs.h"
 #include "KLS_terminal.h"
@@ -42,14 +43,11 @@
 
 
 
-typedef void*         multitype;
 typedef void*         KLS_any;
 typedef unsigned char KLS_byte;
 typedef int64_t       KLS_long;
 typedef uint64_t      KLS_size;
 typedef int           KLS_COLOR;
-
-#define multitype(...) multitype
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -107,20 +105,10 @@ typedef int           KLS_COLOR;
 #endif
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-void *_KLS_letAddr(void *p);
-#define _KLS_LET_UNPACK(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__=*(KLS_TYPEOF(__VA_ARGS__)*)(*_1_); ) ++_1_;
-#define _KLS_LET_PACK(_1_,...) M_FOREACH(__KLS_LET_PACK,_1_,__VA_ARGS__)
-#define __KLS_LET_PACK(_index_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _1_->_##_index_=(__VA_ARGS__); *_1_->i++=&_1_->_##_index_; )
-#define _KLS_LET_STRUCT(...) struct{void *p[KLS_ARGS_COUNT(__VA_ARGS__)+1]; M_FOREACH(__KLS_LET_STRUCT,-,__VA_ARGS__) void **i;}
-#define __KLS_LET_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) _##_index_; )
-#define _KLS_LET(...) for(;;({void **_1_=(&_1_)[_KLS_let==99]; if(_KLS_let==99)printf("let %p\n",_1_); M_FOREACH(_KLS_LET_UNPACK,_1_,__VA_ARGS__) goto KLS_MVN(mark);}))if(!8){KLS_MVN(mark): break;} else ({void *_1_; (&_1_);})[_KLS_let]
-#define _KLS_RETURN(...) { _KLS_LET_STRUCT(__VA_ARGS__) _1_[1]={{.i=(void*)_1_}}; _KLS_LET_PACK(_1_,__VA_ARGS__) if(_KLS_let==99)printf("ret %p\n",_1_); return _KLS_letAddr(_1_);} return NULL
 #define _KLS_MAIN0()
 #define _KLS_MAIN1(...) argc
 #define _KLS_MAIN2(...) argc,argv
 #define _KLS_MAIN3(...) argc,argv,env
-#define let(...) M_IF(M_COUNT(M_REMAINED(__VA_ARGS__)))(_KLS_LET,M_EXTRACT)(__VA_ARGS__)
-#define return(...) M_IF(M_COUNT(M_REMAINED(__VA_ARGS__)))(_KLS_RETURN,return)(__VA_ARGS__)
 #define main(...)\
     __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
     KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_libInit(); KLS_execNameSet(argv[0]); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)(__VA_ARGS__));}\
@@ -370,7 +358,6 @@ typedef struct{
 
 extern const KLS_t_FONT KLS_fontBase;
 
-KLS_INIT(signed char _KLS_let);
 KLS_INIT(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);
 KLS_INIT(KLS_byte KLS_COLOR_BITS,=32);
 KLS_INIT(const KLS_byte _KLS_isfpnum[],={
