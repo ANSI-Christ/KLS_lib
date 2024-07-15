@@ -236,15 +236,9 @@ void GUI_widgetDrawRect(void *widget,int marginH,int marginV,const void *color,c
     GUI_widgetDrawRectExt(widget,marginH,marginV,((CLASS GUI_WIDGET*)widget)->m.columns-(marginH<<1),((CLASS GUI_WIDGET*)widget)->m.rows-(marginV<<1),color,fill);
 }
 
-KLS_t_CANVAS GUI_widgetCanvas(void *widget){
+KLS_t_CANVAS GUI_widgetAsCanvas(void *widget){
     KLS_t_CANVAS c={.m=((CLASS GUI_WIDGET*)widget)->m};
     KLS_canvasArea(&c,0,0,c.m.columns,c.m.rows);
-    return c;
-}
-
-KLS_t_CANVAS GUI_widgetCanvasExt(void *widget,double left,double up,double right,double down){
-    KLS_t_CANVAS c={.m=((CLASS GUI_WIDGET*)widget)->m};
-    KLS_canvasArea(&c,left,up,right,down);
     return c;
 }
 
@@ -715,18 +709,12 @@ CLASS_COMPILE(GUI_BOX)(
 
 void _GUI_textboxImplDraw(CLASS GUI_WIDGET *self){
     CLASS GUI_TEXTBOX *t=(void*)(self->parent->parent);
-    if(t->able && t->editable)
-        GUI_widgetDrawRectExt(self,t->pos.x,t->pos.y,t->pos.w,t->pos.h,&t->colorText,NULL);
+    if(t->able) GUI_widgetDrawRectExt(self,t->pos.x,t->pos.y,t->pos.w,t->pos.h,&t->colorText,NULL);
     GUI_widgetDrawTextExt(self,1,1,&t->font,0,t->text,&t->colorText);
 }
 
 void _GUI_textboxDraw(CLASS GUI_TEXTBOX *self){
     GUI_widgetDrawRect(self,0,0,&self->colorBorder,&self->colorBackground);
-}
-
-void _GUI_textboxUpdate(CLASS GUI_TEXTBOX *self){
-    GUI_BOX()->core.update(self);
-    //_GUI_tbSetPos(self,self->text+self->pos.i,1);
 }
 
 void _GUI_tbSetPos(CLASS GUI_TEXTBOX *self,const char *select,char rect){
@@ -771,67 +759,54 @@ void _GUI_textboxInput(CLASS GUI_TEXTBOX *self,int e,GUI_t_INPUT *i){
         else if(self->sliderH->visible) GUI_widgetSelect(self->sliderH);
         else GUI_widgetSelect(self->parent);
     }
-    if((e & GUI_EVENT_PRESS) && self->editable){
+    if(e & GUI_EVENT_PRESS){
         short key=i->key;
         if(key==GUI_KEY_LB || key==GUI_KEY_RB || key==GUI_KEY_WHEEL){
             _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,i->mouse.x+self->sliderH->value,i->mouse.y-self->sliderV->value),0);
         }else{
-            unsigned int l=strlen(self->text);
             switch(key){
-                    case GUI_KEY_ENTER: if((i->key & GUI_KEY_CTRL)) return; key='\n'; break;
-                    case GUI_KEY_TAB: {
-                        char *s=KLS_malloc((l+=5)); *s=0;
-                        strcat(s,self->text); KLS_free(self->text);
-                        key=' ';
-                        KLS_arrayInsert(s,l,1,self->pos.i,&key);
-                        KLS_arrayInsert(s,l,1,self->pos.i,&key);
-                        KLS_arrayInsert(s,l,1,self->pos.i,&key);
-                        KLS_arrayInsert(s,l,1,self->pos.i,&key);
-                        _GUI_tbSetPos(self,(self->text=s)+self->pos.i+4,1);
-                    } return;
-                    case GUI_KEY_BCSP:
-                        l-=KLS_arrayRemove(self->text,l,1,self->pos.i-1);
-                        self->text[l]=0;
-                        _GUI_tbSetPos(self,self->text+self->pos.i-1,1);
-                        return;
-                    case GUI_KEY_DEL:
-                        l-=KLS_arrayRemove(self->text,l,1,self->pos.i);
-                        self->text[l]=0;
-                        _GUI_tbSetPos(self,NULL,1);
-                        return;
-                    case GUI_KEY_LEFT:
-                        _GUI_tbSetPos(self,self->text+self->pos.i-1,0);
-                        return;
-                    case GUI_KEY_RIGHT:
-                        _GUI_tbSetPos(self,self->text+self->pos.i+1,0);
-                        return;
-                    case GUI_KEY_HOME:
-                        _GUI_tbSetPos(self,self->text+self->pos.i-self->pos.x/self->pos.w,0);
-                        return;
-                    case GUI_KEY_END:
-                        _GUI_tbSetPos(self,KLS_stringPosition(self->text+self->pos.i,&self->font,0,self->widthMax,0),0);
-                        return;
-                    case GUI_KEY_UP:
-                        if(self->pos.y) _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y-self->pos.h),0);
-                        return;
-                    case GUI_KEY_DOWN:{
-                        const char *s=KLS_stringPosition(self->text+self->pos.i,&self->font,0,self->pos.x,self->pos.h);
-                        const char *c=self->text+self->pos.i;
-                        while(c!=s && *c!='\n') ++c;
-                        if(c!=s) _GUI_tbSetPos(self,s,0);
-                    } return;
-                    case GUI_KEY_PAGEUP:
-                        _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y-self->box->width),0);
-                        return;
-                    case GUI_KEY_PAGEDOWN:
-                        _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y+self->box->width),0);
-                        return;
+                case GUI_KEY_LEFT:     _GUI_tbSetPos(self,self->text+self->pos.i-1,0); return;
+                case GUI_KEY_RIGHT:    _GUI_tbSetPos(self,self->text+self->pos.i+1,0); return;
+                case GUI_KEY_HOME:     _GUI_tbSetPos(self,self->text+self->pos.i-self->pos.x/self->pos.w,0); return;
+                case GUI_KEY_END:      _GUI_tbSetPos(self,KLS_stringPosition(self->text+self->pos.i,&self->font,0,self->widthMax,0),0); return;
+                case GUI_KEY_PAGEUP:   _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y-self->box->width),0); return;
+                case GUI_KEY_PAGEDOWN: _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y+self->box->width),0); return;
+                case GUI_KEY_UP:  if(self->pos.y) _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y-self->pos.h),0); return;
+                case GUI_KEY_DOWN:{
+                    const char *s=KLS_stringPosition(self->text+self->pos.i,&self->font,0,self->pos.x,self->pos.h);
+                    const char *c=self->text+self->pos.i;
+                    while(c!=s && *c!='\n') ++c;
+                    if(c!=s) _GUI_tbSetPos(self,s,0);
+                } return;
             }
-            if(key && key<256 && strchr("`=\\qwertyuiop[]asdfghjkl;\'zxcvbnm,/!@#$%^&*()_|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?\n .-+1234567890",(char)key)){
-                char *s=KLS_malloc((l+=2)); *s=0;
-                strcat(s,self->text); KLS_free(self->text);
-                KLS_arrayInsert(s,l,1,self->pos.i,&key);
-                _GUI_tbSetPos(self,(self->text=s)+self->pos.i+1,1);
+            if(self->editable){
+                switch(key){
+                    case 0: return;
+                    case GUI_KEY_ENTER:
+                        if((i->key & GUI_KEY_CTRL)) return;
+                        key='\n';
+                        break;
+                    case GUI_KEY_TAB:
+                        KLS_string(&self->text,"%.*s    %s",self->pos.i,self->text,self->text+self->pos.i);
+                        _GUI_tbSetPos(self,self->text+self->pos.i+4,1);
+                        return;
+                    case GUI_KEY_BCSP:{
+                        unsigned int l=strlen(self->text);
+                        l-=KLS_arrayRemove(self->text,l,1,self->pos.i-1);
+                        self->text[l]=0; _GUI_tbSetPos(self,self->text+self->pos.i-1,1);
+                        return;
+                    }
+                    case GUI_KEY_DEL:{
+                        unsigned int l=strlen(self->text);
+                        l-=KLS_arrayRemove(self->text,l,1,self->pos.i);
+                        self->text[l]=0; _GUI_tbSetPos(self,NULL,1);
+                        return;
+                    }
+                }
+                if(key<256 && strchr("`=\\qwertyuiop[]asdfghjkl;\'zxcvbnm,/!@#$%^&*()_|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?\n .-+1234567890",(char)key)){
+                    KLS_string(&self->text,"%.*s%c%s",self->pos.i,self->text,(char)key,self->text+self->pos.i);
+                    _GUI_tbSetPos(self,self->text+self->pos.i+1,1);
+                }
             }
         }
     }
@@ -843,8 +818,8 @@ CLASS_COMPILE(GUI_TEXTBOX)(
         self->core.insert=(void*)_GUI_insertUp;
         self->core.input=(void*)_GUI_textboxInput;
         self->core.draw=(void*)_GUI_textboxDraw;
-        self->core.update=(void*)_GUI_textboxUpdate;
         KLS_string(&self->text,"%s","\000");
+        _GUI_tbSetPos(self,self->text,1);
         {
             CLASS GUI_WIDGET *w=((CLASS GUI_BOX*)self)->box->userData;
             w->core.draw=(void*)_GUI_textboxImplDraw;
