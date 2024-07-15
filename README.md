@@ -1,10 +1,4 @@
-KLS_lib is a general-purpose C library that claims to be cross-platform. Start by reading KLS_lib.h.
-
-It is easily included in the project - enough to include KLS_lib.h and compile KLS_lib.c.
-
-It is easily initialized by including KLS_lib.h into a file with the main function.
-
-It is easy to add new platform for support, just start by so_dep/KLS_osDep.h.
+KLS_lib is a general-purpose C library that claims to be cross-platform.
 
 Some stuff:
   - try / catch
@@ -14,14 +8,15 @@ Some stuff:
   - timer
   - class system
   - signals
-  - logger
-  - string
+  - log system
+  - string calculator
   - list
   - vector
   - matrix
   - queue (fifo / lifo)
+  - some geometry tasks
   - golang styled let (returns few variables)
-  - net / manager
-  - gui / widgets  (unfinished)
+  - net / socket manager
+  - gui / widgets (unfinished, but it works)
   - regex (done only compilation of pattern)
 

@@ -21,10 +21,10 @@ FLD_SRC  = ./SRC/
 C_FLAGS += -I$(FLD_SRC)
 
 #C_FLAGS += -D_KLS_MALLOC_HEAP=1024*1024*20
-#C_FLAGS += -D_KLS_SYS_OS_SETUP=KLS_SYS_OS_
-#C_FLAGS += -D_KLS_SYS_ENDIAN_SETUP=KLS_SYS_ENDIAN_
+#C_FLAGS += -D_KLS_SYS_OS_SETUP=KLS_SYS_OS_...
+#C_FLAGS += -D_KLS_SYS_ENDIAN_SETUP=KLS_SYS_ENDIAN_...
 #C_FLAGS += -D_KLS_SYS_BITNESS_SETUP=32
-#C_FLAGS += -D_KLS_SYS_PLATFORM_SETUP=KLS_SYS_PLATFORM_
+#C_FLAGS += -D_KLS_SYS_PLATFORM_SETUP=KLS_SYS_PLATFORM_...
 
 ##################################################################
 
@@ -33,7 +33,6 @@ LD_FLAGS += -lc
 LD_FLAGS += -lpthread
 LD_FLAGS += -lrt
 LD_FLAGS += -lX11
-
 
 ##################################################################
 
