@@ -1,4 +1,6 @@
-1) finish regex
+1) regex
 2) mutexes may not work with static inititalization
-3) gui events move and resize should call not only from mouse input
+3) containers must have pointer to allocator
+4) more widgets
+5) osDep for macOS
 
