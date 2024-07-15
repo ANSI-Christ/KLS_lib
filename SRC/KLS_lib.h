@@ -254,6 +254,14 @@ typedef struct{
 
 
 
+typedef const struct{
+    void *(*const new)(KLS_size size);
+    void *(*const resize)(void *p,KLS_size size);
+    void (*const del)(void *p);
+}KLS_t_ALLOCATOR;
+
+
+
 typedef struct{
     void *data;
     void (*deleter)(void *element);
@@ -364,6 +372,9 @@ KLS_INIT(const KLS_byte _KLS_isfpnum[],={
     0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,   0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,
     0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,   0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,
 });
+//KLS_INIT(KLS_t_ALLOCATOR KLS_allocatorDefault,={
+//    .new=(void*)KLS_malloc, .resize=(void*)KLS_realloc, .del=(void*)KLS_free
+//});
 
 
 
@@ -655,7 +666,7 @@ int KLS_stringLen(const char *format,...);
 void KLS_stringRect(const char *string,const KLS_t_FONT *font,int *width,int *height);
 
 char *KLS_stringReadFile(const char *filePath);
-char *KLS_string(char **variable,const char *format, ...) KLS_ATTR(format,(__printf__, 2, 3));
+char *KLS_string(char **variable,const char *format, ...);// KLS_ATTR(format,(__printf__, 2, 3));
 char *KLS_stringReplace(const char *string, const char *from, const char *to);
 char *KLS_stringJoinList(const char **stringList, int stringListLen, const char *separator);
 
@@ -897,6 +908,7 @@ void KLS_canvasClear(KLS_t_CANVAS *canvas,const void *color);
 void KLS_canvasBMP(const KLS_t_CANVAS *canvas,const char *fileName);
 void KLS_canvas2Display(KLS_t_CANVAS *canvas,GUI_t_DISPLAY *display);
 void KLS_canvasBMPf(const KLS_t_CANVAS *canvas,const char *format,...);
+void KLS_canvasArea(KLS_t_CANVAS *canvas,double left,double up,double right,double down);
 void KLS_canvasPoint(KLS_t_CANVAS *canvas,double x,double y,const void *color,unsigned int width);
 void KLS_canvasLine(KLS_t_CANVAS *canvas,double x1,double y1,double x2,double y2,const void *color,unsigned int width);
 void KLS_canvasRound(KLS_t_CANVAS *canvas,double x,double y,double r,const void *color,unsigned int width,const void *colorFill);
@@ -907,11 +919,11 @@ void KLS_canvasTextf(KLS_t_CANVAS *canvas,double x,double y,const KLS_t_FONT *fo
 void KLS_canvasEllipse(KLS_t_CANVAS *canvas,double x,double y,double xWidth,double yHeight,const void *color,unsigned int width,const void *colorFill);
 void KLS_canvasArcEllipse(KLS_t_CANVAS *canvas,double x,double y,double xWidth,double yHeight,float angle, float angleRot,const void *color,unsigned int width);
 
-KLS_t_CANVAS KLS_canvasNew(void *buffer,unsigned int width,unsigned int height,double left,double up,double right,double down);
+KLS_t_CANVAS KLS_canvasNew(void *buffer,unsigned int width,unsigned int height);
 KLS_t_CANVAS KLS_canvasNewExt(void *buffer,unsigned int width,unsigned int height,unsigned char colorSize,double left,double up,double right,double down);
 KLS_t_CANVAS KLS_canvasPlot(KLS_t_CANVAS *canvas,const KLS_t_AXIS *axisX,const KLS_t_AXIS *axisY,const void *colorAxis,const void *colorBackground);
-KLS_t_CANVAS KLS_canvasSub(const KLS_t_CANVAS *canvas,int pixelX, int pixelY,unsigned int pixWidth,unsigned int pixHeight,double left,double up,double right,double down);
-KLS_t_CANVAS KLS_canvasSub2(const KLS_t_CANVAS *canvas,double left,double up,double right,double down);
+KLS_t_CANVAS KLS_canvasSub(const KLS_t_CANVAS *canvas,double left,double up,double right,double down);
+KLS_t_CANVAS KLS_canvasSubExt(const KLS_t_CANVAS *canvas,int pixelX, int pixelY,unsigned int pixWidth,unsigned int pixHeight,double left,double up,double right,double down);
 
 void *KLS_canvasAtPix(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,KLS_t_POINT *point);
 

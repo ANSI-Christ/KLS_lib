@@ -12,43 +12,47 @@ void _KLS_rgbGetInfo(int bits){
 #undef _KLS_RGB_CASE
 }
 
-void _KLS_drawInterpol(const KLS_t_CANVAS *canvas,double *x, double *y){
+void KLS_canvasArea(KLS_t_CANVAS *canvas,double left,double up,double right,double down){
+    if(canvas){
+        canvas->_dv=canvas->m.rows/fabs((canvas->up=up)-(canvas->down=down));
+        canvas->_dh=canvas->m.columns/fabs((canvas->left=left)-(canvas->right=right));
+    }
+}
+
+void _KLS_canvasInterpol(const KLS_t_CANVAS *canvas,double *x, double *y){
     *x=KLS_interpol(0,canvas->left,canvas->m.columns,canvas->right,*x);
     *y=KLS_interpol(0,canvas->up,canvas->m.rows,canvas->down,*y);
 }
 
 KLS_t_CANVAS KLS_canvasNewExt(void *buffer,unsigned int pixWidth,unsigned int pixHeight,unsigned char colorSize,double left,double up,double right,double down){
-    KLS_t_CANVAS c={{0}};
-    c.m=KLS_matrixNew(buffer,pixHeight,pixWidth,colorSize,NULL);
-    c.up=up; c.left=left; c.down=down; c.right=right;
-    c._dv=pixHeight/fabs(c.up-c.down); c._dh=pixWidth/fabs(c.left-c.right);
+    KLS_t_CANVAS c={.m=KLS_matrixNew(buffer,pixHeight,pixWidth,colorSize,NULL)};
+    KLS_canvasArea(&c,left,up,right,down);
     return c;
 }
 
-KLS_t_CANVAS KLS_canvasNew(void *buffer,unsigned int pixWidth,unsigned int pixHeight,double left,double up,double right,double down){
-    return KLS_canvasNewExt(buffer,pixWidth,pixHeight,sizeof(KLS_COLOR),left,up,right,down);
+KLS_t_CANVAS KLS_canvasNew(void *buffer,unsigned int pixWidth,unsigned int pixHeight){
+    KLS_t_CANVAS c={.m=KLS_matrixNew(buffer,pixHeight,pixWidth,sizeof(KLS_COLOR),NULL), .left=0, .up=0, .right=pixWidth, .down=pixHeight, ._dv=1, ._dh=1};
+    return c;
 }
 
-KLS_t_CANVAS KLS_canvasSub(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,unsigned int pixWidth,unsigned int pixHeight,double left,double up,double right,double down){
+KLS_t_CANVAS KLS_canvasSubExt(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,unsigned int pixWidth,unsigned int pixHeight,double left,double up,double right,double down){
     KLS_t_CANVAS c={{0}};
     if(canvas && canvas->m.data){
         c.m=KLS_matrixGetMatrix(&canvas->m,pixelY,pixelX,pixHeight,pixWidth,0);
-        c.up=up; c.left=left; c.down=down; c.right=right;
-        c._dv=pixHeight/fabs(c.up-c.down); c._dh=pixWidth/fabs(c.left-c.right);
+        KLS_canvasArea(&c,left,up,right,down);
     }
     return c;
 }
-KLS_t_CANVAS KLS_canvasSub2(const KLS_t_CANVAS *canvas,double left,double up,double right,double down){
+KLS_t_CANVAS KLS_canvasSub(const KLS_t_CANVAS *canvas,double left,double up,double right,double down){
     KLS_t_CANVAS c={{0}};
     if(canvas && canvas->m.data){
         double x=left,y=up,h=down,w=right;
-        _KLS_drawInterpol(canvas,&x,&y);
-        _KLS_drawInterpol(canvas,&w,&h);
+        _KLS_canvasInterpol(canvas,&x,&y);
+        _KLS_canvasInterpol(canvas,&w,&h);
         w-=x; h-=y;
         if(w>0 && h>0){
             c.m=KLS_matrixGetMatrix(&canvas->m,y,x,h,w,0);
-            c.up=up; c.left=left; c.down=down; c.right=right;
-            c._dv=h/fabs(c.up-c.down); c._dh=w/fabs(c.left-c.right);
+            KLS_canvasArea(&c,left,up,right,down);
         }
     }
     return c;
@@ -126,14 +130,14 @@ void KLS_canvasBMP(const KLS_t_CANVAS *canvas,const char *fileName){
 
 void KLS_canvasText(KLS_t_CANVAS *canvas,double x,double y,const KLS_t_FONT *font,KLS_byte align,const void *color,const char *text){
     if(!canvas || !canvas->m.data || !text) return;
-    _KLS_drawInterpol(canvas,&x,&y);
+    _KLS_canvasInterpol(canvas,&x,&y);
     KLS_matrixPutString(&canvas->m,y,x,color,font,align,text);
 }
 
 void KLS_canvasTextf(KLS_t_CANVAS *canvas,double x,double y,const KLS_t_FONT *font,KLS_byte align,const void *color,const char *format,...){
     if(canvas && canvas->m.data && format){
         char *str=KLS_stringv(format);
-        _KLS_drawInterpol(canvas,&x,&y);
+        _KLS_canvasInterpol(canvas,&x,&y);
         KLS_matrixPutString(&canvas->m,y,x,color,font,align,str);
         KLS_free(str);
     }
@@ -159,7 +163,7 @@ KLS_t_CANVAS KLS_canvasPlot(KLS_t_CANVAS *canvas,const KLS_t_AXIS *axisX,const K
         char str[64];
         KLS_canvasClear(canvas,colorBackground);
         KLS_matrixPutRect(&canvas->m,0,0,canvas->m.rows-1,canvas->m.columns-1,colorAxis,1,NULL);
-        s=KLS_canvasSub(canvas,ofsLeft,ofsUp,canvas->m.columns-ofsRight,canvas->m.rows-ofsDown,0,0,1,1);
+        s=KLS_canvasSubExt(canvas,ofsLeft,ofsUp,canvas->m.columns-ofsRight,canvas->m.rows-ofsDown,0,0,1,1);
         KLS_matrixPutRect(&s.m,0,0,s.m.rows-1,s.m.columns-1,colorAxis,1,NULL);
         for(i=0, cnt=axisY->division+2, step=canvas->up; i<cnt; ++i, step-=stepVert){
             pos=KLS_interpol(ofsUp,canvas->up,ofsUp+s.m.rows-1,canvas->down,step);
@@ -174,52 +178,52 @@ KLS_t_CANVAS KLS_canvasPlot(KLS_t_CANVAS *canvas,const KLS_t_AXIS *axisX,const K
             KLS_matrixPutString(&canvas->m,_row+2+3,pos,colorAxis,&optX,KLS_ALIGN_H_MID | KLS_ALIGN_V_TOP,str);
             KLS_matrixPutLine(&canvas->m,_row+1,pos,_row-s.m.rows*gridX,pos,colorAxis,1);
         }
-        s=KLS_canvasSub(&s,1,1,s.m.columns-2,s.m.rows-2,canvas->left,canvas->up,canvas->right,canvas->down);
+        s=KLS_canvasSubExt(&s,1,1,s.m.columns-2,s.m.rows-2,canvas->left,canvas->up,canvas->right,canvas->down);
     }
     return s;
 }
 
 void KLS_canvasPoint(KLS_t_CANVAS *canvas,double x,double y,const void *color,unsigned int width){
     if(!canvas || !canvas->m.data || !color) return;
-    _KLS_drawInterpol(canvas,&x,&y);
+    _KLS_canvasInterpol(canvas,&x,&y);
     KLS_matrixPutPoint(&canvas->m,y,x,color,width);
 }
 
 void KLS_canvasLine(KLS_t_CANVAS *canvas,double x1,double y1,double x2,double y2,const void *color,unsigned int width){
     if(!canvas || !canvas->m.data || !color) return;
-    _KLS_drawInterpol(canvas,&x1,&y1);
-    _KLS_drawInterpol(canvas,&x2,&y2);
+    _KLS_canvasInterpol(canvas,&x1,&y1);
+    _KLS_canvasInterpol(canvas,&x2,&y2);
     KLS_matrixPutLine(&canvas->m,y1,x1,y2,x2,color,width);
 }
 
 void KLS_canvasRound(KLS_t_CANVAS *canvas,double x,double y,double r,const void *color,unsigned int width,const void *colorFill){
     if(!canvas || !canvas->m.data || !color) return;
-    _KLS_drawInterpol(canvas,&x,&y);
+    _KLS_canvasInterpol(canvas,&x,&y);
     KLS_matrixPutEllipse(&canvas->m,y,x,r*canvas->_dv,r*canvas->_dh,color,width,colorFill);
 }
 
 void KLS_canvasEllipse(KLS_t_CANVAS *canvas,double x,double y,double xWidth,double yHeight,const void *color,unsigned int width,const void *colorFill){
     if(!canvas || !canvas->m.data || !color) return;
-    _KLS_drawInterpol(canvas,&x,&y);
+    _KLS_canvasInterpol(canvas,&x,&y);
     KLS_matrixPutEllipse(&canvas->m,y,x,canvas->_dv*yHeight,canvas->_dh*xWidth,color,width,colorFill);
 }
 
 void KLS_canvasArc(KLS_t_CANVAS *canvas,double x,double y,double r,float angle, float angleRot,const void *color,unsigned int width){
     if(!canvas || !canvas->m.data || !color) return;
-    _KLS_drawInterpol(canvas,&x,&y);
+    _KLS_canvasInterpol(canvas,&x,&y);
     KLS_matrixPutArcEllipse(&canvas->m,y,x,r*canvas->_dv,r*canvas->_dh,angle*M_PI/180.,angleRot*M_PI/180.,color,width);
 }
 
 void KLS_canvasArcEllipse(KLS_t_CANVAS *canvas,double x,double y,double xWidth,double yHeight,float angle, float angleRot,const void *color,unsigned int width){
     if(!canvas || !canvas->m.data || !color) return;
-    _KLS_drawInterpol(canvas,&x,&y);
+    _KLS_canvasInterpol(canvas,&x,&y);
     KLS_matrixPutArcEllipse(&canvas->m,y,x,canvas->_dv*yHeight,canvas->_dh*xWidth,angle*M_PI/180.,angleRot*M_PI/180.,color,width);
 }
 
 void KLS_canvasRect(KLS_t_CANVAS *canvas,double x1,double y1,double x2,double y2,const void *color,unsigned int width,const void *colorFill){
     if(!canvas || !canvas->m.data || !color) return;
-    _KLS_drawInterpol(canvas,&x1,&y1);
-    _KLS_drawInterpol(canvas,&x2,&y2);
+    _KLS_canvasInterpol(canvas,&x1,&y1);
+    _KLS_canvasInterpol(canvas,&x2,&y2);
     KLS_matrixPutRect(&canvas->m,y1,x1,y2,x2,color,width,colorFill);
 }
 

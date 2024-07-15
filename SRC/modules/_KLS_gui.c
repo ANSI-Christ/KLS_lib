@@ -236,6 +236,18 @@ void GUI_widgetDrawRect(void *widget,int marginH,int marginV,const void *color,c
     GUI_widgetDrawRectExt(widget,marginH,marginV,((CLASS GUI_WIDGET*)widget)->m.columns-(marginH<<1),((CLASS GUI_WIDGET*)widget)->m.rows-(marginV<<1),color,fill);
 }
 
+KLS_t_CANVAS GUI_widgetCanvas(void *widget){
+    KLS_t_CANVAS c={.m=((CLASS GUI_WIDGET*)widget)->m};
+    KLS_canvasArea(&c,0,0,c.m.columns,c.m.rows);
+    return c;
+}
+
+KLS_t_CANVAS GUI_widgetCanvasExt(void *widget,double left,double up,double right,double down){
+    KLS_t_CANVAS c={.m=((CLASS GUI_WIDGET*)widget)->m};
+    KLS_canvasArea(&c,left,up,right,down);
+    return c;
+}
+
 void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
     if(widget){
         CLASS GUI_WIDGET * const w=*widget;
@@ -649,7 +661,7 @@ void _GUI_boxUpdate(CLASS GUI_BOX *self){
 }
 
 void _GUI_boxImplUpdate(CLASS GUI_WIDGET *self){
-    CLASS GUI_BOX *box=self->parent->parent;
+    CLASS GUI_BOX *box=(void*)self->parent->parent;
     self->x=-box->sliderH->value;
     self->y=box->sliderV->value;
 }
@@ -808,8 +820,11 @@ void _GUI_textboxInput(CLASS GUI_TEXTBOX *self,int e,GUI_t_INPUT *i){
                         while(c!=s && *c!='\n') ++c;
                         if(c!=s) _GUI_tbSetPos(self,s,0);
                     } return;
-                    case GUI_KEY_PAGEUP: case GUI_KEY_PAGEDOWN:
-                        if(self->sliderV->visible) GUI_widgetSelect(self->sliderV);
+                    case GUI_KEY_PAGEUP:
+                        _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y-self->box->width),0);
+                        return;
+                    case GUI_KEY_PAGEDOWN:
+                        _GUI_tbSetPos(self,KLS_stringPosition(self->text,&self->font,0,self->pos.x,self->pos.y+self->box->width),0);
                         return;
             }
             if(key && key<256 && strchr("`=\\qwertyuiop[]asdfghjkl;\'zxcvbnm,/!@#$%^&*()_|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?\n .-+1234567890",(char)key)){
@@ -844,7 +859,7 @@ CLASS_COMPILE(GUI_TEXTBOX)(
 
 void _GUI_canvasUpdate(CLASS GUI_CANVAS *self){
     if(GUI_widgetIsResized(self)){
-        KLS_t_CANVAS cnv=KLS_canvasNew(NULL,self->width,self->height,self->canvas.left,self->canvas.up,self->canvas.right,self->canvas.down);
+        KLS_t_CANVAS cnv=KLS_canvasNewExt(NULL,self->width,self->height,self->canvas.left,self->canvas.m.elSize,self->canvas.up,self->canvas.right,self->canvas.down);
         KLS_matrixTransform(&self->canvas.m,&cnv.m,NULL,NULL);
         KLS_canvasFree(&self->canvas); self->canvas=cnv;
     }
@@ -872,7 +887,7 @@ CLASS_COMPILE(GUI_CANVAS)(
         self->core.input=(void*)_GUI_canvasInput;
         self->core.draw=(void*)_GUI_canvasDraw;
         self->core.insert=(void*)_GUI_insertUp;
-        self->canvas=KLS_canvasNew(NULL,self->width,self->height,0,0,self->width,self->height);
+        self->canvas=KLS_canvasNew(NULL,self->width,self->height);
         ((CLASS GUI_WIDGET*)self)->m=self->canvas.m;
         {
             KLS_COLOR color=KLS_COLOR_WHITE;
