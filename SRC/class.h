@@ -27,7 +27,7 @@
             )\
             if( f(1,self _CLASS_ARGS_CALL(_name_,)) )\
                 *(void**)self=M_JOIN(_dtor_,_name_);\
-            else{ M_JOIN(_dtor_,_name_)(self); self=(void*)0; }\
+            else{ M_JOIN(_dtor_,_name_)(self); return (void*)0; }\
         } return self;\
     }\
     const struct M_JOIN(_,_name_) *_name_(){\
@@ -36,11 +36,11 @@
             c.p=(void*)0;\
             M_WHEN(_CLASS_EXT(_name_))( _CLASS_EXT(_name_)(); )\
             {\
-                _CLASS_ARGS_UNION(_name_) zero={0};\
-                M_JOIN(_ctor_,_name_)(&c _CLASS_ARGS_CALL(_name_,zero));\
+                _CLASS_ARGS_UNION(_name_) zero={0}; if(0)(void)zero;\
+                if( M_JOIN(_ctor_,_name_)(&c _CLASS_ARGS_CALL(_name_,zero)) )\
+                    M_JOIN(_dtor_,_name_)(&c);\
+                c.p=(void*)M_IF(_CLASS_ABS(_name_))(0,M_JOIN(_ctor_,_name_));\
             }\
-            M_JOIN(_dtor_,_name_)(&c);\
-            c.p=(void*)M_IF(_CLASS_ABS(_name_))(0,M_JOIN(_ctor_,_name_));\
         } return (void*)&c;\
     }\
     void *M_JOIN(_impl_,_name_)(const char M_JOIN(M_JOIN(_,M_LINE()),ctr),CLASS _name_ *self _CLASS_ARGS_STD(_name_) ){\
@@ -129,7 +129,7 @@
 #define _CLASS_ARGS_STD(_name_)   M_FOREACH(__CLASS_ARGS_STD,_name_,_CLASS_CTR_ARGS(_name_))
 #define _CLASS_ARGS_VAR(_name_)   M_FOREACH(__CLASS_ARGS_VAR,_name_,_CLASS_CTR_ARGS(_name_))
 #define _CLASS_ARGS_DEF(_name_)   M_FOREACH(__CLASS_ARGS_DEF,_name_,_CLASS_CTR_ARGS(_name_))
-#define _CLASS_ARGS_UNION(_name_) union{char init; M_FOREACH(__CLASS_ARGS_UNION,_name_,_CLASS_CTR_ARGS(_name_))}
+#define _CLASS_ARGS_UNION(_name_) const union{char init; M_FOREACH(__CLASS_ARGS_UNION,_name_,_CLASS_CTR_ARGS(_name_))}
 #define _CLASS_ARGS_CALL(_name_,_storage_) M_FOREACH(__CLASS_ARGS_CALL,_storage_,_CLASS_CTR_ARGS(_name_))
 
 #define _CLASS_COMPILE(...) {M_FOREACH(__CLASS_CTR_BODY,-,__VA_ARGS__)}}else{M_FOREACH(__CLASS_DTR,-,__VA_ARGS__)}return self; (void)self;}
