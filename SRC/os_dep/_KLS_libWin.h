@@ -79,9 +79,36 @@ static void *_pthread_killFunc(int sig){
 #undef _KLS_PTHREAD_KILL
 }
 
-#define _KLS_PTHREAD_KILL pthread_kill_win
+#if defined(_M_IX86) || (defined(_X86_) && !defined(__amd64__))
+    #define _CtxCtrlReg(_1_)  &(_1_.Eip)
+#endif
 
-static void *_CtxCtrlReg(CONTEXT *c){
+#if defined (_M_IA64) || defined(_IA64)
+    #define _CtxCtrlReg(_1_)  &(_1_.StIIP)
+#endif
+
+#if defined(_MIPS_) || defined(MIPS)
+    #define _CtxCtrlReg(_1_)  &(_1_.Fir)
+#endif
+
+#if defined(_ALPHA_)
+    #define _CtxCtrlReg(_1_)  &(_1_.Fir)
+#endif
+
+#ifdef _PPC_ 
+    #define _CtxCtrlReg(_1_)  &(_1_.Iar)
+#endif
+
+#if defined(_AMD64_) || defined(__amd64__)
+    #define _CtxCtrlReg(_1_)  &(_1_.Rip)
+#endif
+
+#if defined(_ARM_) || defined(ARM) || defined(_M_ARM) || defined(_M_ARM64)
+    #define _CtxCtrlReg(_1_)  &(_1_.Pc)
+#endif
+
+#ifndef _CtxCtrlReg
+static void *_CtxCtrlRegf(CONTEXT *c){
     static unsigned int offset=-1;
     if(offset==-1){
         const uintptr_t * const end=(void*)(c+1), f=(uintptr_t)GetThreadContext;
@@ -94,13 +121,15 @@ static void *_CtxCtrlReg(CONTEXT *c){
         c->ContextFlags=CONTEXT_CONTROL;
     } return (char*)c+offset;
 }
+#define _CtxCtrlReg(_1_) _CtxCtrlRegf(&_1_)
+#endif
 
 static int pthread_kill_win(pthread_t t,int sig){
     void *p=pthread_gethandle(t);
     void *f=_pthread_killFunc(sig);
     if(p && f){
         CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
-        void **x=_CtxCtrlReg(&c);
+        void **x=_CtxCtrlReg(c);
         SuspendThread(p);
         GetThreadContext(p,&c);
         *x=f;
@@ -110,42 +139,8 @@ static int pthread_kill_win(pthread_t t,int sig){
     }
     return -1;
 }
-/*
-int pthread_kill_win(pthread_t t,int sig){
-    void *p=pthread_gethandle(t);
-    void *f=_pthread_killFunc(sig);
-    if(p && f){
-        #ifndef _CMDREG
-            #ifdef _ALPHA_
-                #define _CMDREG Fir
-            #endif
-        #endif
-        #ifndef _CMDREG
-            #ifdef _ARM_
-                #define _CMDREG Pc
-            #endif
-        #endif
-        #ifndef _CMDREG
-            #if(KLS_SYS_BITNESS==64)
-                #define _CMDREG Rip
-            #else
-                #define _CMDREG Eip
-            #endif
-        #endif
-        #ifdef _CMDREG
-            CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
-            SuspendThread(p);
-            GetThreadContext(p,&c);
-            c._CMDREG=(uintptr_t)f;
-            SetThreadContext(p,&c);
-            ResumeThread(p);
-            return 0;
-        #endif
-    }
-    return -1;
-}
-*/
 
+#define _KLS_PTHREAD_KILL pthread_kill_win
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////  SOCKET  ///////////////////////////////////////////////////////////////////////////////
