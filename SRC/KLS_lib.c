@@ -530,6 +530,7 @@ void _KLS_libClose(){
     _NET_close();
     _KLS_threadClose();
     _KLS_timerClose();
+    //multitypeClose();
     _KLS_MEMORY_SHOW();
     _KLS_MEMORY_MTX(0);
     printf("KLS: exit!\n");
@@ -543,8 +544,9 @@ void KLS_libInit(){
         _KLS_endian=( ((const KLS_byte*)&test)[0] == 1 ) ? 1 : 2*!( ((const KLS_byte*)&test)[sizeof(test)-1] == 1 );
         
         KLS_RGB(0,0,0);
-        if(!_NET_init()) printf("KLS: can't starts sockets!\n");
+        if(!_NET_init()) printf("KLS: can't init sockets!\n");
         if(!TryCatchInit()) printf("KLS: can't init try / catch\n");
+        //if(!multitypeInit()) printf("KLS: can't init multitypeh\n");
         multitypeInit();
         _KLS_threadInit();
         _KLS_logInit();

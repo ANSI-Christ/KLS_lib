@@ -1,6 +1,4 @@
 
-extern void _GUI_displayEmit(GUI_t_DISPLAY *d,int emitType,int value);
-
 void _GUI_setMouse(GUI_t_DISPLAY *d,int x,int y){
     if(x<d->m._.rc){
         d->input.mouse.dx=x-d->input.mouse.x;
@@ -100,12 +98,6 @@ _mark:
         }
     }
     return p;
-}
-
-void _GUI_widgetDelete(CLASS GUI_WIDGET *w){
-    w->destructor(w);
-    while(w->child) _GUI_widgetDelete(w->child);
-    KLS_free(w);
 }
 
 void _GUI_widgetUpdate(CLASS GUI_WIDGET *w){
@@ -263,8 +255,8 @@ void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
                     return;
                 }
             }
-            _GUI_widgetDelete(w);
-            *widget=NULL;
+            w->destructor(w);
+            KLS_freeData(*widget);
         }
     }
 }
@@ -348,7 +340,12 @@ CLASS_COMPILE(GUI_WIDGET)(
         }
     ),
     destructor()(
+        CLASS GUI_WIDGET *w;
         _GUI_widgetLink(self,NULL);
+        while( (w=self->child) ){
+            w->destructor(w);
+            KLS_free(w);
+        }
     )
 )
 
@@ -493,9 +490,6 @@ CLASS_COMPILE(GUI_SLIDER)(
         self->p->core.insert=(void*)_GUI_insertUp;
         self->core.draw=(void*)_GUI_sliderDraw;
         self->core.insert=(void*)_GUI_insertUp;
-    ),
-    destructor()(
-        GUI_widgetDelete((void*)&self->p);
     )
 )
 
@@ -696,11 +690,6 @@ CLASS_COMPILE(GUI_BOX)(
 
         self->sliderV->core.input=(void*)_GUI_boxSliderInputV;
         self->sliderH->core.input=(void*)_GUI_boxSliderInputH;
-    ),
-    destructor()(
-        GUI_widgetDelete((void*)&self->box);
-        GUI_widgetDelete((void*)&self->sliderV);
-        GUI_widgetDelete((void*)&self->sliderH);
     )
 )
 
