@@ -35,7 +35,6 @@
 #include "macro.h"
 #include "class.h"
 #include "trycatch.h"
-#include "multitype.h"
 
 #include "KLS_sysDefs.h"
 #include "KLS_terminal.h"

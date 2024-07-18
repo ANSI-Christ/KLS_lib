@@ -1,7 +1,6 @@
 #define _KLS_SYS_SHOW
 #define KLS_NOEXTERN
 #define TRY_CATCH_IMPL
-#define MULTITYPE_IMPL
 #include "KLS_lib.h"
 #include <dirent.h>
 #include <errno.h>
@@ -530,7 +529,6 @@ void _KLS_libClose(){
     _NET_close();
     _KLS_threadClose();
     _KLS_timerClose();
-    //multitypeClose();
     _KLS_MEMORY_SHOW();
     _KLS_MEMORY_MTX(0);
     printf("KLS: exit!\n");
@@ -546,9 +544,7 @@ void KLS_libInit(){
         KLS_RGB(0,0,0);
         if(!_NET_init()) printf("KLS: can't init sockets!\n");
         if(!TryCatchInit()) printf("KLS: can't init try / catch\n");
-        //if(!multitypeInit()) printf("KLS: can't init multitypeh\n");
-        multitypeInit();
-        _KLS_threadInit();
+        if(!_KLS_threadInit()) printf("KLS: can't init threads\n");
         _KLS_logInit();
         atexit(_KLS_libClose);
     )

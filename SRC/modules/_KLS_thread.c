@@ -1,7 +1,7 @@
 
 static pthread_key_t _KLS_threadKey;
 static KLS_byte _KLS_threadStatus=0;
-void _KLS_threadInit(){ _KLS_threadStatus=!pthread_key_create(&_KLS_threadKey,NULL); }
+KLS_byte _KLS_threadInit(){ if(!_KLS_threadStatus) _KLS_threadStatus=!pthread_key_create(&_KLS_threadKey,NULL); return _KLS_threadStatus; }
 void _KLS_threadClose(){ if(_KLS_threadStatus) pthread_key_delete(_KLS_threadKey); }
 
 KLS_byte _KLS_threadAttr(void *a,size_t s){
