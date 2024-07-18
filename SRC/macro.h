@@ -19,7 +19,7 @@
 #define M_COUNT(...) _M_COUNT(__VA_ARGS__, __M_COUNT_LIST(__VA_ARGS__))
 #define M_IF(_1_) _M_IF(M_BOOL(_1_))
 #define M_WHEN(_1_) M_IF(_1_)(M_EXTRACT,M_SKIP)
-#define M_NOT(_1_) _M_CHECK(M_JOIN(_M_NOT, _1_))
+#define M_NOT(_1_) _M_NNOT(M_BOOL(_1_))
 #define M_BOOL(...) M_JOIN(_M_BOOL,M_IS_ARG(M_PEEK(__VA_ARGS__)))(__VA_ARGS__)
 #define M_CMP(_1_, _2_) _M_REVERS(M_NCMP(_1_, _2_))
 #define M_NCMP(_1_, _2_) M_IF( _M_BITAND(_M_IS_CMP(_1_))(_M_IS_CMP(_2_)) ) (_M_CMP,1 M_SKIP)(_1_, _2_)
@@ -47,9 +47,10 @@
 #define _M_IF0(_1_, ...) __VA_ARGS__
 #define _M_IF1(_1_, ...) _1_
 #define _M_PROBE(_1_) _1_, 1,
+#define _M_NNOT(_1_) _M_CHECK(M_JOIN(_M_NOT, _1_))
 #define _M_NOT0 _M_PROBE(/*empty*/)
 #define _M_BOOL0(...) 0
-#define _M_BOOL1(...) _M_REVERS(M_NOT(__VA_ARGS__))
+#define _M_BOOL1(...) _M_REVERS(_M_NNOT(__VA_ARGS__))
 #define _M_REVERS(_1_) M_JOIN(_M_REVERS, _1_)
 #define _M_REVERS0 1
 #define _M_REVERS1 0
