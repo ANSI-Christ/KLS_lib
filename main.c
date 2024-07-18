@@ -133,17 +133,18 @@ void main(){
     CLASS GUI_SLIDER *s1=GUI_widgetNew(GUI_SLIDER_H)(gui,"s1",0,3,1);
     CLASS GUI_SLIDER *s2=GUI_widgetNew(GUI_SLIDER_V)(gui,"s2",-99,0,1.5);
     CLASS GUI_CANVAS *cnv=GUI_widgetNew(GUI_CANVAS)(gui,"plot",300,200);
-    CLASS GUI_LABEL *dateTime=GUI_widgetNew(GUI_LABEL)(gui,"dateTime",NULL);
+    CLASS GUI_LABEL *dateTime=GUI_widgetNew(GUI_LABEL)(gui,"dateTime","                                             ");
 
     gui->setFps(gui,30);
     gui->widthMax=gui->width<<2;
     gui->heightMax=gui->height<<2;
 
+
     KLS_signalSetHandler(SIGINT,KLS_SIGNAL_MODE_UNBLOCK,SIG_IGN);
 
     KLS_timerStart(timers[1],0,1000,KLS_LMBD(void,(CLASS GUI_LABEL *l){
         KLS_t_DATETIME dt=KLS_dateTimeSystem();
-        KLS_string(&l->text,"%0*d.%0*d.%0*d\n%0*d.%0*d.%0*d",2,dt.day,2,dt.month,4,dt.year,2,dt.hour,2,dt.minute,2,dt.second);
+        sprintf(l->text,"%0*d.%0*d.%0*d\n%0*d.%0*d.%0*d",2,dt.day,2,dt.month,4,dt.year,2,dt.hour,2,dt.minute,2,dt.second);
         KLS_stringRect(l->text,NULL,&l->width,&l->height);
     }),dateTime);
 
@@ -221,117 +222,4 @@ void main(){
     for(i=0;i<KLS_ARRAY_LEN(timers);++i)
         KLS_timerDestroy(timers+i);
     GUI_widgetDelete(&gui);
-}
-
-
-#define CLASS_BEGIN__A \
-    constructor(float x,float y)(\
-    (void)x;(void)y;\
-    )
-CLASS_END(A);
-CLASS_COMPILE(A)(
-
-);
-
-#define CLASS_BEGIN__B \
-    extends(A),\
-    constructor(float x,float y,float z)(\
-        super(self,x,y);\
-        (void)z;\
-    )
-CLASS_END(B);
-CLASS_COMPILE(B)(
-
-);
-
-#define CLASS_BEGIN__C \
-    extends(A),\
-    constructor()(\
-        super(self,4,5);\
-    )
-CLASS_END(C);
-CLASS_COMPILE(C)(
-
-);
-
-multitype mftx(int x){
-    float a=x*1.3;
-    int b=x<<1;
-    char c='0'+x;
-    return (a,b,c);
-}
-
-
-void _task1(KLS_THREAD_ARGS(int x,int y,int z) i){
-    float a;
-    int b;
-    char c;
-    printf("%d %d %d\n",i->x,i->y,i->z);
-    printf("%d\n",KLS_MIN(3,0,1,2,0,3));
-    let(,,c)=mftx(2);
-    printf("%f %d %c\n\n",a,b,c);
-}
-
-int mainT()
-{
-    {
-        KLS_t_THREAD t=KLS_threadCreate(1);
-
-        KLS_threadTask(t,_task1,2,3,4);
-
-        KLS_threadDestroyLater(&t);
-    }
-    {
-        CLASS A c;
-        A()->constructor(&c,1,2);
-        printf("dtor %p\n",c.destructor);
-    }
-
-     {
-        CLASS A c;
-        B()->constructor(&c,1,2,3);
-        printf("dtor %p\n",c.destructor);
-    }
-
-    {
-        CLASS A c;
-        C()->constructor(&c);
-        printf("dtor %p\n",c.destructor);
-    }
-    #define _M1(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))(printf("bla\n");)
-    M_FOREACH(_M1,-,)
-    //printf("%f, %f, %d\n",c.x,c.y,c.z);
-
-    return 0;
-}
-
-double GxG[2048]={1.3,6.6};
-
-
-void mainTt(){
-    int i;
-
-    printf("rt 1 : %f\n",KLS_RUNTIME(
-        for(i=0;i<100000;++i) memmove(GxG,GxG+KLS_ARRAY_LEN(GxG)/2,sizeof(GxG)/2);
-    ));
-    printf("rt 2 : %f\n",KLS_RUNTIME(
-        for(i=0;i<100000;++i) KLS_memmove(GxG,GxG+KLS_ARRAY_LEN(GxG)/2,sizeof(GxG)/2);
-    ));
-    printf("rt 3 : %f\n",KLS_RUNTIME(
-        //for(i=0;i<100000;++i) KLS_memmove2(GxG,GxG+KLS_ARRAY_LEN(GxG)/2,sizeof(GxG)/2);
-    ));
-
-    printf("\n\n%f\n\n",GxG[1024]);
-
-    printf("rt 1 : %f\n",KLS_RUNTIME(
-        for(i=0;i<100000;++i) memmove(GxG+KLS_ARRAY_LEN(GxG)/2,GxG,sizeof(GxG)/2);
-    ));
-    printf("rt 2 : %f\n",KLS_RUNTIME(
-        for(i=0;i<100000;++i) KLS_memmove(GxG+KLS_ARRAY_LEN(GxG)/2,GxG,sizeof(GxG)/2);
-    ));
-    printf("rt 3 : %f\n",KLS_RUNTIME(
-        //for(i=0;i<100000;++i) KLS_memmove2(GxG+KLS_ARRAY_LEN(GxG)/2,GxG,sizeof(GxG)/2);
-    ));
-
-    printf("\n\n%f\n\n",GxG[0]);
 }
