@@ -174,6 +174,7 @@ void *KLS_matrixAts_hrc(const KLS_t_MATRIX *m,int r,int c){
         return m->data+(_KLS_matrixLoop(r,m->_.rr)*m->_.rc+c)*m->elSize;
     } return NULL;
 }
+
 void *KLS_matrixAts____(const KLS_t_MATRIX *m,unsigned int r,unsigned int c){
     if(r<m->rows && c<m->columns){
         r+=m->subRow;
@@ -420,24 +421,18 @@ void KLS_matrixPutMatrix(KLS_t_MATRIX *matrix,int row,int column,const KLS_t_MAT
         }else if(matrix->elSize==element->elSize){
             for(i=0;i<element->rows;++i)
                 for(j=0;j<element->columns;++j)
-                    if( (dst=KLS_matrixAt(matrix,row+i,column+j)) )
-                        memcpy(dst,KLS_matrixAt(element,i,j),matrix->elSize);
+                    KLS_matrixPutElement(matrix,row+i,column+j,element);
         }
     }
 }
 
-
-void _KLS_matrixSS_BB(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
-    void *tmp=KLS_matrixAt(to,to->rows-1,to->columns-1);
-    int is,js,ib,jb;
-    float rSt,rEnd,cSt,cEnd;
-    float r=((double)to->rows)/from->rows, c=((double)to->columns)/from->columns;
+void _KLS_matrixSS_BB(const KLS_t_MATRIX * const from,KLS_t_MATRIX * const to,void * const tmp,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
+    unsigned int is,js,ib,jb;
+    const float r=((double)to->rows)/from->rows, c=((double)to->columns)/from->columns;
     for(is=0;is<from->rows;++is){
-        rSt=round(r*is);
-        rEnd=round(r*(is+1));
+        const unsigned int rSt=round(r*is), rEnd=round(r*(is+1));
         for(js=0;js<from->columns;++js){
-            cSt=round(c*js);
-            cEnd=round(c*(js+1));
+            const unsigned int cSt=round(c*js), cEnd=round(c*(js+1));
             if(transformer(KLS_matrixAt(from,is,js),tmp,arg))
                 for(ib=rSt;ib<rEnd;++ib)
                     for(jb=cSt;jb<cEnd;++jb)
@@ -446,29 +441,23 @@ void _KLS_matrixSS_BB(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transf
     }
 }
 
-void _KLS_matrixBS_SB(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
-    void *tmp=KLS_matrixAt(to,to->rows-1,to->columns-1);
-    int is,js,jb;
-    float cSt,cEnd;
-    float r=((double)from->rows)/to->rows, c=((double)to->columns)/from->columns;
-    for(is=0;is<to->rows;++is)
-        for(js=0;js<from->columns;++js){
-            cSt=round(c*js);
-            cEnd=round(c*(js+1));
+void _KLS_matrixBS_SB(const KLS_t_MATRIX * const from,KLS_t_MATRIX * const to,void * const tmp,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
+    unsigned int is,js,jb;
+    const float r=((double)from->rows)/to->rows, c=((double)to->columns)/from->columns;
+    for(js=0;js<from->columns;++js){
+        const unsigned int cSt=round(c*js), cEnd=round(c*(js+1));
+        for(is=0;is<to->rows;++is)
             if(transformer(KLS_matrixAt(from,round(is*r),js),tmp,arg))
                 for(jb=cSt;jb<cEnd;++jb)
                     KLS_matrixPutElement(to,is,jb,tmp);
-        }
+    }
 }
 
-void _KLS_matrixSB_BS(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
-    void *tmp=KLS_matrixAt(to,to->rows-1,to->columns-1);
-    int is,js,ib;
-    float rSt,rEnd;
-    float r=((double)to->rows)/from->rows, c=((double)from->columns)/to->columns;
+void _KLS_matrixSB_BS(const KLS_t_MATRIX * const from,KLS_t_MATRIX * const to,void * const tmp,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
+    unsigned int is,js,ib;
+    const float r=((double)to->rows)/from->rows, c=((double)from->columns)/to->columns;
     for(is=0;is<from->rows;++is){
-        rSt=round(r*is);
-        rEnd=round(r*(is+1));
+        const unsigned int rSt=round(r*is), rEnd=round(r*(is+1));
         for(js=0;js<to->columns;++js)
             if(transformer(KLS_matrixAt(from,is,round(js*c)),tmp,arg))
                 for(ib=rSt;ib<rEnd;++ib)
@@ -476,24 +465,21 @@ void _KLS_matrixSB_BS(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transf
     }
 }
 
-void _KLS_matrixBB_SS(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
-    void *tmp=KLS_matrixAt(to,to->rows-1,to->columns-1);
-    int is,js;
-    float r=((double)from->rows)/to->rows, c=((double)from->columns)/to->columns;
+void _KLS_matrixBB_SS(const KLS_t_MATRIX * const from,KLS_t_MATRIX * const to,void * const tmp,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
+    unsigned int is,js;
+    const float r=((double)from->rows)/to->rows, c=((double)from->columns)/to->columns;
     for(is=0;is<to->rows;++is)
         for(js=0;js<to->columns;++js)
-            if(transformer(KLS_matrixAt(from,round(is*r),round(js*c)),tmp,arg))
-                KLS_matrixPutElement(to,is,js,tmp);
+            transformer(KLS_matrixAt(from,round(is*r),round(js*c)),KLS_matrixAt(to,is,js),arg);
 }
 
-KLS_byte _KLS_matrixTransformerDefault(const void *src,void *dst,const KLS_TYPEOF(KLS_ABSTRACT(KLS_t_MATRIX)->elSize) *size){ memcpy(dst,src,*size); return 1; }
+KLS_byte _KLS_matrixTransformerDefault(const void * const src,void * const dst,const KLS_TYPEOF(KLS_ABSTRACT(KLS_t_MATRIX)->elSize) *size){ if(dst && src){memcpy(dst,src,*size); return 1;} return 0; }
 
-KLS_byte KLS_matrixTransform(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
+KLS_byte KLS_matrixTransform(const KLS_t_MATRIX * const from,KLS_t_MATRIX * const to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
     if(from && from->data && to && to->data){
-        KLS_byte(*action)(const void*,void*,void*)=transformer;
-        if(!action){
+        if(!transformer){
             if(from->elSize==to->elSize){
-                action=(void*)_KLS_matrixTransformerDefault;
+                transformer=(void*)_KLS_matrixTransformerDefault;
                 arg=KLS_UNCONST(&from->elSize);
             }else return 0;
         }
@@ -501,12 +487,18 @@ KLS_byte KLS_matrixTransform(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(
             unsigned int i,j;
             for(i=0;i<from->rows;++i)
                 for(j=0;j<from->columns;++j)
-                    action(KLS_matrixAt(from,i,j),KLS_matrixAt(to,i,j),arg);
-        }else
-            ((void(*[2][2])(const KLS_t_MATRIX*,KLS_t_MATRIX*,KLS_byte(*)(const void*,void*,void*),void*)){
+                    transformer(KLS_matrixAt(from,i,j),KLS_matrixAt(to,i,j),arg);
+        }else{
+            char local[256], *p=local;
+            if(to->elSize>sizeof(local) && !(p=malloc(to->elSize))){
+                errno=ENOMEM; return 0;
+            }
+            ((void(*[2][2])(const KLS_t_MATRIX*,KLS_t_MATRIX*,void*,KLS_byte(*)(const void*,void*,void*),void*)){
                 {_KLS_matrixSS_BB,_KLS_matrixSB_BS},
                 {_KLS_matrixBS_SB,_KLS_matrixBB_SS},
-            })[from->rows>to->rows][from->columns>to->columns](from,to,action,arg);
+            })[from->rows>to->rows][from->columns>to->columns](from,to,p,transformer,arg);
+            if(p!=local) free(p);
+        }
         return 1;
     } return 0;
 }

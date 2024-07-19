@@ -78,16 +78,16 @@ int poll(struct pollfd *p,int cnt,int timeout){
 //////////////////////////////////////////////////////////////////////////////////////////
 
 typedef struct{
-    socklen_t l;
     union{
         struct sockaddr_storage st;
         struct sockaddr sa;
         struct sockaddr_in a4;
         struct sockaddr_in6 a6;
     }d;
+    socklen_t l;
 }_NET_t_ADDR;
 
-#define _NET_ADDR(_var_) _NET_t_ADDR _var_={sizeof(_var_.d)}
+#define _NET_ADDR(_var_) _NET_t_ADDR _var_={.l=sizeof(_var_.d)}
 
 KLS_byte _NET_addrFromNet(const _NET_t_ADDR *in,NET_t_ADDRESS *out){
     out->created=0;

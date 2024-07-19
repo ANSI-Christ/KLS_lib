@@ -110,7 +110,7 @@ typedef int           KLS_COLOR;
 #define _KLS_MAIN3(...) argc,argv,env
 #define main(...)\
     __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
-    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_libInit(); KLS_execNameSet(argv[0]); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)(__VA_ARGS__));}\
+    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); KLS_libInit(); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)());}\
     KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -448,7 +448,6 @@ KLS_INIT(const KLS_byte _KLS_isfpnum[],={
 int KLS_backTrace(void *address[],int count);
 
 void KLS_libInit();
-void KLS_libTest();
 void KLS_execKill();
 void KLS_libRunInfo();
 void KLS_pausef(double sec);
@@ -1054,8 +1053,6 @@ struct _NET_t_UNIT{
 
 extern const KLS_byte NET_R;
 extern const KLS_byte NET_W;
-
-int NET_errno();
 
 
 NET_t_ADDRESS NET_address(const char *host,unsigned short port);

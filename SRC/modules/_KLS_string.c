@@ -171,6 +171,7 @@ KLS_size _KLS_solveFac(KLS_size x){
 
 const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, const char *r, char *tmp){
     KLS_byte chk=(!!l) | ((!!r)<<1);
+    sprintf(tmp,"err");
     switch(*op){
         case '+': sprintf(tmp,frmt,strtod(l,0) + strtod(r,0)); return tmp;
         case '-': sprintf(tmp,frmt,strtod(l,0) - strtod(r,0)); return tmp;
@@ -180,25 +181,23 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
         case '%': sprintf(tmp,frmt,KLS_mod(strtod(l,0),strtod(r,0))); return tmp;
         case '~':{
             int64_t vr=strtod(r,0);
-            if(vr>INT_MAX) sprintf(tmp,KLS_FORMAT_LONG(d),~vr);
-            else sprintf(tmp,"%d",~(int32_t)vr); 
+            if(vr<=INT_MAX) sprintf(tmp,"%d",~(int)vr);
             return tmp;
         }
         case '^':{
             int64_t vl=strtod(l,0),vr=strtod(r,0);
-            if(vl>INT_MAX || vr>INT_MAX) sprintf(tmp,KLS_FORMAT_LONG(d),vl ^ vr);
-            else sprintf(tmp,"%d",(int32_t)vl ^ (int32_t)vr); 
+            if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl ^ (int)vr);
             return tmp;
         }
         case '!':
             switch(chk){
                 case 1:{
                     double v=strtod(l,0);
-                    if(v<0.) sprintf(tmp,"-" KLS_FORMAT_LONG(u),_KLS_solveFac(-v));
-                    else sprintf(tmp,KLS_FORMAT_LONG(u),_KLS_solveFac(v));
+                    if(v<0.) sprintf(tmp,"-%.0f" ,0.01+(double)_KLS_solveFac(-v));
+                    else sprintf(tmp,"-%.0f",0.01+(double)_KLS_solveFac(v));
                     return tmp;
                 }
-                case 2: tmp[0]='0'+!strtod(r,0); tmp[1]=0;return tmp; // logical negative
+                case 2: tmp[0]='0'+!strtod(r,0); tmp[1]=0; return tmp; // logical negative
                 case 3: break;
             }
     }
@@ -217,34 +216,30 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
     if(!strncmp(op,"<=",2)) {tmp[0]='0'+(strtod(l,0) <= strtod(r,0)); tmp[1]=0; return tmp;}
     if(!strncmp(op,"==",2)) {tmp[0]='0'+(strtod(l,0) == strtod(r,0)); tmp[1]=0; return tmp;}
     if(!strncmp(op,"!=",2)) {tmp[0]='0'+(strtod(l,0) != strtod(r,0)); tmp[1]=0; return tmp;}
-    if(!strncmp(op,"<<",2)) {\
-        int64_t vl=strtod(l,0);int vr=strtod(r,0);\
-        if(vl>INT_MAX) sprintf(tmp,KLS_FORMAT_LONG(d),vl << vr);\
-            else sprintf(tmp,"%d",((int32_t)vl) << vr);\
-        return tmp;\
+    if(!strncmp(op,"<<",2)) {
+        int64_t vl=strtod(l,0), vr=strtod(r,0);
+        if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",((int)vl) << ((int)vr));
+        return tmp;
     }
-    if(!strncmp(op,">>",2)) {\
-        int64_t vl=strtod(l,0);int vr=strtod(r,0);\
-        if(vl>INT_MAX) sprintf(tmp,KLS_FORMAT_LONG(d),vl >> vr);\
-            else sprintf(tmp,"%d",((int32_t)vl) >> vr);\
-        return tmp;\
+    if(!strncmp(op,">>",2)) {
+        int64_t vl=strtod(l,0), vr=strtod(r,0);
+        if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",((int)vl) << ((int)vr));
+        return tmp;
     }
 
     if(*op=='>') {tmp[0]='0'+(strtod(l,0) > strtod(r,0)); tmp[1]=0; return tmp;}
     if(*op=='<') {tmp[0]='0'+(strtod(l,0) < strtod(r,0)); tmp[1]=0; return tmp;}
-    if(*op=='&') {\
-        int64_t vl=strtod(l,0),vr=strtod(r,0);\
-        if(vl>INT_MAX || vr>INT_MAX) sprintf(tmp,KLS_FORMAT_LONG(d),vl & vr);\
-            else sprintf(tmp,"%d",(int32_t)vl & (int32_t)vr);\
-        return tmp;\
+    if(*op=='&') {
+        int64_t vl=strtod(l,0),vr=strtod(r,0);
+        if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl & (int)vr);
+        return tmp;
     }
-    if(*op=='|') {\
-        int64_t vl=strtod(l,0),vr=strtod(r,0);\
-        if(vl>INT_MAX || vr>INT_MAX) sprintf(tmp,KLS_FORMAT_LONG(d),vl | vr);\
-            else sprintf(tmp,"%d",(int32_t)vl | (int32_t)vr);\
-        return tmp;\
+    if(*op=='|') {
+        int64_t vl=strtod(l,0),vr=strtod(r,0);
+        if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl | (int)vr);
+        return tmp;
     }
-    return NULL;
+    return tmp;
 }
 
 KLS_byte _KLS_solveReplace(char *str,const char *from,const char *to,char *tmp){
@@ -406,7 +401,7 @@ KLS_byte _KLS_solveMake(const char *str,KLS_t_SOLVE *s,int precision){
             s->tmp=s->unBreckets+len1;       s->tmp[-1]=s->tmp[0]=0;
             s->tmp2=s->tmp+len1;             s->tmp2[-1]=s->tmp2[0]=0;
             s->tmp3=s->tmp2+len2;            s->tmp3[-1]=s->tmp3[0]=0;
-            strcat(s->str,"("); strcat(s->str,str); strcat(s->str,")");
+            sprintf(s->str,"(%s)",str);
             _KLS_solveRemoveSymbols(s->str,"\t\n ",s->tmp);
             return 1;
         }
