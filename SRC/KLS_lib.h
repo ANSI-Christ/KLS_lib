@@ -187,7 +187,6 @@ typedef struct __KLS_t_HEAP_NODE{
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
 #define KLS_NAN  (0.0/0.0)
 #define KLS_INF  (1.0/0.0)
 
@@ -220,11 +219,6 @@ typedef struct __KLS_t_HEAP_NODE{
 #define KLS_COLOR_GREY           KLS_RGB(128, 128, 128)
 #define KLS_COLOR_DARK_GREY      KLS_RGB(88, 88, 88)
 #define KLS_COLOR_LIGHT_GREY     KLS_RGB(195, 195, 195)
-
-
-typedef struct _KLS_t_THREAD*       KLS_t_THREAD;
-
-typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
 
 
 typedef struct{
@@ -337,8 +331,8 @@ typedef struct{
 
 typedef struct{
     unsigned short division; // default 2
-    KLS_byte gridOn; //default off
-    const char *format; //default "%.0f"
+    KLS_byte gridOn;         // default off
+    const char *format;      // default "%.0f"
 }KLS_t_AXIS;
 
 
@@ -575,6 +569,8 @@ void SYS_timerDestroy(SYS_t_TIMER *timer);
 #define KLS_THREAD_POLICY_FIFO   SCHED_FIFO
 #define KLS_THREAD_POLICY_RR     SCHED_RR
 
+typedef struct _KLS_t_THREAD*       KLS_t_THREAD;
+
 pthread_t KLS_threadPosix(KLS_t_THREAD id);
 
 KLS_t_THREAD KLS_threadSelf();
@@ -597,6 +593,8 @@ const char *KLS_threadPolicyName(int policy);
 
 
 // THREAD POOL SECTION
+
+typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
 
 KLS_t_THREAD_POOL KLS_threadPoolSelf();
 KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb);

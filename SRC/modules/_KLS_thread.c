@@ -6,6 +6,7 @@ void _KLS_threadClose(){ if(_KLS_threadStatus) pthread_key_delete(_KLS_threadKey
 
 KLS_byte _KLS_threadAttr(void *a,size_t s){
     do{
+        if(!_KLS_threadStatus) return 0;
         if(pthread_attr_init(a)) return 0;
         if(s && pthread_attr_setstacksize(a,s<<10)) break;
         if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
@@ -45,12 +46,11 @@ void _KLS_threadQueueDeleter(_KLS_t_THREAD_TASK *t){ KLS_free(t->args); }
 
 KLS_byte _KLS_threadSync(_KLS_t_THREAD_HELP *help,KLS_t_THREAD id){
     #define _THR_RET(_code_) sem_post(&help->sem); return _code_
-    if(!_KLS_threadStatus) { _THR_RET(1); }
-    if(sem_init(&id->request,0,0)) { _THR_RET(2); }
-    if(sem_init(&id->answer,0,0)) { sem_destroy(&id->request); _THR_RET(3); }
+    if(sem_init(&id->request,0,0)) { _THR_RET(1); }
+    if(sem_init(&id->answer,0,0)) { sem_destroy(&id->request); _THR_RET(2); }
     if(help->mtx) id->mtx=help->mtx;
-    else if(pthread_mutex_init((id->mtx=&id->_mtx),NULL)) { sem_destroy(&id->request); sem_destroy(&id->answer); _THR_RET(4); }
-    if(pthread_setspecific(_KLS_threadKey,(help->id=id))) { pthread_mutex_destroy(&id->_mtx); sem_destroy(&id->request); sem_destroy(&id->answer); _THR_RET(5); }
+    else if(pthread_mutex_init((id->mtx=&id->_mtx),NULL)) { sem_destroy(&id->request); sem_destroy(&id->answer); _THR_RET(3); }
+    if(pthread_setspecific(_KLS_threadKey,(help->id=id))) { pthread_mutex_destroy(&id->_mtx); sem_destroy(&id->request); sem_destroy(&id->answer); _THR_RET(4); }
     if(help->queue) id->queue=help->queue;
     else *(id->queue=&id->_queue)=KLS_queueNew(KLS_FIFO,sizeof(_KLS_t_THREAD_TASK),(void*)_KLS_threadQueueDeleter);
     _THR_RET(0);
@@ -124,13 +124,9 @@ KLS_byte _KLS_threadTaskAddQueue(KLS_t_THREAD id,void *task,void *args,unsigned 
     return ret;
 }
 
-void _KLS_threadTaskAddSignalize(KLS_t_THREAD *id, unsigned int count){
-    while(count--) sem_post(&id[count]->request);
-}
-
 KLS_byte _KLS_threadTask(KLS_t_THREAD id,void *task,void *args,unsigned int argsCount){
     if(_KLS_threadTaskAddQueue(id,task,args,argsCount)){
-        _KLS_threadTaskAddSignalize(&id,1);
+        sem_post(&id->request);
         return 1;
     } return 0;
 }
@@ -200,7 +196,7 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb){
     KLS_t_THREAD_POOL p=NULL;
     pthread_attr_t a[1];
     if(count && _KLS_threadAttr(a,stackSize_kb)){
-        if( (p=KLS_malloc(sizeof(*p)+sizeof(KLS_t_THREAD)*(count))) ){
+        if( (p=KLS_malloc(sizeof(*p)+sizeof(*p->threads)*(count))) ){
             memset(p,0,sizeof(*p)+sizeof(*p->threads)*(count));
             if(pthread_mutex_init(&p->mtx,NULL)){
                 KLS_threadPoolDestroy(&p);
@@ -278,7 +274,8 @@ KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,KLS_size sec,KLS_size nan
 
 KLS_byte _KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void *task,void *args,unsigned int argsCount){
     if(_KLS_threadTaskAddQueue(pool?pool->threads[0].id:NULL,task,args,argsCount)){
-        _KLS_threadTaskAddSignalize((void*)pool->threads,pool->count);
+        argsCount=pool->count;
+        while(argsCount) sem_post(&pool->threads[--argsCount].id->request);
         return 1;
     } return 0;
 }

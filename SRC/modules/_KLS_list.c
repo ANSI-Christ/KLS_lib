@@ -169,7 +169,7 @@ void KLS_listRemove(KLS_t_LIST *list,void *element){
 }
 
 void KLS_listMoveAfter(KLS_t_LIST *list,void *element,void *current){
-    if(element!=current){
+    if(list && element!=current){
         void *n;
         _KLS_listUnlink(list,element);
         if( (n=KLS_listNext(current)) ){
@@ -182,7 +182,7 @@ void KLS_listMoveAfter(KLS_t_LIST *list,void *element,void *current){
 }
 
 void KLS_listMoveBefore(KLS_t_LIST *list,void *element,void *current){
-    if(element!=current){
+    if(list && element!=current){
         void *n;
         _KLS_listUnlink(list,element);
         if( (n=KLS_listPrev(current)) ){
@@ -228,6 +228,7 @@ void KLS_listSort(KLS_t_LIST *list, KLS_byte(*comparator)(const void *prev,const
 KLS_t_LIST KLS_listMerge(KLS_t_LIST *list_1, KLS_t_LIST *list_2){
     KLS_t_LIST l={0};
     if(list_1 && list_2){
+        if(list_1==list_2) return *list_1;
         if(!list_1->size) KLS_swap(&list_1,&list_2,sizeof(list_1));
         if(list_1->last){
             if( (KLS_listNext(list_1->last)=list_2->first) ){
