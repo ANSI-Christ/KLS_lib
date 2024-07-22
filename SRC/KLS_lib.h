@@ -577,6 +577,7 @@ KLS_t_THREAD KLS_threadSelf();
 KLS_t_THREAD KLS_threadCreate(size_t stackSize_kb);
 
 void KLS_threadWait(KLS_t_THREAD id);
+void KLS_threadClear(KLS_t_THREAD id);
 void KLS_threadDestroy(KLS_t_THREAD *id);
 void KLS_threadDestroyLater(KLS_t_THREAD *id);
 
@@ -600,6 +601,7 @@ KLS_t_THREAD_POOL KLS_threadPoolSelf();
 KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb);
 
 void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
+void KLS_threadPoolClear(KLS_t_THREAD_POOL pool);
 void KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool);
 void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
 
