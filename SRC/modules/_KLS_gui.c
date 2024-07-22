@@ -102,7 +102,7 @@ _mark:
 
 void _GUI_widgetUpdate(CLASS GUI_WIDGET *w){
     w->core.update(w);
-    if(w==w->gui) w->m=w->gui->display.m;
+    if((void*)w==w->gui) w->m=w->gui->display.m;
     else w->m=KLS_matrixGetMatrix(&w->parent->m,w->y,w->x,w->height,w->width,w->m.options);
     w=w->last;
     while(w){

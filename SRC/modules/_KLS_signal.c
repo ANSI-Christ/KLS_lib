@@ -7,7 +7,7 @@
 
 void *KLS_signalSetHandler(int sigNum,int mode,void(*handler)(int sigNum)){
     if(mode!=KLS_SIGNAL_MODE_DEFAULT){
-        sigset_t s[1];
+        sigset_t s[1]; if(0) (void)s;
         sigemptyset(s);
         sigaddset(s,sigNum);
         mode=(mode==KLS_SIGNAL_MODE_BLOCK ? SIG_BLOCK : SIG_UNBLOCK);
@@ -26,6 +26,7 @@ int KLS_signalGetMode(int sigNum){
     sigemptyset(s);
     pthread_sigmask(0,NULL,s);
     return sigismember(s,sigNum)?KLS_SIGNAL_MODE_UNBLOCK:KLS_SIGNAL_MODE_BLOCK;
+    (void)s; (void)sigNum;
 }
 
 

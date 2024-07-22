@@ -1,8 +1,8 @@
 #define NOMINMAX
+#include <winsock2.h>
 #include <windows.h>
 #include <imagehlp.h>
 #include <ws2tcpip.h>
-#include <winsock2.h>
 
 #include "__KLS_WinApi.h"
 
@@ -13,7 +13,7 @@ KLS_byte KLS_fsDirCreate(const char *directory){
 
 const char *KLS_execNameGet(){
     if(!_KLS_execName){
-        char *l=GetCommandLine(), *a=l;
+        char *l=GetCommandLineA(), *a=l;
         KLS_execNameSet(l);
         if( (l=strchr(l,' ')) ) *l=0;
         while( (a=strchr(a,'\\')) ) *a='/';
@@ -36,7 +36,7 @@ KLS_byte KLS_sysInfoRam(KLS_size *left,KLS_size *all){
 
 KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all){
     ULARGE_INTEGER f,t;
-    if(GetDiskFreeSpaceEx(folder, NULL, &t, &f)){
+    if(GetDiskFreeSpaceExA(folder, NULL, &t, &f)){
         if(all) *all=t.QuadPart;
         if(left) *left=f.QuadPart;
         return 1;
@@ -71,7 +71,7 @@ M_FOREACH(_KLS_PTHREAD_KILL,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,
 
 static void *_pthread_killFunc(int sig){
 #define _KLS_PTHREAD_KILL(_1_,_2_,_sig_) case _sig_:return _pthread_kill_##_sig_;
-    if(KLS_signalGetString(sig));
+    if(KLS_signalGetString(sig))
         switch(sig){
             M_FOREACH(_KLS_PTHREAD_KILL,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
         }
@@ -129,7 +129,7 @@ static int pthread_kill_win(pthread_t t,int sig){
     void *f=_pthread_killFunc(sig);
     if(p && f){
         CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
-        void **x=_CtxCtrlReg(c);
+        void **x=(void*)_CtxCtrlReg(c);
         SuspendThread(p);
         GetThreadContext(p,&c);
         *x=f;
@@ -220,6 +220,7 @@ struct _SYS_t_TIMER{
 void _SYS_timerCall(SYS_t_TIMER t,char go){
     if(t->run) t->f(t,t->arg);
     if(t->run & 1) t->run=0;
+    if(0) (void)go;
 }
 
 #define _SYS_TIMER_MAXT (~(unsigned int)0)

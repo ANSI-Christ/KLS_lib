@@ -41,7 +41,7 @@ int _GUI_setKey(GUI_t_DISPLAY *d,MSG *e,int event){
             if(GetKeyboardState(s) && ToAscii(e->wParam,e->lParam,s,k,0)==1)
                 return _GUI_setKeyboard(d,event,k[0],e->wParam);
         }
-    } printf("win key:%x\n",e->wParam); return GUI_EVENT_UPDATE;
+    } printf("win key:%x\n",(int)e->wParam); return GUI_EVENT_UPDATE;
 #undef GUI_KCASE
 }
 
@@ -104,7 +104,7 @@ void _displayClassFree(){UnregisterClass(_displayClassReg(),0);}
 
 GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height){
     GUI_t_DISPLAY res={};
-    HWND w=CreateWindow(_displayClassReg(),L"\0\0",WS_VISIBLE|WS_CAPTION|WS_BORDER|WS_MINIMIZEBOX|WS_SYSMENU,x,y,50,50,NULL,NULL,NULL,NULL);
+    HWND w=CreateWindow(_displayClassReg(),L" ",WS_VISIBLE|WS_CAPTION|WS_BORDER|WS_MINIMIZEBOX|WS_SYSMENU,x,y,50,50,NULL,NULL,NULL,NULL);
     if(w){
         UpdateWindow(w);
         res._.osDep[0].p=w; res._.osDep[1].p=GetDC(w);
@@ -148,7 +148,6 @@ void GUI_displayDraw(GUI_t_DISPLAY *d){
 
 void GUI_displayFree(GUI_t_DISPLAY *d){
     if(d->_.osDep[0].p){
-        MSG msg;
         ReleaseDC(d->_.osDep[0].p, d->_.osDep[1].p);
         DestroyWindow(d->_.osDep[0].p);
     }

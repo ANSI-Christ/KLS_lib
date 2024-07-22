@@ -59,6 +59,7 @@ void *_KLS_timerThread(void *arg){
         tWait=tMin;
     }
     return NULL;
+    (void)arg;
 }
 
 void _KLS_timerClose(){
