@@ -580,10 +580,10 @@ void KLS_threadWait(KLS_t_THREAD id);
 void KLS_threadDestroy(KLS_t_THREAD *id);
 void KLS_threadDestroyLater(KLS_t_THREAD *id);
 
+KLS_byte KLS_threadWaitTime(KLS_t_THREAD id,unsigned int msec);
 KLS_byte KLS_threadPolicySet(pthread_t tid,int policy,int priority);
 KLS_byte KLS_threadPolicyGet(pthread_t tid,int *policy,int *priority);
 KLS_byte KLS_threadTask(KLS_t_THREAD id,void(*task)(void *args),...);
-KLS_byte KLS_threadWaitTime(KLS_t_THREAD id,KLS_size sec,KLS_size nanosec);
 KLS_byte _KLS_threadTask(KLS_t_THREAD id,void *task,void *args,unsigned int argsCount);
 
 const char *KLS_threadPolicyName(int policy);
@@ -603,8 +603,8 @@ void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
 void KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool);
 void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
 
+KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec);
 KLS_byte KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args),...);
-KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,KLS_size sec,KLS_size nanosec);
 KLS_byte _KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void *task,void *args,unsigned int argsCount);
 
 KLS_t_THREAD KLS_threadPoolAt(KLS_t_THREAD_POOL pool,unsigned int index);

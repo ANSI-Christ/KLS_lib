@@ -142,14 +142,14 @@ typedef struct{
 #define _ADD_OPS(...) KLS_$(KLS_t_SOLVE_OP)(__VA_ARGS__,_ADD_OP(0,NULL,0))
 #define _ADD_OP(left,op,right) {op,op?((sizeof op)-1):0,left,right}
 static const KLS_t_SOLVE_OP *_KLS_solveOps[]={
-    _ADD_OPS( _ADD_OP(0,"!",1),     _ADD_OP(0,"~",1) ), // !2 [=0]
-    _ADD_OPS( _ADD_OP(1,"!",0) ), // 5! [=120]
+    _ADD_OPS( _ADD_OP(0,"!",1),     _ADD_OP(0,"~",1) ),
+    _ADD_OPS( _ADD_OP(1,"!",0) ),
     _ADD_OPS( _ADD_OP(0,"asin",1),  _ADD_OP(0,"acos",1), _ADD_OP(0,"atan",1),
               _ADD_OP(0,"sin",1),   _ADD_OP(0,"cos",1),  _ADD_OP(0,"tan",1),
               _ADD_OP(0,"log10",1), _ADD_OP(0,"log2",1), _ADD_OP(0,"log",1)
             ),
-    _ADD_OPS( _ADD_OP(1,"@",1) ), // pow(l,r)
-    _ADD_OPS( _ADD_OP(1,"*",1),  _ADD_OP(1,"/",1),  _ADD_OP(1,"%",1) ), // 2*2
+    _ADD_OPS( _ADD_OP(1,"@",1) ), /*pow(l,r)*/
+    _ADD_OPS( _ADD_OP(1,"*",1),  _ADD_OP(1,"/",1),  _ADD_OP(1,"%",1) ),
     _ADD_OPS( _ADD_OP(1,"+",1),  _ADD_OP(1,"-",1) ),
     _ADD_OPS( _ADD_OP(1,"<<",1), _ADD_OP(1,">>",1) ),
     _ADD_OPS( _ADD_OP(1,"<=",1), _ADD_OP(1,">=",1), _ADD_OP(1,"<",1), _ADD_OP(1,">",1) ),
@@ -170,6 +170,7 @@ KLS_size _KLS_solveFac(KLS_size x){
 }
 
 const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, const char *r, char *tmp){
+    typedef int64_t BigInt;
     KLS_byte chk=(!!l) | ((!!r)<<1);
     sprintf(tmp,"err");
     switch(*op){
@@ -180,21 +181,21 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
         case '@': sprintf(tmp,frmt,pow(strtod(l,0),strtod(r,0))); return tmp;
         case '%': sprintf(tmp,frmt,KLS_mod(strtod(l,0),strtod(r,0))); return tmp;
         case '~':{
-            int64_t vr=strtod(r,0);
+            BigInt vr=strtod(r,0);
             if(vr<=INT_MAX) sprintf(tmp,"%d",~(int)vr);
             return tmp;
         }
         case '^':{
-            int64_t vl=strtod(l,0),vr=strtod(r,0);
+            BigInt vl=strtod(l,0),vr=strtod(r,0);
             if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl ^ (int)vr);
             return tmp;
         }
         case '!':
             switch(chk){
                 case 1:{
-                    double v=strtod(l,0);
-                    if(v<0.) sprintf(tmp,"-%.0f" ,0.01+(double)_KLS_solveFac(-v));
-                    else sprintf(tmp,"-%.0f",0.01+(double)_KLS_solveFac(v));
+                    BigInt v=strtod(l,0);
+                    if(v<0) sprintf(tmp,"-%.0f" ,1.e-6+_KLS_solveFac(-v));
+                    else sprintf(tmp,"%.0f",1.e-6+_KLS_solveFac(v));
                     return tmp;
                 }
                 case 2: tmp[0]='0'+!strtod(r,0); tmp[1]=0; return tmp; // logical negative
@@ -217,12 +218,12 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
     if(!strncmp(op,"==",2)) {tmp[0]='0'+(strtod(l,0) == strtod(r,0)); tmp[1]=0; return tmp;}
     if(!strncmp(op,"!=",2)) {tmp[0]='0'+(strtod(l,0) != strtod(r,0)); tmp[1]=0; return tmp;}
     if(!strncmp(op,"<<",2)) {
-        int64_t vl=strtod(l,0), vr=strtod(r,0);
+        BigInt vl=strtod(l,0), vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",((int)vl) << ((int)vr));
         return tmp;
     }
     if(!strncmp(op,">>",2)) {
-        int64_t vl=strtod(l,0), vr=strtod(r,0);
+        BigInt vl=strtod(l,0), vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",((int)vl) << ((int)vr));
         return tmp;
     }
@@ -230,12 +231,12 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
     if(*op=='>') {tmp[0]='0'+(strtod(l,0) > strtod(r,0)); tmp[1]=0; return tmp;}
     if(*op=='<') {tmp[0]='0'+(strtod(l,0) < strtod(r,0)); tmp[1]=0; return tmp;}
     if(*op=='&') {
-        int64_t vl=strtod(l,0),vr=strtod(r,0);
+        BigInt vl=strtod(l,0),vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl & (int)vr);
         return tmp;
     }
     if(*op=='|') {
-        int64_t vl=strtod(l,0),vr=strtod(r,0);
+        BigInt vl=strtod(l,0),vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl | (int)vr);
         return tmp;
     }
@@ -247,7 +248,7 @@ KLS_byte _KLS_solveReplace(char *str,const char *from,const char *to,char *tmp){
         unsigned int len=strlen(from);
         const char *begin=str,*end;
         *tmp=0;
-        //printf("replace in %s: \'%s\' to \'%s\'\n",str,from,to);
+        /*printf("replace in %s: \'%s\' to \'%s\'\n",str,from,to);*/
         while((end=strstr(begin,from))){
             strncat(tmp,begin,KLS_PTRSUB(end,begin));
             strcat(tmp,to);

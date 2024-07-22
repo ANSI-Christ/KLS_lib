@@ -33,7 +33,7 @@ struct _KLS_t_THREAD{
     KLS_t_QUEUE _queue;
     pthread_mutex_t _mtx;
     unsigned int poolNumber;
-    volatile KLS_byte _die, _wait;
+    KLS_byte die, wait;
 };
 
 typedef struct{
@@ -65,16 +65,16 @@ void *_KLS_thread(_KLS_t_THREAD_HELP *help){
     while('0'){
         while(sem_wait(&self.request));
 
-        if(self._die==1) break;
+        if(self.die==1) break;
 
         pthread_mutex_lock(self.mtx);
         if(!KLS_queuePop(self.queue,&task)){
-            if(self._die==2){
+            if(self.die){
                 pthread_mutex_unlock(self.mtx);
                 break;
             }
-            if(self._wait){
-                self._wait=0;
+            if(self.wait){
+                self.wait=0;
                 sem_post(&self.answer);
             }
         }
@@ -134,7 +134,7 @@ KLS_byte _KLS_threadTask(KLS_t_THREAD id,void *task,void *args,unsigned int args
 void _KLS_threadDestroy(KLS_t_THREAD *id,KLS_byte die){
     if(id && *id){
         pthread_t tid=(*id)->tid;
-        (*id)->_die=die;
+        (*id)->die=die;
         sem_post(&(*id)->request);
         pthread_join(tid,NULL);
         *id=NULL;
@@ -144,22 +144,29 @@ void _KLS_threadDestroy(KLS_t_THREAD *id,KLS_byte die){
 void KLS_threadDestroy(KLS_t_THREAD *id){ _KLS_threadDestroy(id,1); }
 void KLS_threadDestroyLater(KLS_t_THREAD *id){ _KLS_threadDestroy(id,2); }
 
-void KLS_threadWait(KLS_t_THREAD id){
+void _KLS_threadWaitPost(KLS_t_THREAD id){
     while(!sem_trywait(&id->answer));
-    id->_wait=1; sem_post(&id->request);
-    while(sem_wait(&id->answer));
+    id->wait=1; sem_post(&id->request);
 }
 
-KLS_byte KLS_threadWaitTime(KLS_t_THREAD id,KLS_size sec,KLS_size nanosec){
-    struct timespec t[1];
-    while(!sem_trywait(&id->answer));
-    id->_wait=1; sem_post(&id->request);
-    clock_gettime(CLOCK_REALTIME,t);
-    KLS_timespecAdd(t,sec,nanosec);
-    while(sem_timedwait(&id->answer,t))
-        if(errno==ETIMEDOUT)
-            return 0;
-    return 1;
+void KLS_threadWait(KLS_t_THREAD id){
+    if(id){
+        _KLS_threadWaitPost(id);
+        while(sem_wait(&id->answer));
+    }
+}
+
+KLS_byte KLS_threadWaitTime(KLS_t_THREAD id,unsigned int msec){
+    if(id){
+        struct timespec t[1];
+        _KLS_threadWaitPost(id);
+        clock_gettime(CLOCK_REALTIME,t);
+        KLS_timespecAdd(t,msec/1000,(msec%1000)*1000000);
+        while(sem_timedwait(&id->answer,t))
+            if(errno==ETIMEDOUT)
+                return 0;
+        return 1;
+    } return -1;
 }
 
 pthread_t KLS_threadPosix(KLS_t_THREAD id){
@@ -233,7 +240,7 @@ void _KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool,KLS_byte die){
         KLS_t_THREAD_POOL p=*pool;
         for(i=0;i<p->count;++i){
             KLS_t_THREAD id=p->threads[i].id;
-            id->_die=die;
+            id->die=die;
             p->threads[i].tid=id->tid;
             sem_post(&id->request);
         }
@@ -250,26 +257,29 @@ void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool) { _KLS_threadPoolDestro
 
 
 void KLS_threadPoolWait(KLS_t_THREAD_POOL pool){
-    unsigned int i;
-    for(i=0;i<pool->count;++i)
-        KLS_threadWait(pool->threads[i].id);
+    if(pool){
+        unsigned int i;
+        for(i=0;i<pool->count;++i)
+            _KLS_threadWaitPost(pool->threads[i].id);
+        for(i=0;i<pool->count;++i)
+            while(sem_wait(&pool->threads[i].id->answer));
+    }
 }
 
-KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,KLS_size sec,KLS_size nanosec){
-    struct timespec t[1];
-    unsigned int i;
-    for(i=0;i<pool->count;++i){
-        while(!sem_trywait(&pool->threads[i].id->answer));
-        pool->threads[i].id->_wait=1;
-        sem_post(&pool->threads[i].id->request);
-    }
-    clock_gettime(CLOCK_REALTIME,t);
-    KLS_timespecAdd(t,sec,nanosec);
-    for(i=0;i<pool->count;++i)
-        while(sem_timedwait(&pool->threads[i].id->answer,t))
-            if(errno==ETIMEDOUT)
-                return 0;
-    return 1;
+KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec){
+    if(pool){
+        unsigned int i;
+        struct timespec t[1];
+        for(i=0;i<pool->count;++i)
+            _KLS_threadWaitPost(pool->threads[i].id);
+        clock_gettime(CLOCK_REALTIME,t);
+        KLS_timespecAdd(t,msec/1000,(msec%1000)*1000000);
+        for(i=0;i<pool->count;++i)
+            while(sem_timedwait(&pool->threads[i].id->answer,t))
+                if(errno==ETIMEDOUT)
+                    return 0;
+        return 1;
+    } return -1;
 }
 
 KLS_byte _KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void *task,void *args,unsigned int argsCount){
