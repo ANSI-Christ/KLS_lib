@@ -174,14 +174,16 @@ typedef struct __KLS_t_HEAP_NODE{
     }_N_[1]={{ {_N_,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),PTHREAD_MUTEX_INITIALIZER}, {(void*)_N_,NULL,NULL,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),(_S_)}, {0}, {(void*)(((_KLS_t_HEAP_HEADER*)_N_)+1),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES)} }}
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
+KLS_byte _KLS_threadTask(void *id,void *task);
+KLS_byte _KLS_threadPoolTask(void *pool,void *task);
 #define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
-#define _KLS_THREAD_STRUCT(...) struct{M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char last;}
+#define _KLS_THREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__)}
 #define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
 #define _KLS_THREAD_PACK(_str_,...) M_FOREACH(__KLS_THREAD_PACK,_str_,__VA_ARGS__)
 #define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
 #define _KLS_THREAD_CALL(_ttf_,_id_,_f_,...) ({\
-    _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=KLS_malloc(KLS_OFFSET(*KLS_MVN(_thr1),last));\
-    if(KLS_MVN(_thr1)){_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,_f_,KLS_MVN(_thr1),KLS_OFFSET(*KLS_MVN(_thr1),last));\
+    _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=_f_ ? KLS_malloc(sizeof(*KLS_MVN(_thr1))) : NULL;\
+    if(KLS_MVN(_thr1)){KLS_MVN(_thr1)->p=NULL; KLS_MVN(_thr1)->f=(_f_);_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,KLS_MVN(_thr1));\
 })
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -585,7 +587,6 @@ KLS_byte KLS_threadWaitTime(KLS_t_THREAD id,unsigned int msec);
 KLS_byte KLS_threadPolicySet(pthread_t tid,int policy,int priority);
 KLS_byte KLS_threadPolicyGet(pthread_t tid,int *policy,int *priority);
 KLS_byte KLS_threadTask(KLS_t_THREAD id,void(*task)(void *args),...);
-KLS_byte _KLS_threadTask(KLS_t_THREAD id,void *task,void *args,unsigned int argsCount);
 
 const char *KLS_threadPolicyName(int policy);
 
@@ -607,7 +608,6 @@ void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
 
 KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec);
 KLS_byte KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args),...);
-KLS_byte _KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void *task,void *args,unsigned int argsCount);
 
 KLS_t_THREAD KLS_threadPoolAt(KLS_t_THREAD_POOL pool,unsigned int index);
 
