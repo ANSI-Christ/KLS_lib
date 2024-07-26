@@ -530,10 +530,10 @@ KLS_byte KLS_arrayInsert(void *array,KLS_size arraySize,KLS_size elementSize,KLS
 
 typedef struct _KLS_t_TIMER* KLS_t_TIMER;
 
-KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg),void *arg);
+KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg);
 
 KLS_byte KLS_timerContinue(KLS_t_TIMER timer);
-KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned msInterval,void(*callback)(void *arg),void *arg);
+KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval),void *arg);
 
 void KLS_timerStop(KLS_t_TIMER timer);
 void KLS_timerDestroy(KLS_t_TIMER *timer);
@@ -1213,6 +1213,27 @@ CLASS_END(GUI_LABEL);
         KLS_byte isPressed:1;\
     )
 CLASS_END(GUI_BUTTON);
+
+
+#define CLASS_BEGIN__GUI_PROGRESS\
+    extends(GUI_WIDGET),\
+    constructor(void *parent,const char *id)(\
+        super(self,parent,id);\
+        self->width=100;\
+        self->height=20;\
+        self->format="%.1f";\
+        self->colorBorder=KLS_COLOR_BLACK;\
+        self->colorBackground=KLS_COLOR_GREY;\
+        self->colorProgress=KLS_COLOR_YELLOW;\
+    ),\
+    public(\
+        const char *format;\
+        float value;\
+        KLS_COLOR colorBorder;\
+        KLS_COLOR colorBackground;\
+        KLS_COLOR colorProgress;\
+    )
+CLASS_END(GUI_PROGRESS);
 
 
 #define CLASS_BEGIN__GUI_CANVAS \

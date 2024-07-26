@@ -1,6 +1,6 @@
 
 struct _KLS_t_TIMER{
-    void(*f)(void *arg);
+    void(*f)(void *arg,unsigned int interval);
     void *arg;
     struct timespec time;
     unsigned int msInterval;
@@ -42,7 +42,7 @@ void *_KLS_timerThread(void *arg){
             t=timer->time;
             KLS_timespecSub(&t,tWait.tv_sec,tWait.tv_nsec);
             if( !(t.tv_sec|t.tv_nsec) ){
-                timer->f(timer->arg);
+                timer->f(timer->arg,&timer->msInterval);
                 if(!timer->msInterval){
                     KLS_t_TIMER next=KLS_listNext(timer);
                     timer->run=0; KLS_listMoveAfter(g->list,timer,g->list->last);
@@ -95,7 +95,7 @@ KLS_byte _KLS_timerInit(){
     } return g->create;
 }
 
-KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg),void *arg){
+KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
     KLS_t_TIMER t=NULL;
     pthread_mutex_lock(g->mtx);
@@ -107,7 +107,7 @@ KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg),void *arg){
     return t;
 }
 
-KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned msInterval,void(*callback)(void *arg),void *arg){
+KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval),void *arg){
     if(timer && (msDelay|msInterval) && (callback || timer->f)){
         KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
         pthread_mutex_lock(g->mtx);

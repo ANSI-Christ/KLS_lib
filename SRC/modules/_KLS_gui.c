@@ -429,6 +429,31 @@ CLASS_COMPILE(GUI_LABEL)(
 )
 
 
+void _GUI_progressDraw(CLASS GUI_PROGRESS *self){
+    const int w=KLS_interpol(0,0,self->width,100,self->value);
+    GUI_widgetDrawRectExt(self,0,0,w,self->height,NULL,&self->colorProgress);
+    GUI_widgetDrawRectExt(self,w,0,self->width-w,self->height,NULL,&self->colorBackground);
+    if(self->format){
+        char s[16]; sprintf(s,self->format,self->value);
+        GUI_widgetDrawTextExt(self,self->width>>1,self->height>>1,NULL,KLS_ALIGN_H_MID | KLS_ALIGN_V_MID,s,&self->colorBorder);
+    }
+    GUI_widgetDrawRect(self,0,0,&self->colorBorder,NULL);
+}
+
+void _GUI_progressUpdate(CLASS GUI_PROGRESS *self){
+    if(self->value<0) self->value=0;
+    if(self->value>100) self->value=100;
+}
+
+CLASS_COMPILE(GUI_PROGRESS)(
+    constructor()(
+        self->core.draw=(void*)_GUI_progressDraw;
+        self->core.update=(void*)_GUI_progressUpdate;
+        self->core.insert=(void*)_GUI_insertUp;
+    ),
+)
+
+
 void _GUI_btnDraw(CLASS GUI_BUTTON *self){
     GUI_widgetDrawRect(self,0,0,&self->colorBorder,self->isPressed?&self->colorOn:&self->colorOff);
     GUI_widgetDrawTextExt(self,self->width>>1,self->height>>1,&self->font,KLS_ALIGN_H_MID|KLS_ALIGN_V_MID,self->text,&self->colorText);

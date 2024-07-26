@@ -506,8 +506,8 @@ KLS_byte KLS_matrixTransform(const KLS_t_MATRIX * const from,KLS_t_MATRIX * cons
 
 int _KLS_matrixGetRowAlign(const char *string,unsigned int ofs,unsigned int interval,KLS_byte align){
     int res=1;
-    while(*string)
-        if(*(string++)=='\n')
+    for(;*string;++string)
+        if(*string=='\n')
             ++res;
     res*=ofs; res-=interval;
     return res-((align*res)>>1)+((align==2)-1);
@@ -515,7 +515,7 @@ int _KLS_matrixGetRowAlign(const char *string,unsigned int ofs,unsigned int inte
 
 int _KLS_matrixGetColumnAlign(const char *string,unsigned int ofs,unsigned int interval,KLS_byte align){
     int res=0;
-    while(*string && *(string++)!='\n')
+    for(;*string && *string!='\n';++string)
         ++res;
     res*=ofs; res-=interval;
     return (align*res)>>1;
