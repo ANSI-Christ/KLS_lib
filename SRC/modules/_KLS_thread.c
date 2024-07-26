@@ -278,7 +278,7 @@ void _KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool,KLS_byte die){
         for(i=0;i<p->count;++i) pthread_join(p->threads[i].tid,NULL);
         for(i=0;i<p->count;++i) _KLS_threadFree(p->threads+i,3);
         pthread_mutex_destroy(p->mtx);
-        KLS_queueClear(p->queue);
+        _KLS_threadTasksClear(p->queue);
         KLS_freeData(*pool);
     }
 }

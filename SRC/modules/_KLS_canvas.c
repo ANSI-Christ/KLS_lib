@@ -88,9 +88,9 @@ void KLS_canvasBMPf(const KLS_t_CANVAS *canvas,const char *format,...){
 void KLS_canvasBMP(const KLS_t_CANVAS *canvas,const char *fileName){
     #define _KLS_BMP_WR(t,...) ({KLS_TYPEOF(t) _tmp_=(__VA_ARGS__); fwrite(&_tmp_,1,sizeof(_tmp_),f);})
     if(canvas && canvas->m.data && fileName){
-        int row,c;
+        unsigned int row,c;
         const char extraColor=0;
-        const int palitraCount=(canvas->m.elSize==1)*256, palitraSize=palitraCount*sizeof(int);
+        const unsigned int palitraCount=(canvas->m.elSize==1)*256, palitraSize=palitraCount*sizeof(int);
         KLS_byte extraBytes=((KLS_size)canvas->m.columns*(4-canvas->m.elSize))%4;
         FILE *f=fopen(fileName,"wb");
         if(!f) return;
@@ -116,7 +116,7 @@ void KLS_canvasBMP(const KLS_t_CANVAS *canvas,const char *fileName){
             KLS_COLOR color=((KLS_COLOR)(c&KLS_0b00000011)<<16) | ((KLS_COLOR)(c&KLS_0b00011100)<<8) | ((KLS_COLOR)(c&KLS_0b11100000));
             fwrite(&color,sizeof(color),1,f);
         }
-        for(row=canvas->m.rows-1;row>-1;--row){
+        for(row=canvas->m.rows-1;row<UINT_MAX;--row){
             for(c=0;c<canvas->m.columns;++c)
                 fwrite(KLS_matrixAt(&canvas->m,row,c),canvas->m.elSize,1,f);
             for(c=0;c<extraBytes;++c)

@@ -13,12 +13,12 @@ int KLS_fsContentCount(const char *directory){
     } return -1;
 }
 
-void _KLS_fsRemover(const char *n,KLS_byte t,void *arg){
+void _KLS_fsRemover(const char *n,KLS_byte t){
     t==KLS_FS_TYPE_FOLDER ? KLS_fsRemove(n) : remove(n);
 }
 
 KLS_byte KLS_fsRemove(const char *name){
-    KLS_fsContentForEach(name,_KLS_fsRemover,NULL);
+    KLS_fsContentForEach(name,(void*)_KLS_fsRemover,NULL);
     return name && !remove(name);
 }
 
@@ -76,7 +76,7 @@ void KLS_fsInfoPrint(const KLS_t_FS_INFO *info,FILE *f){
             fprintf(f,"%s",types[info->type]);
             return;
         }
-        fprintf(f,"%s [" KLS_FORMAT_LONG(u) "]",types[info->type],info->size);
+        fprintf(f,"%s [%zu]",types[info->type],info->size);
         fprintf(f,"\n  create: "); KLS_dateTimePrint(&info->create,f);
         fprintf(f,"\n  access: "); KLS_dateTimePrint(&info->access,f);
         fprintf(f,"\n  mod:    "); KLS_dateTimePrint(&info->mod,f);

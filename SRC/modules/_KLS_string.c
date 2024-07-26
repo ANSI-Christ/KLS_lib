@@ -39,7 +39,7 @@ char *KLS_stringReplace(const char *string,const char *from, const char *to){
             const char *end;
             *str=0;
             while( (end=strstr(string,from))){
-                strncat(str,string,KLS_PTRSUB(end,string));
+                strncat(str,string,end-string);
                 strncat(str,to,lenTo);
                 string=end+lenFrom;
             }
@@ -79,7 +79,7 @@ KLS_t_VECTOR KLS_stringSplit(const char *string, const char *separator){
         if( !(v=KLS_vectorNew(cnt,sizeof(char*),KLS_ptrDeleter)).data )
             return v;
         while( (end=strstr(string,separator)) ){
-            if( !(tmp=KLS_string(NULL,"%.*s",(int)(KLS_PTRSUB(end,string)),string)) ){
+            if( !(tmp=KLS_string(NULL,"%.*s",(int)(end-string),string)) ){
                 KLS_vectorFree(&v);
                 return v;
             }
@@ -170,7 +170,6 @@ KLS_size _KLS_solveFac(KLS_size x){
 }
 
 const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, const char *r, char *tmp){
-    typedef int64_t BigInt;
     KLS_byte chk=(!!l) | ((!!r)<<1);
     sprintf(tmp,"err");
     switch(*op){
@@ -181,19 +180,19 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
         case '@': sprintf(tmp,frmt,pow(strtod(l,0),strtod(r,0))); return tmp;
         case '%': sprintf(tmp,frmt,KLS_mod(strtod(l,0),strtod(r,0))); return tmp;
         case '~':{
-            BigInt vr=strtod(r,0);
+            double vr=strtod(r,0);
             if(vr<=INT_MAX) sprintf(tmp,"%d",~(int)vr);
             return tmp;
         }
         case '^':{
-            BigInt vl=strtod(l,0),vr=strtod(r,0);
+            double vl=strtod(l,0),vr=strtod(r,0);
             if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl ^ (int)vr);
             return tmp;
         }
         case '!':
             switch(chk){
                 case 1:{
-                    BigInt v=strtod(l,0);
+                    double v=strtod(l,0);
                     if(v<0) sprintf(tmp,"-%.0f" ,1.e-6+_KLS_solveFac(-v));
                     else sprintf(tmp,"%.0f",1.e-6+_KLS_solveFac(v));
                     return tmp;
@@ -218,12 +217,12 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
     if(!strncmp(op,"==",2)) {tmp[0]='0'+(strtod(l,0) == strtod(r,0)); tmp[1]=0; return tmp;}
     if(!strncmp(op,"!=",2)) {tmp[0]='0'+(strtod(l,0) != strtod(r,0)); tmp[1]=0; return tmp;}
     if(!strncmp(op,"<<",2)) {
-        BigInt vl=strtod(l,0), vr=strtod(r,0);
+        double vl=strtod(l,0), vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",((int)vl) << ((int)vr));
         return tmp;
     }
     if(!strncmp(op,">>",2)) {
-        BigInt vl=strtod(l,0), vr=strtod(r,0);
+        double vl=strtod(l,0), vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",((int)vl) << ((int)vr));
         return tmp;
     }
@@ -231,12 +230,12 @@ const char *_KLS_solveCalcOp(const char *frmt,const char *l,const char *op, cons
     if(*op=='>') {tmp[0]='0'+(strtod(l,0) > strtod(r,0)); tmp[1]=0; return tmp;}
     if(*op=='<') {tmp[0]='0'+(strtod(l,0) < strtod(r,0)); tmp[1]=0; return tmp;}
     if(*op=='&') {
-        BigInt vl=strtod(l,0),vr=strtod(r,0);
+        double vl=strtod(l,0),vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl & (int)vr);
         return tmp;
     }
     if(*op=='|') {
-        BigInt vl=strtod(l,0),vr=strtod(r,0);
+        double vl=strtod(l,0),vr=strtod(r,0);
         if(vl<=INT_MAX && vr<=INT_MAX) sprintf(tmp,"%d",(int)vl | (int)vr);
         return tmp;
     }
@@ -250,7 +249,7 @@ KLS_byte _KLS_solveReplace(char *str,const char *from,const char *to,char *tmp){
         *tmp=0;
         /*printf("replace in %s: \'%s\' to \'%s\'\n",str,from,to);*/
         while((end=strstr(begin,from))){
-            strncat(tmp,begin,KLS_PTRSUB(end,begin));
+            strncat(tmp,begin,end-begin);
             strcat(tmp,to);
             begin=end+len;
         }
@@ -285,7 +284,7 @@ KLS_byte _KLS_solveGetBreckets(KLS_t_SOLVE *s){
                 continue;
             }
             if(l==')'){
-                unsigned int len=KLS_PTRSUB(str,begin)+1;
+                unsigned int len=(int)(str-begin)+1;
                 *s->breckets=0; strncat(s->breckets,begin,len);
                 *s->unBreckets=0; strncat(s->unBreckets,begin+1,len-2);
                 return 1;
@@ -350,7 +349,7 @@ KLS_byte _KLS_solveFindOp(const char *str,const KLS_t_SOLVE_OP *op,KLS_t_SOLVE_M
                         return 0;
                     }
                 }
-                strncat(replace,begin,KLS_PTRSUB(end,begin));
+                strncat(replace,begin,end-begin);
                 return 1;
             }
             ++o;
@@ -361,7 +360,7 @@ KLS_byte _KLS_solveFindOp(const char *str,const KLS_t_SOLVE_OP *op,KLS_t_SOLVE_M
 }
 
 KLS_byte _KLS_solveTry(KLS_t_SOLVE *s){
-    int i;
+    unsigned int i;
     KLS_t_SOLVE_MATCH m;
     while(_KLS_solveGetBreckets(s)){
         for(i=0;i<KLS_ARRAY_LEN(_KLS_solveOps);++i)

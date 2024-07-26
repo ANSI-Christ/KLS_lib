@@ -185,8 +185,8 @@ signed char KLS_bitGet(void *data,unsigned int index){
 }
 
 void KLS_memmove(void *to,const void *from,KLS_size size){
-    union{const char *c; const KLS_size *i;} f={.c=from};
-    union{char *c; KLS_size *i;} t={.c=to};
+    union{const unsigned char *c; const KLS_size *i;} f={.c=from};
+    union{unsigned char *c; KLS_size *i;} t={.c=to};
     if(to<from){
         while(size & (sizeof(*f.i)-1)){ --size; *t.c=*f.c; ++t.c; ++f.c; }
         size/=sizeof(*f.i);
@@ -200,7 +200,7 @@ void KLS_memmove(void *to,const void *from,KLS_size size){
 }
 
 void KLS_swap(void *var1,void *var2,KLS_size size){
-    union{char *c; KLS_size *i;} a={.c=var1}, b={.c=var2};
+    union{unsigned char *c; KLS_size *i;} a={.c=var1}, b={.c=var2};
     while(size & (sizeof(*a.i)-1)){
         *a.c^=*b.c;
         *b.c^=*a.c;
@@ -230,7 +230,7 @@ void KLS_variableRevers(void *var,KLS_size size){
 
 void KLS_binaryPrint(const void *ptr,KLS_size size,FILE *f){
     KLS_byte i;
-    char *tmp=KLS_malloc(size*8+size+1), *str=tmp;
+    unsigned char *tmp=KLS_malloc(size*8+size+1), *str=tmp;
     if(!tmp) return;
     if(!f) f=stdout;
     *tmp=0;
@@ -435,8 +435,8 @@ KLS_t_URL_DATA *KLS_urlRequest(const KLS_t_URL *url){
 }
 
 
-unsigned int _KLS_crc32Reflect(unsigned int val,int bits) {
-    unsigned int result=0, bit=0;
+int _KLS_crc32Reflect(unsigned int val,int bits) {
+    int result=0, bit=0;
     while(bit<bits){
         ++bit;
         if(val&1) result|=1<<(bits-bit);

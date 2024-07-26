@@ -229,8 +229,8 @@ KLS_byte KLS_pointInPoly(double x,double y,const KLS_t_POINT *poly,int count){
 
 double KLS_polySquad(const KLS_t_POINT *poly,int len){
     double res=0.;
-    unsigned int i;
-    for(i=0,--len;i<len;++i)
+    int i=0;
+    for(--len;i<len;++i)
         res+=(poly[i+1].x+poly[i].x)*(poly[i+1].y-poly[i].y);
     res+=(poly[0].x+poly[len].x)*(poly[0].y-poly[len].y);
     return fabs(res)/2.;
@@ -587,14 +587,15 @@ KLS_t_VECTOR KLS_polyFromMatrix(const KLS_t_MATRIX *matrix,int row,int column,co
 KLS_t_VECTOR KLS_polyFromMatrixAll(const KLS_t_MATRIX *matrix,const void *element,KLS_byte chainMode,KLS_byte(*comparator)(const void *matrixElement,const void *element)){
     KLS_t_VECTOR ret={0};
     if(matrix && (element || comparator)){
-        int i,j,k,flag;
+        unsigned int i,j,k;
         KLS_byte (*_cmp)(const void*,...)=comparator ? (void*)comparator : (void*)_KLS_polyMemCmp;
         ret=KLS_vectorNew(1,sizeof(KLS_t_VECTOR),(void*)KLS_vectorFree);
         for(i=0;i<matrix->rows;++i)
             for(j=0;j<matrix->columns;++j){
                 void *ptr=KLS_matrixAt(matrix,i,j);
                 if(ptr && _cmp(ptr,element,matrix->elSize)){
-                    for(flag=1,k=0;k<ret.size;++k){
+                    char flag=1;
+                    for(k=0;k<ret.size;++k){
                         KLS_t_VECTOR *vptr=KLS_vectorAt(&ret,k);
                         if(KLS_pointInPoly(j,i,vptr->data,vptr->size)){
                             flag=0;

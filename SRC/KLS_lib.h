@@ -24,9 +24,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <limits.h>
 #include <math.h>
 #include <time.h>
 #include <setjmp.h>
@@ -44,8 +45,8 @@
 
 typedef void*         KLS_any;
 typedef unsigned char KLS_byte;
-typedef int64_t       KLS_long;
-typedef uint64_t      KLS_size;
+typedef ptrdiff_t     KLS_long;
+typedef size_t        KLS_size;
 typedef int           KLS_COLOR;
 
 
@@ -69,17 +70,6 @@ typedef int           KLS_COLOR;
 #endif
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-#if(KLS_SYS_BITNESS==64)
-    #define KLS_FORMAT_LONG(...) M_OVERLOAD(_KLS_FORMAT_LONG,__VA_ARGS__)(__VA_ARGS__)
-    #define _KLS_FORMAT_LONG1(_f_) "%l" #_f_
-    #define _KLS_FORMAT_LONG2(_t_,_f_) "%" #_t_ "l" #_f_
-#else
-    #define KLS_FORMAT_LONG(...) M_OVERLOAD(_KLS_FORMAT_LONG,__VA_ARGS__)(__VA_ARGS__)
-    #define _KLS_FORMAT_LONG1(_f_) "%ll" #_f_
-    #define _KLS_FORMAT_LONG2(_t_,_f_) "%" #_t_ "ll" #_f_
-#endif
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _KLS_MEMORY_DEBUG
     KLS_INIT(KLS_size _KLS_memAlloc,=0);
     KLS_INIT(KLS_size _KLS_memFree,=0);
@@ -87,7 +77,7 @@ typedef int           KLS_COLOR;
     #define _KLS_MEMORY_PUSH(_1_) if(_1_){ pthread_mutex_lock(_KLS_memMtx); ++_KLS_memAlloc; pthread_mutex_unlock(_KLS_memMtx); }
     #define _KLS_MEMORY_POP(_1_)  if(_1_){ pthread_mutex_lock(_KLS_memMtx+1); ++_KLS_memFree;  pthread_mutex_unlock(_KLS_memMtx+1); }
     #define _KLS_MEMORY_MTX(_1_)  if(_1_){ pthread_mutex_init(_KLS_memMtx,NULL); pthread_mutex_init(_KLS_memMtx+1,NULL); }else{ pthread_mutex_destroy(_KLS_memMtx); pthread_mutex_destroy(_KLS_memMtx+1); }
-    #define _KLS_MEMORY_SHOW()    { printf("KLS: allocs(" KLS_FORMAT_LONG(u) ") frees(" KLS_FORMAT_LONG(u) ")\n",_KLS_memAlloc,_KLS_memFree); }
+    #define _KLS_MEMORY_SHOW()    { printf("KLS: allocs(%zu) frees(%zu)\n",_KLS_memAlloc,_KLS_memFree); }
     #warning _KLS_MEMORY_DEBUG is defined
 #else
     #define _KLS_MEMORY_PUSH(...)
@@ -471,9 +461,6 @@ KLS_byte KLS_mallocSetHeap(void *heap);
 KLS_byte KLS_endianGet() KLS_ATTR(const);
 KLS_byte KLS_dataJoin(void **dst,KLS_size *dstSize,void **src,KLS_size *srcSize,KLS_byte frees); // frees:000000xy , where 'x' for free src, 'y' for free dst
 
-KLS_long KLS_PTRSUB(void *l,void *r);
-KLS_size KLS_PTRSUM(void *l,void *r);
-
 signed char KLS_bitGet(void *data,unsigned int index);
 
 const char *KLS_execNameGet();
@@ -486,8 +473,6 @@ KLS_t_URL_DATA *KLS_urlRequest(const KLS_t_URL *url);
 unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size); //first call for splitted data with crc=-1
 
 #define KLS_freeData(_1_) (_1_)=KLS_free(_1_)
-#define KLS_PTRSUB(_1_,_2_) ( (void*)(_1_) - (void*)(_2_) )
-#define KLS_PTRSUM(_1_,_2_) ( (void*)(_1_) - (NULL-(void*)(_2_)) )
 #define KLS_freeFile(_1_) ({ if((_1_) && (_1_)!=stdin && (_1_)!=stdout && (_1_)!=stderr) {fclose(_1_);(_1_)=NULL;} })
 
 
@@ -507,7 +492,7 @@ void *KLS_heapAlloc(void *heap,KLS_size size);
 
 
 // SYSTEM SECTION
-int KLS_sysCmd(char **output,const char *cmdFormat, ...) KLS_ATTR(format,(__printf__,2,3));
+int KLS_sysCmd(char **output,const char *cmdFormat, ...); // KLS_ATTR(format,(__printf__,2,3));
 
 KLS_byte KLS_sysInfoRam(KLS_size *left,KLS_size *all);
 KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all);

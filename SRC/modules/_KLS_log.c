@@ -79,7 +79,7 @@ _KLS_t_LOG *_KLS_logFindTid(void *tid){
 
 void _KLS_log(const char *file, unsigned int line,const char *func,const char *format, ...){
 #define _LOG_ADD(...) ofs+=snprintf(buf+ofs,sizeof(buf)-1-ofs,__VA_ARGS__)
-    int i,ofs=0;
+    unsigned int i,ofs=0;
     char buf[128],*tmp;
     _KLS_t_LOG *l=_KLS_logFind();
     KLS_t_DATETIME dt;
