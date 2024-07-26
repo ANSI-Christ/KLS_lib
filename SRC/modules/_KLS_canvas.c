@@ -116,7 +116,7 @@ void KLS_canvasBMP(const KLS_t_CANVAS *canvas,const char *fileName){
             KLS_COLOR color=((KLS_COLOR)(c&KLS_0b00000011)<<16) | ((KLS_COLOR)(c&KLS_0b00011100)<<8) | ((KLS_COLOR)(c&KLS_0b11100000));
             fwrite(&color,sizeof(color),1,f);
         }
-        for(row=canvas->m.rows-1;row<UINT_MAX;--row){
+        for(row=canvas->m.rows-1;row!=-1;--row){
             for(c=0;c<canvas->m.columns;++c)
                 fwrite(KLS_matrixAt(&canvas->m,row,c),canvas->m.elSize,1,f);
             for(c=0;c<extraBytes;++c)
