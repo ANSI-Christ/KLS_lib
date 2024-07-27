@@ -100,7 +100,7 @@ typedef int           KLS_COLOR;
 #define _KLS_MAIN3(...) argc,argv,env
 #define main(...)\
     __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
-    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); KLS_libInit(); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)());}\
+    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); KLS_libInit(); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)()); (void)argc; (void)argv; (void)env;}\
     KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -939,17 +939,14 @@ const char *KLS_signalGetString(int sigNum);
 #define KLS_LOG_TID    32
 #define KLS_LOG_CLOSE  64
 
-int KLS_logGetOptions(unsigned int index);
-
-FILE *KLS_logGetFile(unsigned int index);
 
 KLS_byte KLS_logSet(unsigned int index, FILE *file, int options);
+KLS_byte KLS_logGet(unsigned int index, FILE **file, int *options);
 KLS_byte KLS_logSetCreation(unsigned int index, FILE *file,int options);
-KLS_byte KLS_logSetTid(pthread_t tid,unsigned int index, FILE *file,int options);
 
-void KLS_log(const char *format, ...) KLS_ATTR(format,(__printf__,1,2));
-void _KLS_log(const char *file, unsigned int line,const char *func,const char *format, ...);
-#define KLS_log(...) _KLS_log(M_FILE(),M_LINE(),M_FUNCTION(),__VA_ARGS__)
+void KLS_log(const char *format, ...);// KLS_ATTR(format,(__printf__,1,2));
+void _KLS_logFmt(const char *file, unsigned int line,const char *func,const char *format, ...);
+#define KLS_log(...) _KLS_logFmt(M_FILE(),M_LINE(),M_FUNCTION(),__VA_ARGS__)
 
 
 

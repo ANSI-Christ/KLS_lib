@@ -484,7 +484,7 @@ static void _KLS_magicstr(const KLS_byte *mac,char *str){
 }
 
 static void _KLS_magicChecker(){
-    int i,j;
+    unsigned int i,j;
     char tmp[20];
     KLS_size hdd;
     const char *s[]={"getmac","ipconfig","ifconfig","ip addr show"};
@@ -529,15 +529,15 @@ void _KLS_libClose(){
     _NET_close();
     _KLS_threadClose();
     _KLS_timerClose();
-    _KLS_MEMORY_SHOW();
-    _KLS_MEMORY_MTX(0);
+    _KLS_MEMORY_SHOW()
+    _KLS_MEMORY_MTX(0)
     printf("KLS: exit!\n");
 }
 
 void KLS_libInit(){
     KLS_ONCE(
         const int test=1;
-        _KLS_MEMORY_MTX(1);
+        _KLS_MEMORY_MTX(1)
         _KLS_magicChecker();
         _KLS_endian=( ((const KLS_byte*)&test)[0] == 1 ) ? 1 : 2*!( ((const KLS_byte*)&test)[sizeof(test)-1] == 1 );
         

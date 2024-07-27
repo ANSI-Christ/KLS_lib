@@ -1,6 +1,6 @@
 
 struct _KLS_t_TIMER{
-    void(*f)(void *arg,unsigned int interval);
+    void(*f)(void *arg,unsigned int *interval);
     void *arg;
     struct timespec time;
     unsigned int msInterval;
