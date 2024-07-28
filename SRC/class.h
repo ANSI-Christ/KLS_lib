@@ -30,14 +30,15 @@
         } return self;\
     }\
     const struct M_JOIN(_,_name_) *_name_(){\
-        static union{ void *p; struct M_JOIN(_,_name_) c; }c={(void*)1};\
+        typedef union { void *p; struct M_JOIN(_,_name_) pad; struct{char pad[sizeof(struct M_JOIN(_,_name_))];} c; } M_JOIN(_t_u,_name_);\
+        static M_JOIN(_t_u,_name_) c={(void*)1};\
         if(c.p==(void*)1){\
-            c.p=(void*)0;\
             M_WHEN(_CLASS_EXT(_name_))( _CLASS_EXT(_name_)(); )\
             {\
-                _CLASS_ARGS_UNION(_name_) zero={0}; if(0)(void)zero;\
-                if( M_JOIN(_ctor_,_name_)(&c _CLASS_ARGS_CALL(_name_,zero)) )\
-                    M_JOIN(_dtor_,_name_)(&c);\
+                M_JOIN(_t_u,_name_) tmp; _CLASS_ARGS_UNION(_name_) zero={0};\
+                if( M_JOIN(_ctor_,_name_)(&tmp _CLASS_ARGS_CALL(_name_,zero)) )\
+                    M_JOIN(_dtor_,_name_)(&tmp);\
+                tmp.p=c.p; c.c=tmp.c; if(0)(void)zero;\
                 c.p=(void*)M_IF(_CLASS_ABS(_name_))(0,M_JOIN(_ctor_,_name_));\
             }\
         } return (void*)&c;\
