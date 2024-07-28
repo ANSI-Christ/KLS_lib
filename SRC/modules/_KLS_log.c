@@ -1,7 +1,11 @@
 
 typedef struct{
-    pthread_t tid;
-    struct{ FILE *f; int opt; }f[5];
+    FILE *f;
+    int opt;
+}_KLS_t_LOG_FILE;
+
+typedef struct{
+    _KLS_t_LOG_FILE f[5];
 }_KLS_t_LOG;
 
 static struct{
@@ -13,24 +17,39 @@ static struct{
 }_KLS_log;
 
 
+_KLS_t_LOG_FILE *_KLS_logFileInside(FILE *f,_KLS_t_LOG *c){
+    unsigned int i;
+    for(i=0;i<KLS_ARRAY_LEN(c->f);++i)
+        if(f==c->f[i].f) return c->f+i;
+    return NULL;
+}
 
-unsigned int _KLS_logFileLinks(FILE *f){
-    unsigned int i,cnt=0;
-    KLS_listForEach(_KLS_t_LOG)(_KLS_log.list,l)(
-        for(i=0;i<KLS_ARRAY_LEN(l->f);++i)
-            cnt+=(l->f[i].f==f) && (l->f[i].opt & KLS_LOG_CLOSE);
-    );
-    return cnt;
+void _KLS_logFileFree(_KLS_t_LOG_FILE *f){
+    if(f->f && f->f!=stdout && f->f!=stderr && f->f!=stdin){
+        const int opt=f->opt & KLS_LOG_CLOSE;
+        _KLS_t_LOG_FILE *i;
+        unsigned int cnt=0, cls=0;
+        if( (i=_KLS_logFileInside(f->f,_KLS_log.template)) ){
+            ++cnt; i->opt|=opt;
+            cls+=!!(i->opt & KLS_LOG_CLOSE);
+        }
+        KLS_listForEach(_KLS_t_LOG)(_KLS_log.list,l)(
+            if( (i=_KLS_logFileInside(f->f,l)) ){
+                ++cnt; i->opt|=opt;
+                cls+=!!(i->opt & KLS_LOG_CLOSE);
+            }
+        );
+        if(cnt==1 && cls){
+            fclose(f->f);
+            f->f=NULL;
+        }
+    }
 }
 
 void _KLS_logRemover(_KLS_t_LOG *p){
     unsigned int i=0;
-    for(;i<KLS_ARRAY_LEN(p->f);++i){
-        if(!p->f[i].f || p->f[i].f == stdout || p->f[i].f == stderr || p->f[i].f == stdin)
-            continue;
-        if( (p->f[i].opt & KLS_LOG_CLOSE) && (_KLS_logFileLinks(p->f[i].f)==1) )
-            KLS_freeFile(p->f[i].f);
-    }
+    for(;i<KLS_ARRAY_LEN(p->f);++i)
+        _KLS_logFileFree(p->f+i);
 }
 
 void _KLS_logDeleter(_KLS_t_LOG *p){
@@ -56,6 +75,8 @@ void _KLS_logClose(){
     pthread_key_delete(_KLS_log.key);
     pthread_mutex_destroy(_KLS_log.mtx);
     KLS_listClear(_KLS_log.list);
+    _KLS_log.list->deleter=NULL;
+    _KLS_logRemover(_KLS_log.template);
 }
 
 _KLS_t_LOG *_KLS_logFind(){
@@ -67,10 +88,7 @@ _KLS_t_LOG *_KLS_logFind(){
                 if(pthread_setspecific(_KLS_log.key,p)){
                     KLS_listRemove(_KLS_log.list,p);
                     p=NULL;
-                }else{
-                    memcpy(p,_KLS_log.template,sizeof(*p));
-                    p->tid=pthread_self();
-                }
+                }else memcpy(p,_KLS_log.template,sizeof(*p));
             }
             pthread_mutex_unlock(_KLS_log.mtx);
         }
@@ -83,6 +101,7 @@ void _KLS_logFmt(const char *file, unsigned int line,const char *func,const char
     unsigned int i,ofs=0;
     char buf[128],*tmp;
     _KLS_t_LOG *l=_KLS_logFind(NULL);
+    pthread_t tid=pthread_self();
     KLS_t_DATETIME dt;
     for(i=0;i<KLS_ARRAY_LEN(l->f);++i){
         if(l->f[i].f){
@@ -119,8 +138,7 @@ void _KLS_logFmt(const char *file, unsigned int line,const char *func,const char
 
             ///////////////////// TID //////////////////////
             if(l->f[i].opt & KLS_LOG_TID){
-                void *tidPtr=&l->tid;
-                _LOG_ADD("<%x>",*(unsigned int*)tidPtr);
+                _LOG_ADD("<%x>",*(unsigned int*)&tid);
             }
 
             ////////////////// DATE TIME ///////////////////
@@ -154,11 +172,11 @@ void _KLS_logFmt(const char *file, unsigned int line,const char *func,const char
 
 
 KLS_byte _KLS_logSet(_KLS_t_LOG *l,unsigned int index,FILE *file,int options){
-    if(l!=_KLS_log.constant && index<KLS_ARRAY_LEN(l->f)){
-        if( file!=l->f[index].f && (l->f[index].opt & KLS_LOG_CLOSE) && _KLS_logFileLinks(l->f[index].f)==1 )
-            KLS_free(l->f[index].f);
-        l->f[index].f=file;
-        l->f[index].opt=options;
+    if(l!=_KLS_log.constant && index<KLS_ARRAY_LEN(l->f) && !_KLS_logFileInside(file,l)){\
+        _KLS_t_LOG_FILE * const f=l->f+index;
+        _KLS_logFileFree(f);
+        f->f=file;
+        f->opt=options;
         return 1;
     } return 0;
 }
@@ -173,7 +191,7 @@ KLS_byte KLS_logSet(unsigned int index,FILE *file,int options){
 
 KLS_byte KLS_logGet(unsigned int index,FILE **file,int *options){
     if(index<KLS_ARRAY_LEN(_KLS_log.constant->f)){
-        KLS_TYPEOF(_KLS_logFind()->f[0]) *f=_KLS_logFind()->f+index;
+        _KLS_t_LOG_FILE * const f=_KLS_logFind()->f+index;
         if(file) *file=f->f;
         if(options) *options=f->opt;
         return 1;
