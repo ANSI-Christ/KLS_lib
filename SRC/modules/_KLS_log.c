@@ -156,7 +156,7 @@ void _KLS_logFmt(const char *file, unsigned int line,const char *func,const char
 KLS_byte _KLS_logSet(_KLS_t_LOG *l,unsigned int index,FILE *file,int options){
     if(l!=_KLS_log.constant && index<KLS_ARRAY_LEN(l->f)){
         if( file!=l->f[index].f && (l->f[index].opt & KLS_LOG_CLOSE) && _KLS_logFileLinks(l->f[index].f)==1 )
-            KLS_freeFile(l->f[index].f);
+            KLS_free(l->f[index].f);
         l->f[index].f=file;
         l->f[index].opt=options;
         return 1;
