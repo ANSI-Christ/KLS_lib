@@ -26,16 +26,16 @@ void _KLS_timerPolicy(){
 
 void *_KLS_timerThread(void *arg){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
-    struct timespec tWait={-1,0},tMin={0,0},t;
+    struct timespec tWait={time(NULL)+3600,0},tMin={0,0},t;
     KLS_t_TIMER timer;
     _KLS_timerPolicy();
     while('0'){
         pthread_mutex_lock(g->mtx);
-        while('0')
-            switch(pthread_cond_timedwait(g->cond,g->mtx,&tWait)){
-                case 0: case ETIMEDOUT: goto _mark;
-            }
 _mark:
+        switch(pthread_cond_timedwait(g->cond,g->mtx,&tWait)){
+            case -1: if(errno!=EINTR) break;
+            case EINTR: goto _mark;
+        }
         if(!(timer=g->list->first)){
             g->create=0;
             pthread_cond_destroy(g->cond);
