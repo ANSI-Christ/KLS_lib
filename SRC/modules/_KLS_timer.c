@@ -1,19 +1,5 @@
-/*
-#ifndef KLS_TIMER_CLOCKID
-    #ifdef CLOCK_MONOTONIC_RAW
-        #define KLS_TIMER_CLOCKID  CLOCK_MONOTONIC_RAW
-    #endif
-#endif
 
-#ifndef KLS_TIMER_CLOCKID
-    #ifdef CLOCK_MONOTONIC
-        #define KLS_TIMER_CLOCKID  CLOCK_MONOTONIC
-    #endif
-#endif
-*/
-#ifndef KLS_TIMER_CLOCKID
-    #define KLS_TIMER_CLOCKID  CLOCK_REALTIME
-#endif
+#define KLS_TIMER_CLOCKID  CLOCK_REALTIME
 
 struct _KLS_t_TIMER{
     void(*f)(void *arg,unsigned int *interval);
@@ -102,8 +88,8 @@ KLS_byte _KLS_timerInit(){
         pthread_attr_t a[1];
         pthread_t tid[1];
         do{
-            if(pthread_cond_init(g->cond,NULL)) break;
             if(pthread_attr_init(a)) break;
+            if(pthread_cond_init(g->cond,NULL)) break;
             if(pthread_attr_setstacksize(a,40<<10)) break;
             if(pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED)) break;
             if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
