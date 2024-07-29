@@ -12,9 +12,9 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define TRY(...)     if( ({jmp_buf _1tc_; struct _TRYCATCH *_2tc_=_TryCatch(); void *_3tc_=_2tc_->jmp; char _4tc_; _2tc_->jmp=&_1tc_; if( (_4tc_=!setjmp(_1tc_)) )do{__VA_ARGS__}while(!5); _2tc_->jmp=_3tc_; _2tc_->final=!_4tc_; _4tc_;}) );else for(;;THROW()) if(!5);
+#define TRY(...)     if( _TRY(__VA_ARGS__) );else for(;;THROW()) if(!5);
 #define CATCH(...)   M_OVERLOAD(_CATCH,__VA_ARGS__)(__VA_ARGS__)
-#define FINALLY(...) if( ({char *_1tc_=&_TryCatch()->final; char _2tc_=*_1tc_; *_1tc_=0; _2tc_;}) ){__VA_ARGS__}
+#define FINALLY(...) if( ({char *_1_=&_TryCatch()->final, _2_=*_1_; *_1_=0; _2_;}) ){__VA_ARGS__}
 #define THROW(...)   M_IF(M_COUNT(__VA_ARGS__))(_THROW1,_THROW0)(__VA_ARGS__)
 #define EXCEPTION    ((const struct _EXCEPTION*)(_TryCatch()->e))
 #define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
@@ -35,7 +35,7 @@ struct _TRYCATCH *_TryCatch();
 #define _CATCH1(_type_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _CATCH
 #define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(EXCEPTION->data); _CATCH
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
-#define _THROW_EXIT() exit(-1) // pthread_exit(NULL)
+#define _THROW_EXIT() exit(-1) /* pthread_exit(NULL) */
 #define _THROW0() ({\
     struct _TRYCATCH *_1_=_TryCatch();\
     if(_1_){\
@@ -51,12 +51,28 @@ struct _TRYCATCH *_TryCatch();
     if(_1_ && _1_->jmp){\
         _1_->e->type=M_STRING(_type_); _1_->e->where=_THROW_INFO;\
         if(_1_->e->data!=_1_->buffer){free(_1_->e->data); _1_->e->data=_1_->buffer;}\
-        M_IF(M_COUNT(__VA_ARGS__))(\
-            M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->e->data=malloc(sizeof(_type_))) ) { *(_type_*)(_1_->e->data)=(_type_)__VA_ARGS__; longjmp(*_1_->jmp,1);} ),\
-            longjmp(*_1_->jmp,1);\
+        M_IF(M_IS_ARG(M_PEEK(__VA_ARGS__)))(\
+            M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->e->data=malloc(sizeof(_type_))) ){\
+                union M_JOIN(_t_u_,M_LINE()){_type_ v; struct{char _[sizeof(_type_)];} e;} _2_={.v=__VA_ARGS__};\
+                ((union M_JOIN(_t_u_,M_LINE())*)(_1_->e->data))->e=_2_.e; longjmp(*_1_->jmp,1);\
+            }) , \
+            M_EXTRACT( longjmp(*_1_->jmp,1); )\
         )\
     }printf("\nterminate called after throwing an instance of \'" M_STRING(_type_) "\' at [" _THROW_INFO "]\n\n");\
     _THROW_EXIT();\
+})
+#define _TRY(...) ({\
+    jmp_buf _1tc_;\
+    struct _TRYCATCH *_2tc_=_TryCatch();\
+    void *_3tc_; char _4tc_;\
+    if(!_2tc_){printf("\n\nTRY FAULT at [" _THROW_INFO "]\n");_THROW_EXIT();}\
+    _3tc_=_2tc_->jmp;\
+    _2tc_->jmp=&_1tc_;\
+    _4tc_=!setjmp(_1tc_);\
+    if(_4tc_) do{__VA_ARGS__}while(!5);\
+    _2tc_->jmp=_3tc_;\
+    _2tc_->final=!_4tc_;\
+    _4tc_;\
 })
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////

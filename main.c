@@ -38,14 +38,14 @@ int mainNet(int argc,char **argv){
     if((u=NET_unit(m,NET_TCP)) && NET_listen(u,NET_address(NET_HOST_ANY4,12345),4)){
         u->timeout=5;
         u->handler=serverTcp;
-        u->userData=0x1;
+        u->userData=(void*)0x1;
     }
     NET_detach(u);
 
     if((u=NET_unit(m,NET_TCP)) && NET_connect(u,NET_address(NET_HOST_LOCAL4,12345),3)){
         u->timeout=5;
         u->handler=serverTcp;
-        u->userData=0x2;
+        u->userData=(void*)0x2;
     }
     NET_detach(u);
 
@@ -57,6 +57,7 @@ int mainNet(int argc,char **argv){
 
     NET_free(&m);
     return 0;
+    (void)argc; (void)argv;
 }
 
 
@@ -77,17 +78,16 @@ void main2(){
     KLS_matrixFree(&m);
 }
 
-
-void main1(){
+void main42(){
     int w,h;
     char e='#';
-    char align=KLS_ALIGN_H_MID | KLS_ALIGN_V_TOP;
+    char align=KLS_ALIGN_H_MID | KLS_ALIGN_V_MID;
     const char *s="where\nare\nfucking\nwomans";
-    KLS_t_MATRIX m=KLS_matrixNew(NULL,60,80,1,0);
+    KLS_t_MATRIX m=KLS_matrixNew(NULL,60,100,1,0);
     memset(m.data,'_',m.rows*m.columns);
 
 
-    KLS_matrixPutString(&m,0,0,&e,0,align,s);
+    KLS_matrixPutString(&m,30,50,&e,0,align,s);
 
     KLS_matrixPrint(&m,KLS_LMBD(void,(char *p){
         if(p) printf("%c",*p);
@@ -106,6 +106,7 @@ void main1(){
 
 void sigInterp2(int s){
     KLS_signalSetHandler(s,KLS_SIGNAL_MODE_DEFAULT,sigInterp2);
+    KLS_execKill();
     //printf("\n\ninterrp\n\n");
 }
 
@@ -123,9 +124,31 @@ void sigInterp2(int s){
 CLASS_END(CA);
 CLASS_COMPILE(CA)();
 
-void main(){
-    int i;
 
+void pooltask(struct{int id; double b;} *i){
+    KLS_LOG("(%d):%d %f\n",KLS_threadPoolSelfNum(),i->id,i->b);
+    if(i->id<5){
+        KLS_pausef(0.1);
+        KLS_threadPoolTask(KLS_threadPoolSelf(),pooltask,i->id+1,0.001);
+        KLS_pausef(0.1);
+        return;
+    }
+
+    //KLS_pausef(2);
+}
+
+int main(){
+    int i;
+    if(1){
+        int j;
+        KLS_logSetCreation(1,fopen("./log.txt","w"),KLS_LOG_TIME|KLS_LOG_CLOSE);
+        KLS_t_THREAD_POOL pool=KLS_threadPoolCreate(4,0);
+        for(j=0;j<10;++j) KLS_threadPoolTask(pool,pooltask,0,1111.);
+        while(!KLS_threadPoolWaitTime(pool,100))
+            printf("nwait...\n");
+        printf("\n\n\n\nwait all\n\n\n");
+        KLS_threadPoolDestroy(&pool);
+    }
 
     KLS_t_TIMER timers[]={KLS_timerCreate(0,0),KLS_timerCreate(0,0)};
     CLASS GUI *gui=GUI_widgetNew(GUI)(640,480);
@@ -134,6 +157,8 @@ void main(){
     CLASS GUI_SLIDER *s2=GUI_widgetNew(GUI_SLIDER_V)(gui,"s2",-99,0,1.5);
     CLASS GUI_CANVAS *cnv=GUI_widgetNew(GUI_CANVAS)(gui,"plot",300,200);
     CLASS GUI_LABEL *dateTime=GUI_widgetNew(GUI_LABEL)(gui,"dateTime","                                             ");
+    CLASS GUI_TEXTBOX *t=GUI_widgetNew(GUI_TEXTBOX)(gui,"textbox",200,200);
+    CLASS GUI_PROGRESS *ind=GUI_widgetNew(GUI_PROGRESS)(gui,"progress");
 
     gui->setFps(gui,30);
     gui->widthMax=gui->width<<2;
@@ -141,6 +166,18 @@ void main(){
 
 
     KLS_signalSetHandler(SIGINT,KLS_SIGNAL_MODE_UNBLOCK,SIG_IGN);
+
+    ind->x=100;
+    ind->y=10;
+    ind->width=300;
+
+    KLS_timerStart(timers[0],100,100,KLS_LMBD(void,(CLASS GUI_PROGRESS *self,int *ms){
+        self->value+=0.5;
+        if(self->value>100){
+            *ms=0;
+            self->value=0;
+        }
+    }),ind);
 
     KLS_timerStart(timers[1],0,1000,KLS_LMBD(void,(CLASS GUI_LABEL *l){
         KLS_t_DATETIME dt=KLS_dateTimeSystem();
@@ -197,28 +234,24 @@ void main(){
     });
 
 
-    if(1){
-        CLASS _GUI_TEXTBOX *t=GUI_widgetNew(GUI_TEXTBOX)(gui,"textbox",200,200);
-        t->x=10;
-        t->y=300;
-        t->font.width=8;
-        t->font.height=16;
-        t->font.intervalRow=t->font.intervalSymbol=3;
-        t->colorBackground=KLS_COLOR_LIGHT_GREY;
-        t->onInput=KLS_LMBD(void,(CLASS GUI_TEXTBOX *t,int e,GUI_t_INPUT *i){
-            if( (e & GUI_EVENT_PRESS) && i->key==(GUI_KEY_ENTER|GUI_KEY_CTRL))
-                printf("text:%s\n",t->text);
-        });
-    }
+    t->x=10;
+    t->y=300;
+    t->font.width=10;
+    t->font.height=24;
+    t->font.intervalRow=t->font.intervalSymbol=4;
+    t->colorBackground=KLS_COLOR_LIGHT_GREY;
+    t->onInput=KLS_LMBD(void,(CLASS GUI_TEXTBOX *t,int e,GUI_t_INPUT *i){
+        if( (e & GUI_EVENT_PRESS) && i->key==(GUI_KEY_ENTER|GUI_KEY_CTRL))
+        printf("text:%s\n",t->text);
+    });
 
     while(KLS_execLive()){
         int s;
         s=gui->service(gui);
-
+        printf("event=%d\n",s);
         if(!s) break;
         //printf("event=%d\n",s);
     }
-
     for(i=0;i<KLS_ARRAY_LEN(timers);++i)
         KLS_timerDestroy(timers+i);
     GUI_widgetDelete(&gui);
