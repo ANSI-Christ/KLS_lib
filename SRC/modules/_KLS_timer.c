@@ -1,3 +1,19 @@
+/*
+#ifndef KLS_TIMER_CLOCKID
+    #ifdef CLOCK_MONOTONIC_RAW
+        #define KLS_TIMER_CLOCKID  CLOCK_MONOTONIC_RAW
+    #endif
+#endif
+
+#ifndef KLS_TIMER_CLOCKID
+    #ifdef CLOCK_MONOTONIC
+        #define KLS_TIMER_CLOCKID  CLOCK_MONOTONIC
+    #endif
+#endif
+*/
+#ifndef KLS_TIMER_CLOCKID
+    #define KLS_TIMER_CLOCKID  CLOCK_REALTIME
+#endif
 
 struct _KLS_t_TIMER{
     void(*f)(void *arg,unsigned int *interval);
@@ -9,28 +25,34 @@ struct _KLS_t_TIMER{
 
 static struct{
     pthread_mutex_t mtx[1];
-    sem_t sem[1];
-    pthread_t tid;
+    pthread_cond_t cond[1];
     KLS_t_LIST list[1];
     char create, mtxDel;
 }_KLS_timerGlob={.mtx={PTHREAD_MUTEX_INITIALIZER}};
 
-#define KLS_TIMER_CLOCKID    CLOCK_REALTIME
+
+void _KLS_timerPolicy(){
+    pthread_t tid=pthread_self();
+    int pol,pri;
+    if(KLS_threadPolicyGet(tid,&pol,&pri) && pol!=0)
+        KLS_threadPolicySet(tid,pol,99);
+}
 
 void *_KLS_timerThread(void *arg){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
-    struct timespec tWait={0,0},tMin={0,0},t;
+    struct timespec tWait={-1,0},tMin={0,0},t;
     KLS_t_TIMER timer;
-    if(KLS_threadPolicyGet(g->tid,(void*)&t,(void*)&tMin) && *(int*)&tMin!=0)
-        KLS_threadPolicySet(g->tid,*(int*)&t,99);
-    while(sem_wait(g->sem));
+    _KLS_timerPolicy();
     while('0'){
-        while(sem_timedwait(g->sem,&tWait))
-            if(errno==ETIMEDOUT) break;
         pthread_mutex_lock(g->mtx);
+        while('0')
+            switch(pthread_cond_timedwait(g->cond,g->mtx,&tWait)){
+                case 0: case ETIMEDOUT: goto _mark;
+            }
+_mark:
         if(!(timer=g->list->first)){
             g->create=0;
-            sem_destroy(g->sem);
+            pthread_cond_destroy(g->cond);
             pthread_mutex_unlock(g->mtx);
             if(g->mtxDel) pthread_mutex_destroy(g->mtx);
             break;
@@ -69,7 +91,7 @@ void _KLS_timerClose(){
         pthread_mutex_lock(g->mtx);
         KLS_listClear(g->list);
         if(mtxDel)g->mtxDel=1;
-        sem_post(g->sem);
+        pthread_cond_signal(g->cond);
         pthread_mutex_unlock(g->mtx);
     }else if(mtxDel)pthread_mutex_destroy(g->mtx);
 }
@@ -78,8 +100,9 @@ KLS_byte _KLS_timerInit(){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
     if(!g->create){
         pthread_attr_t a[1];
+        pthread_t tid[1];
         do{
-            if(sem_init(g->sem,0,0)) break;
+            if(pthread_cond_init(g->cond,NULL)) break;
             if(pthread_attr_init(a)) break;
             if(pthread_attr_setstacksize(a,40<<10)) break;
             if(pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED)) break;
@@ -87,11 +110,11 @@ KLS_byte _KLS_timerInit(){
             #ifdef PTHREAD_FPU_ENABLED
             if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
             #endif
-            if( (g->create=!pthread_create(&g->tid,a,_KLS_timerThread,NULL)) )
+            if( (g->create=!pthread_create(tid,a,_KLS_timerThread,NULL)) )
                 *g->list=KLS_listNew(sizeof(struct _KLS_t_TIMER),NULL);
         }while(0);
         pthread_attr_destroy(a);
-        if(!g->create) sem_destroy(g->sem);
+        if(!g->create) pthread_cond_destroy(g->cond);
     } return g->create;
 }
 
@@ -120,9 +143,8 @@ KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msIn
         timer->msInterval=msInterval;
         clock_gettime(KLS_TIMER_CLOCKID,&timer->time);
         KLS_timespecAdd(&timer->time,msDelay/1000,(msDelay%1000)*1000000);
+        pthread_cond_signal(g->cond);
         pthread_mutex_unlock(g->mtx);
-        while(!sem_trywait(g->sem));
-        sem_post(g->sem);
         return 1;
     } return 0;
 }
@@ -143,9 +165,8 @@ KLS_byte KLS_timerContinue(KLS_t_TIMER timer){
         pthread_mutex_lock(g->mtx);
         timer->run=1;
         KLS_listMoveBefore(g->list,timer,g->list->first);
+        pthread_cond_signal(g->cond);
         pthread_mutex_unlock(g->mtx);
-        while(!sem_trywait(g->sem));
-        sem_post(g->sem);
         return 1;
     } return 0;
 }
@@ -155,7 +176,7 @@ void KLS_timerDestroy(KLS_t_TIMER *timer){
         KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
         pthread_mutex_lock(g->mtx);
         KLS_listRemove(g->list,*timer);
-        if(!g->list->size) sem_post(g->sem);
+        if(!g->list->size) pthread_cond_signal(g->cond);
         pthread_mutex_unlock(g->mtx);
         *timer=NULL;
     }
