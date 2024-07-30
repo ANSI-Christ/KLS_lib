@@ -148,9 +148,6 @@ static int pthread_kill_win(pthread_t t,int sig){
 
 typedef KLS_TYPEOF(socket(0,0,0)) _NET_t_SOCKET;
 
-#define _NET_BAD_OP  SOCKET_ERROR
-#define _NET_BAD_FD  INVALID_SOCKET
-
 #define _NET_NOPULSE
 
 #define __NET_ERR2POSIX(_0_,_1_,_2_) if(_1_==M_JOIN(WSAE,_2_)) return M_JOIN(E,_2_);
@@ -173,6 +170,7 @@ typedef KLS_TYPEOF(socket(0,0,0)) _NET_t_SOCKET;
     #define WSAEAGAIN EAGAIN
 #endif
 
+#define closesocket closesocket
 
 #ifdef POLLIN
     int poll(void *p,int c,int t){return WSApoll(p,c,t);}
@@ -184,82 +182,20 @@ int _NET_errnoTranslate(int e){
     return e;
 }
 
-_NET_t_SOCKET *_NET_sockOs(NET_t_SOCKET *s){return (void*)s->_osDep;}
-
-void _NET_sockClose(NET_t_SOCKET *s){closesocket(*_NET_sockOs(s));}
-
 void NET_socketSetBlock(NET_t_SOCKET *s,KLS_byte block){
     block=!!block;
     if(s->created && s->blocked!=block){
         u_long nb=!block;
-        ioctlsocket(*_NET_sockOs(s),FIONBIO,&nb);
+        ioctlsocket(*(_NET_t_SOCKET*)s->_osDep,FIONBIO,&nb);
         s->blocked=block;
     }
 }
 
 unsigned int _NET_recvSize(NET_t_SOCKET *s){
     unsigned long len=0;
-    ioctlsocket(*_NET_sockOs(s),FIONREAD,&len);
+    ioctlsocket(*(_NET_t_SOCKET*)s->_osDep,FIONREAD,&len);
     return len;
 }
 
 KLS_byte _NET_init(){WSADATA w; return !WSAStartup(0x0202,&w);}
 void _NET_close(){WSACleanup();}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////  TIMER  ////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-struct _SYS_t_TIMER{
-    HANDLE t;
-    void (*f)(SYS_t_TIMER timer,void *arg);
-    void *arg;
-    char run;
-};
-
-void _SYS_timerCall(SYS_t_TIMER t,char go){
-    if(t->run) t->f(t,t->arg);
-    if(t->run & 1) t->run=0;
-    if(0) (void)go;
-}
-
-#define _SYS_TIMER_MAXT (~(unsigned int)0)
-
-SYS_t_TIMER SYS_timerCreate(void(*callback)(SYS_t_TIMER timer,void *arg),void *arg){
-    SYS_t_TIMER t=KLS_malloc(sizeof(*t));
-    if(t){
-        memset(t,0,sizeof(*t));
-        t->arg=arg;
-        t->f=callback;
-        if(!CreateTimerQueueTimer(&t->t,NULL,(void*)_SYS_timerCall,t,_SYS_TIMER_MAXT,_SYS_TIMER_MAXT,0))
-            KLS_freeData(t);
-    }
-    return t;
-}
-
-KLS_byte SYS_timerStart(SYS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(SYS_t_TIMER timer,void *arg),void *arg){
-    if(timer){
-        SYS_timerStop(timer);
-        if(arg) timer->arg=arg;
-        if(callback) timer->f=callback;
-        if(timer->f){
-            if( (timer->run=2-!msInterval) & 1 )
-                msInterval=_SYS_TIMER_MAXT;
-            return ChangeTimerQueueTimer(NULL,timer->t,msDelay,msInterval);
-        }
-    } return 0;
-}
-
-void SYS_timerStop(SYS_t_TIMER timer){
-    if(timer){
-        timer->run=0;
-        ChangeTimerQueueTimer(NULL,timer->t,_SYS_TIMER_MAXT,_SYS_TIMER_MAXT);
-    }
-}
-
-void SYS_timerDestroy(SYS_t_TIMER *timer){
-    if(timer && *timer){
-        DeleteTimerQueueTimer(0,timer[0]->t,0);
-        KLS_freeData(*timer);
-    }
-}

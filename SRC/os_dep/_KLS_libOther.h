@@ -1,8 +1,8 @@
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netdb.h>
 #include <fcntl.h>
 
-#include "_KLS_posixTimer.h"
 
 KLS_byte KLS_fsDirCreate(const char *directory){
     return directory && !mkdir(directory, 0
@@ -55,24 +55,17 @@ void KLS_displayFree(KLS_t_DISPLAY *d){}
 
 typedef KLS_TYPEOF(socket(0,0,0)) _NET_t_SOCKET;
 
-#define _NET_POLL_BY_SELECT
-#include <sys/select.h>
-
-_NET_t_SOCKET *_NET_sockOs(NET_t_SOCKET *s){return (void*)s->_osDep;}
-
-void _NET_sockClose(NET_t_SOCKET *s){close(*_NET_sockOs(s));}
-
 void NET_socketSetBlock(NET_t_SOCKET *s,KLS_byte block){
     block=!!block;
     if(s->created && s->blocked!=block){
-        fcntl(*_NET_sockOs(s), F_SETFL, (!block ? O_NONBLOCK : 0) | (fcntl(*_NET_sockOs(s), F_GETFL) & ~O_NONBLOCK));
+        fcntl(*(_NET_t_SOCKET*)s->_osDep, F_SETFL, (!block ? O_NONBLOCK : 0) | (fcntl(*(_NET_t_SOCKET*)s->_osDep, F_GETFL) & ~O_NONBLOCK));
         s->blocked=block;
     }
 }
 
 unsigned int _NET_recvSize(NET_t_SOCKET *s){
     int len=0;
-    ioctl(*_NET_sockOs(s),FIONREAD,&len);
+    ioctl(*(_NET_t_SOCKET*)s->_osDep,FIONREAD,&len);
     return len;
 }
 

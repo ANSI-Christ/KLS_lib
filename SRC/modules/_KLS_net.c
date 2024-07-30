@@ -1,4 +1,20 @@
 
+#ifndef SOCKET_ERROR
+    #define SOCKET_ERROR -1
+#endif
+
+#ifndef INVALID_SOCKET
+    #define INVALID_SOCKET -1
+#endif
+
+#ifndef closesocket
+    #define closesocket close
+#endif
+
+#ifndef MSG_NOSIGNAL
+    #define MSG_NOSIGNAL 0
+#endif
+
 #ifndef _NET_ERRNO
     #define _NET_ERRNO(...) __VA_ARGS__
     #define _NET_FUNC_DEF(_f_,...) _f_(__VA_ARGS__)
@@ -6,6 +22,7 @@
     #define _NET_FUNC_DEF(_f_,...) ({ KLS_TYPEOF(_f_(__VA_ARGS__)) _1_=_f_(__VA_ARGS__); errno=_NET_ERRNO(); _1_; })
 #endif
 
+#define _NET_SOCK(_s_) (*(_NET_t_SOCKET*)((_s_)->_osDep))
 #define socket(...)   _NET_FUNC_DEF(socket,__VA_ARGS__)
 #define connect(...)  _NET_FUNC_DEF(connect,__VA_ARGS__)
 #define bind(...)     _NET_FUNC_DEF(bind,__VA_ARGS__)
@@ -18,17 +35,6 @@
 #define shutdown(...) _NET_FUNC_DEF(shutdown,__VA_ARGS__)
 #define select(...)   _NET_FUNC_DEF(select,__VA_ARGS__)
 
-#ifndef _NET_BAD_OP
-    #define _NET_BAD_OP -1
-#endif
-
-#ifndef _NET_BAD_FD
-    #define _NET_BAD_FD -1
-#endif
-
-#ifndef MSG_NOSIGNAL
-    #define MSG_NOSIGNAL 0
-#endif
 
 #ifndef POLLIN
 
@@ -199,7 +205,7 @@ int _NET_version(KLS_byte v){
 
 NET_t_SOCKET NET_socketNew(int protocol,int version){
     NET_t_SOCKET s={.protocol=protocol,.version=version};
-    if( (*_NET_sockOs(&s)=socket(_NET_version(version),_NET_protocol(protocol),0))!=_NET_BAD_FD){
+    if( (_NET_SOCK(&s)=socket(_NET_version(version),_NET_protocol(protocol),0)) != INVALID_SOCKET){
         s.status=NET_SOCK_DISCONNECTED;
         s.blocked=s.created=protocol=1;
         if(!NET_socketOptionSet(&s,SOL_SOCKET,SO_REUSEADDR,&protocol,sizeof(protocol)))
@@ -210,8 +216,8 @@ NET_t_SOCKET NET_socketNew(int protocol,int version){
 
 void NET_socketFree(NET_t_SOCKET *socket){
     if(socket->created){
-        shutdown(*_NET_sockOs(socket),SHUT_RDWR);
-        _NET_sockClose(socket);
+        shutdown(_NET_SOCK(socket),SHUT_RDWR);
+        closesocket(_NET_SOCK(socket));
         socket->created=socket->status=0;
     }
 }
@@ -221,7 +227,7 @@ signed char NET_socketConnect(NET_t_SOCKET *socket,const NET_t_ADDRESS *address)
         _NET_ADDR(a);
         if(_NET_addrToNet(address,&a)){
             int e;
-            if(connect(*_NET_sockOs(socket),&a.d.sa,a.l)!=_NET_BAD_OP || (e=errno)==EISCONN){
+            if(connect(_NET_SOCK(socket),&a.d.sa,a.l)!=SOCKET_ERROR || (e=errno)==EISCONN){
                 socket->status=NET_SOCK_CONNECTED; return 1;
             }
             if(e==EALREADY || e==EINPROGRESS || e==EAGAIN || e==EWOULDBLOCK){
@@ -236,13 +242,13 @@ KLS_byte NET_socketBind(NET_t_SOCKET *socket,const NET_t_ADDRESS *address){
     if(socket->created){
         _NET_ADDR(a);
         if(_NET_addrToNet(address,&a))
-            return bind(*_NET_sockOs(socket),&a.d.sa,a.l)!=_NET_BAD_OP;
+            return bind(_NET_SOCK(socket),&a.d.sa,a.l)!=SOCKET_ERROR;
     }
     return 0;
 }
 
 KLS_byte NET_socketListen(NET_t_SOCKET *socket,unsigned int peers){
-    if(socket->created && (socket->protocol!=NET_TCP || listen(*_NET_sockOs(socket),peers)!=_NET_BAD_OP)){
+    if(socket->created && (socket->protocol!=NET_TCP || listen(_NET_SOCK(socket),peers)!=SOCKET_ERROR)){
         socket->status=NET_SOCK_LISTENING;
         return 1;
     }
@@ -254,11 +260,11 @@ NET_t_SOCKET NET_socketAccept(NET_t_SOCKET *socket,NET_t_ADDRESS *address){
     if(socket->status==NET_SOCK_LISTENING){
         if(address){
             _NET_ADDR(a);
-            if( (ret.created=( (*_NET_sockOs(&ret)=accept(*_NET_sockOs(socket),&a.d.sa,&a.l)) != _NET_BAD_FD )) ){
+            if( (ret.created=( (_NET_SOCK(&ret)=accept(_NET_SOCK(socket),&a.d.sa,&a.l)) != INVALID_SOCKET )) ){
                 if( !(ret.created= _NET_addrFromNet(&a,address)) )
-                    _NET_sockClose(&ret);
+                    closesocket(_NET_SOCK(&ret));
             }
-        }else ret.created=( (*_NET_sockOs(&ret)=accept(*_NET_sockOs(socket),NULL,NULL)) != _NET_BAD_FD);
+        }else ret.created=( (_NET_SOCK(&ret)=accept(_NET_SOCK(socket),NULL,NULL)) != INVALID_SOCKET);
         if( (ret.blocked=ret.created) ){
             ret.status=NET_SOCK_CONNECTED;
             ret.version=socket->version;
@@ -273,9 +279,9 @@ unsigned int NET_socketReceive(NET_t_SOCKET *socket,void *data,unsigned int size
     if(socket->created && data){
         if(from){
             _NET_ADDR(a);
-            ret=recvfrom(*_NET_sockOs(socket),data,size,MSG_NOSIGNAL,&a.d.sa,&a.l);
+            ret=recvfrom(_NET_SOCK(socket),data,size,MSG_NOSIGNAL,&a.d.sa,&a.l);
             if(ret!=-1) _NET_addrFromNet(&a,from);
-        }else ret=recvfrom(*_NET_sockOs(socket),data,size,MSG_NOSIGNAL,NULL,NULL);
+        }else ret=recvfrom(_NET_SOCK(socket),data,size,MSG_NOSIGNAL,NULL,NULL);
     }
     return ret!=-1?ret:0;
 }
@@ -286,19 +292,19 @@ unsigned int NET_socketSend(NET_t_SOCKET *socket,const void *data,unsigned int s
         if(to){
             _NET_ADDR(a);
             if(_NET_addrToNet(to,&a))
-                ret=sendto(*_NET_sockOs(socket),data,size,MSG_NOSIGNAL,&a.d.sa,a.l);
-        }else ret=send(*_NET_sockOs(socket),data,size,MSG_NOSIGNAL);
+                ret=sendto(_NET_SOCK(socket),data,size,MSG_NOSIGNAL,&a.d.sa,a.l);
+        }else ret=send(_NET_SOCK(socket),data,size,MSG_NOSIGNAL);
     }
     return ret!=-1?ret:0;
 }
 
 KLS_byte NET_socketOptionSet(NET_t_SOCKET *s,int level,int option,const void *data,unsigned int dataSize){
-    return !setsockopt(*_NET_sockOs(s),level,option,data,dataSize);
+    return !setsockopt(_NET_SOCK(s),level,option,data,dataSize);
 }
 
 KLS_byte NET_socketOptionGet(NET_t_SOCKET *s,int level,int option,void *data,unsigned int dataSize){
     int l[3]={0,dataSize};
-    return !getsockopt(*_NET_sockOs(s),level,option,data,(void*)(l+1));
+    return !getsockopt(_NET_SOCK(s),level,option,data,(void*)(l+1));
 }
 
 int NET_socketError(NET_t_SOCKET *s){
@@ -330,11 +336,6 @@ struct _NET_t_MANAGER{
     struct _NET_t_UNIT help;
 };
 
-void _NET_trashPrint(NET_t_MANAGER m,const char *str){
-    printf("%s:",str);
-    KLS_listPrint(&m->units,KLS_LMBD(void,(NET_t_UNIT u){printf("%d",(u->_.flags<<1)|u->socket.created);}));
-    printf("\n");
-}
 
 void _NET_trashBlock(NET_t_UNIT u){
     KLS_listMoveAfter(&u->manager->units,u,u->manager->units.last);
@@ -365,7 +366,7 @@ KLS_byte _NET_serviceAdd(NET_t_UNIT u,time_t t,short flags){
     if(KLS_vectorPushBack(&u->manager->poll,u)){
         if(KLS_vectorPushBack(&u->manager->service,&u)){
             _NET_t_POLL *p=(_NET_t_POLL*)u->manager->poll.data+(u->_.id=u->manager->poll.size-1);
-            p->fd=*_NET_sockOs(&u->socket);
+            p->fd=_NET_SOCK(&u->socket);
             p->events=flags;
             u->_.timeout=t;
             return 1;
@@ -781,6 +782,8 @@ void NET_detach(NET_t_UNIT u){
     if(u){ u->_.flags|=1; _NET_trashAllow(u); }
 }
 
+#undef _NET_SOCK
+#undef closesocket
 #undef socket
 #undef connect
 #undef bind

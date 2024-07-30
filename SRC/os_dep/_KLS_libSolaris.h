@@ -12,7 +12,6 @@
 #include <execinfo.h>
 
 #include "__KLS_X11.h"
-#include "_KLS_posixTimer.h"
 
 extern int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout);
 
@@ -71,21 +70,17 @@ unsigned KLS_sysInfoCores(){
 
 typedef KLS_TYPEOF(socket(0,0,0)) _NET_t_SOCKET;
 
-_NET_t_SOCKET *_NET_sockOs(NET_t_SOCKET *s){return (void*)s->_osDep;}
-
-void _NET_sockClose(NET_t_SOCKET *s){close(*_NET_sockOs(s));}
-
 void NET_socketSetBlock(NET_t_SOCKET *s,KLS_byte block){
     block=!!block;
     if(s->created && s->blocked!=block){
-        fcntl(*_NET_sockOs(s), F_SETFL, (!block ? O_NONBLOCK : 0) | (fcntl(*_NET_sockOs(s), F_GETFL) & ~O_NONBLOCK));
+        fcntl(*(_NET_t_SOCKET*)s->_osDep, F_SETFL, (!block ? O_NONBLOCK : 0) | (fcntl(*(_NET_t_SOCKET*)s->_osDep, F_GETFL) & ~O_NONBLOCK));
         s->blocked=block;
     }
 }
 
 unsigned int _NET_recvSize(NET_t_SOCKET *s){
     int len=0;
-    ioctl(*_NET_sockOs(s),FIONREAD,&len);
+    ioctl(*(_NET_t_SOCKET*)s->_osDep,FIONREAD,&len);
     return len;
 }
 

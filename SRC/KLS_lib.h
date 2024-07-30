@@ -525,26 +525,16 @@ KLS_byte KLS_arrayInsert(void *array,KLS_size arraySize,KLS_size elementSize,KLS
 
 // TIMER SECTION
 
-// this timers realize using single mutex and single semaphore in single thread(stack 40KB) for all timers, without signal handling
-// so callback must be fast and small
-
 typedef struct _KLS_t_TIMER* KLS_t_TIMER;
-
-KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg);
-
-KLS_byte KLS_timerContinue(KLS_t_TIMER timer);
-KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval),void *arg);
 
 void KLS_timerStop(KLS_t_TIMER timer);
 void KLS_timerDestroy(KLS_t_TIMER *timer);
 
-// this timers can be realize via signals, 1 timer - 1 thread, 1 thread for all or somehow else
+KLS_byte KLS_timerContinue(KLS_t_TIMER timer);
+KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval),void *arg);
 
-typedef struct _SYS_t_TIMER* SYS_t_TIMER;
-SYS_t_TIMER SYS_timerCreate(void(*callback)(SYS_t_TIMER timer,void *arg),void *arg);
-KLS_byte SYS_timerStart(SYS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(SYS_t_TIMER timer,void *arg),void *arg);
-void SYS_timerStop(SYS_t_TIMER timer);
-void SYS_timerDestroy(SYS_t_TIMER *timer);
+KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg);
+
 
 
 
