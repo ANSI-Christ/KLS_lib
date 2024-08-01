@@ -561,49 +561,44 @@ void _NET_tcpCli(NET_t_UNIT u,_NET_t_POLL *p,time_t t){
     NET_disconnect(u);
 }
 
-signed char _NET_proc(KLS_t_VECTOR *p,KLS_t_VECTOR *s,KLS_size i,time_t *t){
-    void(*f[2][2])(NET_t_UNIT,_NET_t_POLL*,time_t)={{_NET_tcpCli,_NET_tcpSrv},{_NET_udp,_NET_udp}};
-    NET_t_UNIT u;
-    while(1){
-        i=poll(p->data,p->size,i);
-        *t=time(NULL);
-        switch(i){
-            case -1: return errno==EINTR ? 1 : -1;
-            case 0: return 0;
-        }
-        for(i=0;i<p->size;++i)
-            if(((_NET_t_POLL*)p->data)[i].revents){
-                u=((NET_t_UNIT*)s->data)[i];
-                f[u->socket.protocol][NET_type(u)==NET_LISTENER](u,((_NET_t_POLL*)p->data)+i,*t);
-            }
-        if(((_NET_t_POLL*)p->data)->revents)
-            return 2;
-        i=0;
+int _NET_proc(KLS_t_VECTOR *p,KLS_t_VECTOR *s,time_t *t){
+    void(* const f[2][2])(NET_t_UNIT,_NET_t_POLL*,time_t)={{_NET_tcpCli,_NET_tcpSrv},{_NET_udp,_NET_udp}};
+    KLS_size i=poll(p->data,p->size,1000);
+    *t=time(NULL);
+    switch(i){
+        case -1: return errno;
+        case 0: return 0;
     }
+    for(i=0;i<p->size;++i)
+        if(((_NET_t_POLL*)p->data)[i].revents){
+            NET_t_UNIT u=((NET_t_UNIT*)s->data)[i];
+            f[u->socket.protocol][NET_type(u)==NET_LISTENER](u,((_NET_t_POLL*)p->data)+i,*t);
+        }
+    *t=time(NULL);
+    return ((_NET_t_POLL*)p->data)->revents ? EINTR : 0;
 }
 
-int NET_service(NET_t_MANAGER manager,unsigned short timeout){
+int NET_service(NET_t_MANAGER manager){
     if(manager){
+        int err=EINTR;
         if(sem_trywait(manager->sem)){
-            signed char ret=0;
-            time_t t=time(NULL), tto=t+timeout;
+            time_t t=time(NULL);
             do{
                 _NET_delays(&manager->delays,t);
-                ret=_NET_proc(&manager->poll,&manager->service,timeout?1000:0,&t);
+                err=_NET_proc(&manager->poll,&manager->service,&t);
                 _NET_timeouts(manager,t);
                 _NET_trashing(manager,t);
-            }while(!ret && (timeout==-1 || t<tto));
-            return ret;
+            }while(!err);
         }
-        return 2;
+        return err;
     }
-    return -2;
+    return EINVAL;
 }
 
 void NET_interrupt(NET_t_MANAGER manager){
     if(manager){
-         NET_write(&manager->help,manager,1,NULL);
          sem_post(manager->sem);
+         NET_write(&manager->help,manager,1,NULL);
     }
 }
 
@@ -633,8 +628,8 @@ NET_t_MANAGER NET_new(unsigned int baseSize,unsigned short trashSize,unsigned sh
             KLS_vectorSetPolicy(&m->service,_NET_vectorPolicy);
             m->units=KLS_listNew(sizeof(struct _NET_t_UNIT),(void*)NET_disconnect);
 
-            m->help._.pulse=trashSize;
             m->help.manager=m;
+            m->help._.pulse=trashSize;
             while(trashSize--){
                 NET_t_UNIT u=KLS_listPushFront(&m->units,&m->help);
                 if(u){NET_detach(u);_NET_trashAdd(u);}

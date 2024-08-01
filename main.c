@@ -22,18 +22,21 @@ void serverTcp(NET_t_UNIT u,KLS_byte e){
     }
 }
 
+static void **gmanager;
 void sigInterp(int s){
-    KLS_signalSetHandler(s,KLS_SIGNAL_MODE_DEFAULT,sigInterp);
+    KLS_signalSetHandler(s,sigInterp);
     KLS_execKill();
+    NET_interrupt(*gmanager);
     printf("\n\ninterrp\n\n");
 }
 
 int mainNet(int argc,char **argv){
-    int s;
     NET_t_MANAGER m=NET_new(10,0,0);
     NET_t_UNIT u;
+    gmanager=&m;
 
-    KLS_signalSetHandler(SIGINT,KLS_SIGNAL_MODE_UNBLOCK,sigInterp);
+    KLS_signalSetMode(SIGINT,KLS_SIGNAL_UNBLOCK);
+    KLS_signalSetHandler(SIGINT,sigInterp);
 
     if((u=NET_unit(m,NET_TCP)) && NET_listen(u,NET_address(NET_HOST_ANY4,12345),4)){
         u->timeout=5;
@@ -50,12 +53,11 @@ int mainNet(int argc,char **argv){
     NET_detach(u);
 
     while(KLS_execLive()){
-        s=NET_service(m,5);
-        printf("service=%d\n",s);
-        if(s<0) break;
+        printf("service=%d\n",NET_service(m));
     }
 
     NET_free(&m);
+
     return 0;
     (void)argc; (void)argv;
 }
@@ -105,7 +107,7 @@ void main42(){
 }
 
 void sigInterp2(int s){
-    KLS_signalSetHandler(s,KLS_SIGNAL_MODE_DEFAULT,sigInterp2);
+    KLS_signalSetHandler(s,sigInterp2);
     KLS_execKill();
     //printf("\n\ninterrp\n\n");
 }
@@ -137,9 +139,25 @@ void pooltask(struct{int id; double b;} *i){
     //KLS_pausef(2);
 }
 
+void timerTest(){
+    printf("f()\n");
+}
+
 int main(){
     int i;
     if(1){
+        KLS_t_TIMER t=KLS_timerCreate(timerTest,0);
+
+        KLS_timerStart(t,1000,1000,0,0);
+        KLS_pausef(3.5);
+        KLS_timerStop(t);
+        KLS_pausef(3);
+        KLS_timerStart(t,0000,1000,0,0);
+        KLS_pausef(3.5);
+        KLS_timerDestroy(&t);
+        exit(0);
+    }
+    if(0){
         int j;
         KLS_logSetCreation(1,fopen("./log.txt","w"),KLS_LOG_TIME|KLS_LOG_CLOSE);
         KLS_t_THREAD_POOL pool=KLS_threadPoolCreate(4,0);
@@ -149,7 +167,6 @@ int main(){
         printf("\n\n\n\nwait all\n\n\n");
         KLS_threadPoolDestroy(&pool);
     }
-
     KLS_t_TIMER timers[]={KLS_timerCreate(0,0),KLS_timerCreate(0,0)};
     CLASS GUI *gui=GUI_widgetNew(GUI)(640,480);
     CLASS GUI_BUTTON *b1=GUI_widgetNew(GUI_BUTTON)(gui,"b1");
@@ -164,8 +181,8 @@ int main(){
     gui->widthMax=gui->width<<2;
     gui->heightMax=gui->height<<2;
 
-
-    KLS_signalSetHandler(SIGINT,KLS_SIGNAL_MODE_UNBLOCK,SIG_IGN);
+    KLS_signalSetMode(SIGINT,KLS_SIGNAL_UNBLOCK);
+    KLS_signalSetHandler(SIGINT,SIG_IGN);
 
     ind->x=100;
     ind->y=10;
@@ -248,7 +265,7 @@ int main(){
     while(KLS_execLive()){
         int s;
         s=gui->service(gui);
-        printf("event=%d\n",s);
+        //printf("event=%d\n",s);
         if(!s) break;
         //printf("event=%d\n",s);
     }

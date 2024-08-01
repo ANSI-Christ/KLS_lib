@@ -125,24 +125,26 @@ const char *KLS_getOpt(int argc, char *argv[],const char *opt){
 
 KLS_byte KLS_dataJoin(void **dst,KLS_size *dstSize,void **src,KLS_size *srcSize,KLS_byte frees){
     if(dst && src && dstSize && srcSize){
-        if(*dstSize && *srcSize){
-            void *tmp;
-            if(!*dst || !*src || !(tmp=KLS_malloc(*dstSize + *srcSize)))
-                return 0;
-            memcpy(tmp,*dst,*dstSize);
-            memcpy(tmp+*dstSize,*src,*srcSize);
-            if(frees & 1) KLS_free(*dst);
-            if(frees & 2) KLS_freeData(*src);
-            *dst=tmp;
-            *dstSize+=*srcSize;
-            if(frees & 2) *srcSize=0;
-        }else if(*srcSize){
+        if(*srcSize){
+            if(*dstSize){
+                void *tmp;
+                if(!*dst || !*src || !(tmp=KLS_malloc(*dstSize + *srcSize)))
+                    return 0;
+                memcpy(tmp,*dst,*dstSize);
+                memcpy(tmp+*dstSize,*src,*srcSize);
+                if(frees & 1) KLS_free(*dst);
+                if(frees & 2) KLS_freeData(*src);
+                *dst=tmp;
+                *dstSize+=*srcSize;
+                if(frees & 2) *srcSize=0;
+                return 1;
+            }
             if(*dst && (frees & 1)) KLS_free(*dst);
             *dst=*src; *src=NULL;
             *dstSize=*srcSize; *srcSize=0;
+            return 1;
         }
-        return 1;
-    }return 0;
+    } return 0;
 }
 
 double KLS_mod(double value,double division){
@@ -381,7 +383,6 @@ void _KLS_urlHandler(NET_t_UNIT u, KLS_byte event){
             u->timeout=5;
             u->pulse=10;
             NET_write(u,req,reqSize,NULL);
-            h->url=NULL;
             break;
         }
         case NET_EVENT_RECEIVE:{
@@ -396,6 +397,7 @@ void _KLS_urlHandler(NET_t_UNIT u, KLS_byte event){
         }
         case NET_EVENT_DISCONNECT:{
             char *ptr;
+            h->url=NULL;
             NET_interrupt(u->manager);
             if( h->data && (ptr=strstr(h->data+sizeof(KLS_t_URL_DATA),"\r\n\r\n")) ){
                 KLS_t_URL_DATA *ans=h->data;
@@ -416,20 +418,16 @@ void _KLS_urlHandler(NET_t_UNIT u, KLS_byte event){
 KLS_t_URL_DATA *KLS_urlRequest(const KLS_t_URL *url){
     KLS_t_URL_DATA *ret=NULL;
     if(url && url->url){
-        struct _KLS_t_URL_HELP h={url,KLS_malloc(sizeof(*ret)),sizeof(*ret)};
+        struct _KLS_t_URL_HELP h={url};
         NET_t_MANAGER m=NET_new(1,0,0);
         NET_t_UNIT u=NET_unit(m,NET_TCP);
         if(NET_connect(u,NET_address(h.url->url,80),0)){
             u->handler=_KLS_urlHandler;
             u->timeout=30; u->userData=&h;
-            while(1){
-                int a=NET_service(m,1);
-                if(a<0 || a==2) break;
-            }
+            while(NET_service(m)==EINTR && h.url);
             ret=h.data;
         }
         NET_free(&m);
-        if(h.url) KLS_freeData(h.data);
     }
     return ret;
 }

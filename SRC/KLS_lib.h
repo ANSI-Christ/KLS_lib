@@ -904,14 +904,15 @@ void *KLS_canvasAtPix(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,KLS_t_POI
 
 
 // SIGNAL SECTION
-
-#define KLS_SIGNAL_MODE_DEFAULT   0
-#define KLS_SIGNAL_MODE_BLOCK     1
-#define KLS_SIGNAL_MODE_UNBLOCK  -1
+#define KLS_SIGNAL_DEFAULT   0
+#define KLS_SIGNAL_BLOCK     1
+#define KLS_SIGNAL_UNBLOCK  -1
 
 int KLS_signalGetMode(int sigNum);
 
-void *KLS_signalSetHandler(int sigNum,int mode,void(*handler)(int sigNum));
+void KLS_signalSetMode(int sigNum,int mode);
+
+void *KLS_signalSetHandler(int sigNum,void(*handler)(int sigNum));
 
 KLS_byte KLS_signalSend(pthread_t tid,int sigNum);
 
@@ -1052,7 +1053,7 @@ unsigned int NET_socketReceive(NET_t_SOCKET *socket,void *data,unsigned int size
 unsigned int NET_socketSend(NET_t_SOCKET *socket,const void *data,unsigned int size,const NET_t_ADDRESS *to);
 
 
-int NET_service(NET_t_MANAGER manager,unsigned short timeout);
+int NET_service(NET_t_MANAGER manager); /* returns [0=ok,EINTR,EINVAL,...] */
 
 void NET_free(NET_t_MANAGER *manager);
 void NET_interrupt(NET_t_MANAGER manager);
