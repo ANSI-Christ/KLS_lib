@@ -20,6 +20,7 @@
 
 static const char *_KLS_execName=NULL;
 static KLS_byte _KLS_exec=1, _KLS_endian=1;
+KLS_byte KLS_COLOR_BITS=32;
 
 extern int close(int fd);
 extern int nanosleep(const struct timespec *req, struct timespec *rem);
@@ -313,13 +314,13 @@ void KLS_timespecNorm(struct timespec *tm){
     tm->tv_nsec%=_KLS_tm1sec;
 }
 
-void KLS_timespecAdd(struct timespec *tm,_KLS_TIMESPEC_TYPE(tv_sec) sec, _KLS_TIMESPEC_TYPE(tv_nsec) nanosec){
+void KLS_timespecAdd(struct timespec *tm,int sec,int nanosec){
     tm->tv_sec+=sec;
     tm->tv_nsec+=nanosec;
     KLS_timespecNorm(tm);
 }
 
-void KLS_timespecSub(struct timespec *tm,_KLS_TIMESPEC_TYPE(tv_sec) sec, _KLS_TIMESPEC_TYPE(tv_nsec) nanosec){
+void KLS_timespecSub(struct timespec *tm,int sec,int nanosec){
     sec+=nanosec/_KLS_tm1sec;
     nanosec%=_KLS_tm1sec;
     KLS_timespecNorm(tm);

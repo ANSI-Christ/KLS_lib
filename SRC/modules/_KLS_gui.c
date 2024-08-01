@@ -351,7 +351,7 @@ CLASS_COMPILE(GUI_WIDGET)(
 
 void _GUI_setFps(CLASS GUI *self,KLS_byte fps){
     if(fps){
-        if(!self->timer) self->timer=KLS_timerCreate(self->update,self);
+        if(!self->timer) self->timer=KLS_timerCreate((void*)self->update,self);
         self->tout=1000/fps;
     }else KLS_timerDestroy(&self->timer);
 }

@@ -42,141 +42,11 @@
 #include "KLS_0b.h"
 
 
-
-typedef void*         KLS_any;
-typedef unsigned char KLS_byte;
-typedef ptrdiff_t     KLS_long;
-typedef size_t        KLS_size;
-typedef int           KLS_COLOR;
-
-
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef KLS_NOEXTERN
     #define KLS_INIT(var, ...) var __VA_ARGS__
 #else
     #define KLS_INIT(var, ...) extern var
 #endif
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-#if(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_LITTLE)
-    #define KLS_ENDIAN KLS_ENDIAN_LITTLE
-#elif(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_BIG)
-    #define KLS_ENDIAN KLS_ENDIAN_BIG
-#elif(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_PDP)
-    #define KLS_ENDIAN KLS_ENDIAN_PDP
-#else
-    #define KLS_ENDIAN KLS_endianGet()
-#endif
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-#ifdef _KLS_MEMORY_DEBUG
-    KLS_INIT(KLS_size _KLS_memAlloc,=0);
-    KLS_INIT(KLS_size _KLS_memFree,=0);
-    KLS_INIT(pthread_mutex_t _KLS_memMtx[2]);
-    #define _KLS_MEMORY_PUSH(_1_) if(_1_){ pthread_mutex_lock(_KLS_memMtx); ++_KLS_memAlloc; pthread_mutex_unlock(_KLS_memMtx); }
-    #define _KLS_MEMORY_POP(_1_)  if(_1_){ pthread_mutex_lock(_KLS_memMtx+1); ++_KLS_memFree;  pthread_mutex_unlock(_KLS_memMtx+1); }
-    #define _KLS_MEMORY_MTX(_1_)  if(_1_){ pthread_mutex_init(_KLS_memMtx,NULL); pthread_mutex_init(_KLS_memMtx+1,NULL); }else{ pthread_mutex_destroy(_KLS_memMtx); pthread_mutex_destroy(_KLS_memMtx+1); }
-    #define _KLS_MEMORY_SHOW()    { printf("KLS: allocs(%zu) frees(%zu)\n",_KLS_memAlloc,_KLS_memFree); }
-    #warning _KLS_MEMORY_DEBUG is defined
-#else
-    #define _KLS_MEMORY_PUSH(...)
-    #define _KLS_MEMORY_POP(...)
-    #define _KLS_MEMORY_MTX(...)
-    #define _KLS_MEMORY_SHOW()
-#endif
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-#ifdef _KLS_UNIT_TESTS
-    #define _KLS_UNIT_TEST(...) KLS_ATTR(constructor) static void KLS_MVN(unit_test)(){KLS_libInit();{__VA_ARGS__}}
-#else
-    #define _KLS_UNIT_TEST(...)
-#endif
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-#define _KLS_MAIN0()
-#define _KLS_MAIN1(...) argc
-#define _KLS_MAIN2(...) argc,argv
-#define _KLS_MAIN3(...) argc,argv,env
-#define main(...)\
-    __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
-    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); KLS_libInit(); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)()); (void)argc; (void)argv; (void)env;}\
-    KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-#define _KLS_ARGS_COUNT(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( 1+ )
-#define _KLS_ALLOC(...) {__VA_ARGS__}) )
-#define _KLS_CMPCAST(_t_,_a_) ((unsigned _t_*)&(_a_))
-#define __KLS_CMP(_t_,_1_,_2_,...) ( sizeof(_1_)==sizeof(_t_) ? *_KLS_CMPCAST(_t_,_1_) ^ *_KLS_CMPCAST(_t_,_2_) : (__VA_ARGS__) )
-#define _KLS_CMP(_1_,_2_) (sizeof(_1_)==sizeof(_2_) ? __KLS_CMP(char,_1_,_2_, __KLS_CMP(short,_1_,_2_, __KLS_CMP(int,_1_,_2_, _KLS_CMPCAST(int,_1_)[0] ^ _KLS_CMPCAST(int,_2_)[0] || _KLS_CMPCAST(int,_1_)[1] ^ _KLS_CMPCAST(int,_2_)[1] ) ) ) : 1 )
-#define _KLS_CMP2(_a_,_b_) ({ KLS_TYPEOF(_a_) _1_=(_a_); KLS_TYPEOF(_b_) _2_=(_b_); _KLS_CMP(_1_,_2_); })
-#define _KLS_CMP3(_a_,_b_,_d_) (fabs((_a_)-(_b_))>(_d_))
-#define __KLS_AVERAGE(_i_,_s_,_arg_) M_WHEN(M_IS_ARG(_arg_))( (_s_)+=(_arg_); )
-#define ____KLS_EXTREMUM(_op_,_1_,_c_) {KLS_TYPEOF(_c_) _3_=(_c_); if(_3_ _op_ _1_.x) memcpy(&_1_,&_3_,sizeof(_3_));}
-#define ___KLS_EXTREMUM(...) ____KLS_EXTREMUM(__VA_ARGS__)
-#define __KLS_EXTREMUM(_i_,_a_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( ___KLS_EXTREMUM(M_EXTRACT _a_, __VA_ARGS__) )
-#define _KLS_EXTREMUM(_op_,_value_,...) ({\
-    struct{KLS_TYPEOF(_value_) x;}_1_={(_value_)};\
-    M_FOREACH(__KLS_EXTREMUM,(_op_,_1_),__VA_ARGS__) _1_.x;\
-})
-#define _KLS_AVERAGE(_value_,...) ({\
-    double _1_=(_value_); M_FOREACH(__KLS_AVERAGE,_1_,__VA_ARGS__)\
-    _1_/(KLS_ARGS_COUNT(__VA_ARGS__)+1);\
-})
-#define _KLS_TYPE_ALIGN(_expr_) ((sizeof(struct{char ________; _expr_;})-sizeof(char))%sizeof(struct{_expr_;})+1)
-char *_KLS_stringv(const char *format, va_list ap[2]);
-KLS_COLOR _KLS_rgbDetect(KLS_byte,KLS_byte,KLS_byte);
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-#define _KLS_ARRAY_AT(...) M_OVERLOAD(_KLS_ARRAY_AT_,__VA_ARGS__)(__VA_ARGS__)
-#define _KLS_ARRAY_AT_2(_i_)  (_i_[0])
-#define _KLS_ARRAY_AT_4(_i_)  (_KLS_ARRAY_AT_2(_i_)*_i_[3]+_i_[2])
-#define _KLS_ARRAY_AT_6(_i_)  (_KLS_ARRAY_AT_4(_i_)*_i_[5]+_i_[4])
-#define _KLS_ARRAY_AT_8(_i_)  (_KLS_ARRAY_AT_6(_i_)*_i_[7]+_i_[6])
-#define _KLS_ARRAY_AT_10(_i_) (_KLS_ARRAY_AT_8(_i_)*_i_[9]+_i_[8])
-#define _KLS_ARRAY_AT_12(_i_) (_KLS_ARRAY_AT_10(_i_)*_i_[11]+_i_[10])
-#define _KLS_ARRAY_AT_14(_i_) (_KLS_ARRAY_AT_12(_i_)*_i_[13]+_i_[12])
-#define _KLS_ARRAY_AT_16(_i_) (_KLS_ARRAY_AT_14(_i_)*_i_[15]+_i_[14])
-#define _KLS_ARRAY_AT_18(_i_) (_KLS_ARRAY_AT_16(_i_)*_i_[17]+_i_[16])
-#define _KLS_ARRAY_AT_20(_i_) (_KLS_ARRAY_AT_18(_i_)*_i_[19]+_i_[18])
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-struct __KLS_t_HEAP_NODE;
-typedef struct{
-    struct __KLS_t_HEAP_NODE *first, **last;
-}_KLS_t_HEAP_FREES;
-typedef struct{
-    void *p;
-    _KLS_t_HEAP_FREES *frees;
-    pthread_mutex_t mtx;
-}_KLS_t_HEAP_HEADER;
-typedef struct __KLS_t_HEAP_NODE{
-    _KLS_t_HEAP_HEADER *h;
-    struct __KLS_t_HEAP_NODE *prev, *next, **free;
-    KLS_size size;
-}_KLS_t_HEAP_NODE;
-#define _KLS_HEAP(_N_,_S_) \
-    struct{\
-        _KLS_t_HEAP_HEADER _h;\
-        _KLS_t_HEAP_NODE _n;\
-        char buff[_S_];\
-        _KLS_t_HEAP_FREES frees;\
-    }_N_[1]={{ {_N_,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),PTHREAD_MUTEX_INITIALIZER}, {(void*)_N_,NULL,NULL,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),(_S_)}, {0}, {(void*)(((_KLS_t_HEAP_HEADER*)_N_)+1),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES)} }}
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-KLS_byte _KLS_threadTask(void *id,void *task);
-KLS_byte _KLS_threadPoolTask(void *pool,void *task);
-#define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
-#define _KLS_THREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__)}
-#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
-#define _KLS_THREAD_PACK(_str_,...) M_FOREACH(__KLS_THREAD_PACK,_str_,__VA_ARGS__)
-#define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
-#define _KLS_THREAD_CALL(_ttf_,_id_,_f_,...) ({\
-    _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=_f_ ? KLS_malloc(sizeof(*KLS_MVN(_thr1))) : NULL;\
-    if(KLS_MVN(_thr1)){KLS_MVN(_thr1)->p=NULL; KLS_MVN(_thr1)->f=(_f_);_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,KLS_MVN(_thr1));\
-})
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
 
 
 #define KLS_NAN  (0.0/0.0)
@@ -188,18 +58,6 @@ KLS_byte _KLS_threadPoolTask(void *pool,void *task);
 #define KLS_ENDIAN_BIG      0
 #define KLS_ENDIAN_LITTLE   1
 #define KLS_ENDIAN_PDP      2
-
-#define KLS_ALIGN_H_LEFT    1
-#define KLS_ALIGN_H_MID     2
-#define KLS_ALIGN_H_RIGHT   4
-#define KLS_ALIGN_V_BTM     8
-#define KLS_ALIGN_V_MID     16
-#define KLS_ALIGN_V_TOP     32
-
-#define KLS_MATRIX_LOOP_COLUMN   1
-#define KLS_MATRIX_LOOP_ROW      2
-#define KLS_MATRIX_SUBUNLIM_H    4
-#define KLS_MATRIX_SUBUNLIM_V    8
 
 #define KLS_COLOR_BLACK          KLS_RGB(0, 0, 0)
 #define KLS_COLOR_WHITE          KLS_RGB(255, 255, 255)
@@ -213,31 +71,12 @@ KLS_byte _KLS_threadPoolTask(void *pool,void *task);
 #define KLS_COLOR_LIGHT_GREY     KLS_RGB(195, 195, 195)
 
 
-typedef struct{
-    double x,y;
-}KLS_t_POINT;
+typedef void*          KLS_any;
+typedef unsigned char  KLS_byte;
+typedef ptrdiff_t      KLS_long;
+typedef size_t         KLS_size;
 
-
-typedef struct{
-    unsigned int year:22, day:5, hour:5;
-    unsigned short month:4, minute:6, second:6;
-}KLS_t_DATETIME;
-
-
-typedef struct{
-    struct _KLS_t_FS_RULES{
-        KLS_byte r:2,w:2,e:2,error:2;
-    } owner, groop, other;
-}KLS_t_FS_RULE;
-
-
-typedef struct{
-    KLS_size size;
-    KLS_t_DATETIME create, access, mod;
-    KLS_byte type;
-}KLS_t_FS_INFO;
-
-
+typedef struct _GUI_t_DISPLAY GUI_t_DISPLAY;
 
 typedef const struct{
     void *(*const new)(KLS_size size);
@@ -246,22 +85,12 @@ typedef const struct{
 }KLS_t_ALLOCATOR;
 
 
-
-typedef struct{
-    void *data;
-    void (*deleter)(void *element);
-    unsigned int rows, columns, elSize;
-    struct{ unsigned int rr,rc,bh,bw,br,bc; }_;
-    int subRow, subColumn;
-    KLS_byte options, _free;
-}KLS_t_MATRIX;
-
-
 typedef struct{
     const char *symbols;
     const unsigned char symbolWidth;  // pixels
     const unsigned char symbolHeight; // pixels
 }KLS_t_FONT_BITMAP;
+
 
 typedef struct{
     const KLS_t_FONT_BITMAP *bitmap;
@@ -272,6 +101,14 @@ typedef struct{
 }KLS_t_FONT;
 
 
+typedef struct{
+    void *data;
+    void (*deleter)(void *element);
+    unsigned int rows, columns, elSize;
+    struct{ unsigned int rr,rc,bh,bw,br,bc; }_;
+    int subRow, subColumn;
+    KLS_byte options, _free;
+}KLS_t_MATRIX;
 
 
 typedef struct{
@@ -298,14 +135,12 @@ typedef struct{
 }KLS_t_QUEUE;
 
 
-
-
-
 typedef struct{
     const char *url;
     const char *header;   //default "Connection: close\r\n"
     const char *protocol; //default "HTTP/1.0"
 }KLS_t_URL;
+
 
 typedef struct{
     const char *header;
@@ -315,51 +150,16 @@ typedef struct{
 
 
 
-typedef struct{
-    KLS_t_MATRIX m;
-    double left,up,right,down;
-    double _dv,_dh;
-}KLS_t_CANVAS;
-
-typedef struct{
-    unsigned short division; // default 2
-    KLS_byte gridOn;         // default off
-    const char *format;      // default "%.0f"
-}KLS_t_AXIS;
-
-
-typedef struct{
-    struct{int x,y,dx,dy;} mouse;
-    int key,keys;
-    signed char wheel;
-}GUI_t_INPUT;
-
-typedef struct{
-    struct{
-        union{void *p; unsigned long l; int i;} osDep[6];
-    }_;
-    const char *title;
-    int x,y,width,height;
-    KLS_t_MATRIX m;
-    GUI_t_INPUT input;
-}GUI_t_DISPLAY;
-
-
-
 
 // GLOBAL VARIABLES INITIALIZATION SECTION
 
 extern const KLS_t_FONT KLS_fontBase;
-
-KLS_INIT(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);
-KLS_INIT(KLS_byte KLS_COLOR_BITS,=32);
+extern KLS_byte KLS_COLOR_BITS;
 KLS_INIT(const KLS_byte _KLS_isfpnum[],={
     0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,   0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,
     0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,   0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,
 });
-//KLS_INIT(KLS_t_ALLOCATOR KLS_allocatorDefault,={
-//    .new=(void*)KLS_malloc, .resize=(void*)KLS_realloc, .del=(void*)KLS_free
-//});
+
 
 
 
@@ -430,6 +230,7 @@ KLS_INIT(const KLS_byte _KLS_isfpnum[],={
 
 
 
+
 // COMMON SECTION
 int KLS_backTrace(void *address[],int count);
 
@@ -439,6 +240,7 @@ void KLS_libRunInfo();
 void KLS_pausef(double sec);
 void KLS_freeFile(FILE *file);
 void KLS_freeData(void *data);
+void KLS_ptrDeleter(void *data);
 void KLS_execNameSet(const char *name);
 void KLS_variableRevers(void *var,KLS_size size);
 void KLS_swap(void *var1, void *var2,KLS_size size);
@@ -569,6 +371,7 @@ const char *KLS_threadPolicyName(int policy);
 
 
 
+
 // THREAD POOL SECTION
 
 typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
@@ -593,7 +396,41 @@ unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
 
 
 
+
+// DATE AND TIME SECTION
+
+typedef struct{
+    unsigned int year:22, day:5, hour:5;
+    unsigned short month:4, minute:6, second:6;
+}KLS_t_DATETIME;
+
+int KLS_timeToSec(int hour,int min,int sec);
+
+void KLS_timespecNorm(struct timespec *tm);
+void KLS_dateTimePrint(const KLS_t_DATETIME *dt,FILE *f);
+void KLS_timeFromSec(int timeSec,int *hour,int *min,int *sec);
+void KLS_timespecAdd(struct timespec *tm,int sec,int nanosec);
+void KLS_timespecSub(struct timespec *tm,int sec,int nanosec);
+
+KLS_t_DATETIME KLS_dateTimeSystem();
+KLS_t_DATETIME KLS_dateTimeFrom(time_t time);
+
+
+
+
 // FILE SYSTEM SECTION
+
+typedef struct{
+    struct _KLS_t_FS_RULES{
+        KLS_byte r:2,w:2,e:2,error:2;
+    } owner, groop, other;
+}KLS_t_FS_RULE;
+
+typedef struct{
+    KLS_size size;
+    KLS_t_DATETIME create, access, mod;
+    KLS_byte type;
+}KLS_t_FS_INFO;
 
 #define KLS_FS_TYPE_ERROR   1
 #define KLS_FS_TYPE_UNKNOWN 2
@@ -614,21 +451,6 @@ KLS_byte KLS_fsContentForEach(const char *directory,void(*action)(const char *na
 KLS_byte KLS_fsRuleGet(const char *path,KLS_t_FS_RULE *rule);
 KLS_byte KLS_fsInfoGet(const char *fileName,KLS_t_FS_INFO *info);
 
-
-
-// DATE AND TIME SECTION
-#define _KLS_TIMESPEC_TYPE(_1_) KLS_TYPEOF(KLS_ABSTRACT(struct timespec)->_1_)
-
-int KLS_timeToSec(int hour,int min,int sec);
-
-void KLS_timespecNorm(struct timespec *tm);
-void KLS_dateTimePrint(const KLS_t_DATETIME *dt,FILE *f);
-void KLS_timeFromSec(int timeSec,int *hour,int *min,int *sec);
-void KLS_timespecAdd(struct timespec *tm,_KLS_TIMESPEC_TYPE(tv_sec) sec, _KLS_TIMESPEC_TYPE(tv_nsec) nanosec);
-void KLS_timespecSub(struct timespec *tm,_KLS_TIMESPEC_TYPE(tv_sec) sec, _KLS_TIMESPEC_TYPE(tv_nsec) nanosec);
-
-KLS_t_DATETIME KLS_dateTimeSystem();
-KLS_t_DATETIME KLS_dateTimeFrom(time_t time);
 
 
 
@@ -701,24 +523,20 @@ const char *KLS_regexFind(const void *regex,const char *begin,const char *end,KL
 
 
 
-// CONTAINER DATA DELETER
-void KLS_ptrDeleter(void *data); //std deleter for: vector/list/queue/matrix where element is type *
-// EXAMPLE:
-//
-//    KLS_t_MATRIX m=KLS_matrixNew(NULL,5,5,sizeof(char*),NULL,KLS_ptrDeleter);
-//    char *ptr;
-//    for(i=0;i<m.rows;++i)
-//       for(j=0;j<m.columns;++j){
-//           ptr=KLS_string(NULL,"%d,%d",i+1,j+1);
-//           KLS_matrixPutElement(&m,i,j,&ptr);
-//       }
-//    KLS_matrixFree(&m);  // inside calls KLS_ptrDeleter for all elements
-//
-
-
-
 
 // MATRIX SECTION
+
+#define KLS_ALIGN_H_LEFT    1
+#define KLS_ALIGN_H_MID     2
+#define KLS_ALIGN_H_RIGHT   4
+#define KLS_ALIGN_V_BTM     8
+#define KLS_ALIGN_V_MID     16
+#define KLS_ALIGN_V_TOP     32
+
+#define KLS_MATRIX_LOOP_COLUMN   1
+#define KLS_MATRIX_LOOP_ROW      2
+#define KLS_MATRIX_SUBUNLIM_H    4
+#define KLS_MATRIX_SUBUNLIM_V    8
 
 void KLS_matrixFree(KLS_t_MATRIX *matrix);
 void KLS_matrixPrint(const KLS_t_MATRIX *matrix,void(*printer)(const void *element));
@@ -741,6 +559,8 @@ KLS_byte KLS_matrixTransform(const KLS_t_MATRIX *from,KLS_t_MATRIX *to,KLS_byte(
 
 KLS_t_MATRIX KLS_matrixGetMatrix(const KLS_t_MATRIX *matrix,int row,int column,unsigned int rows,unsigned int columns,KLS_byte options);
 KLS_t_MATRIX KLS_matrixNew(void *matrix,unsigned int countRow,unsigned int countColumn,unsigned int elementSize,void(*deleter)(void *element));
+
+
 
 
 
@@ -814,6 +634,11 @@ KLS_byte KLS_queuePush(KLS_t_QUEUE *queue,const void *element);
 
 
 // GEOMETRY COMMON SECTION
+
+typedef struct{
+    double x,y;
+}KLS_t_POINT;
+
 double KLS_angleTo360(double angle);
 double KLS_angleTo360_rad(double angle_rad);
 double KLS_lendir_x(double len,double angle);
@@ -840,6 +665,7 @@ KLS_t_POINT KLS_point(double x,double y);
 
 
 //GEOMETRY CROSS SECTION
+
 void KLS_pointsPrint(const KLS_t_POINT *p,unsigned int count,FILE *f);
 
 signed char KLS_crossRoundRound(double r1,double x1,double y1,double r2,double x2,double y2,KLS_t_POINT p[static 2]);
@@ -874,6 +700,21 @@ KLS_t_VECTOR KLS_polyFromMatrix(const KLS_t_MATRIX *matrix,int row,int column,co
 
 
 // DRAW SECTION
+
+typedef int KLS_COLOR;
+
+typedef struct{
+    KLS_t_MATRIX m;
+    double left,up,right,down;
+    double _dv,_dh;
+}KLS_t_CANVAS;
+
+typedef struct{
+    unsigned short division; // default 2
+    KLS_byte gridOn;         // default off
+    const char *format;      // default "%.0f"
+}KLS_t_AXIS;
+
 #define KLS_RGB(_r_,_g_,_b_) _KLS_rgb(_r_,_g_,_b_)
 
 void KLS_canvasFree(KLS_t_CANVAS *canvas);
@@ -1113,6 +954,22 @@ enum GUI_EVENTS{
     GUI_EVENT_RELEASE=1<<3,
     GUI_EVENT_CURSOR=1<<4,
     GUI_EVENT_WHEEL=1<<5,
+};
+
+typedef struct{
+    struct{int x,y,dx,dy;} mouse;
+    int key,keys;
+    signed char wheel;
+}GUI_t_INPUT;
+
+struct _GUI_t_DISPLAY{
+    struct{
+        union{void *p; unsigned long l; int i;} osDep[6];
+    }_;
+    const char *title;
+    int x,y,width,height;
+    KLS_t_MATRIX m;
+    GUI_t_INPUT input;
 };
 
 int GUI_displayEvent(GUI_t_DISPLAY *display);
@@ -1371,5 +1228,134 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 #define __GUI_widgetNew(...) M_WHEN(M_IS_ARG(M_PEEK(__VA_ARGS__)))(,__VA_ARGS__) )) KLS_freeData(KLS_MVN(_wgt_)); KLS_MVN(_wgt_); })
 
 
+
+
+
+// HIDDEN MACRO SECTION
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+#if(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_LITTLE)
+    #define KLS_ENDIAN KLS_ENDIAN_LITTLE
+#elif(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_BIG)
+    #define KLS_ENDIAN KLS_ENDIAN_BIG
+#elif(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_PDP)
+    #define KLS_ENDIAN KLS_ENDIAN_PDP
+#else
+    #define KLS_ENDIAN KLS_endianGet()
+#endif
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef _KLS_MEMORY_DEBUG
+    KLS_INIT(KLS_size _KLS_memAlloc,=0);
+    KLS_INIT(KLS_size _KLS_memFree,=0);
+    KLS_INIT(pthread_mutex_t _KLS_memMtx[2]);
+    #define _KLS_MEMORY_PUSH(_1_) if(_1_){ pthread_mutex_lock(_KLS_memMtx); ++_KLS_memAlloc; pthread_mutex_unlock(_KLS_memMtx); }
+    #define _KLS_MEMORY_POP(_1_)  if(_1_){ pthread_mutex_lock(_KLS_memMtx+1); ++_KLS_memFree;  pthread_mutex_unlock(_KLS_memMtx+1); }
+    #define _KLS_MEMORY_MTX(_1_)  if(_1_){ pthread_mutex_init(_KLS_memMtx,NULL); pthread_mutex_init(_KLS_memMtx+1,NULL); }else{ pthread_mutex_destroy(_KLS_memMtx); pthread_mutex_destroy(_KLS_memMtx+1); }
+    #define _KLS_MEMORY_SHOW()    { printf("KLS: allocs(%zu) frees(%zu)\n",_KLS_memAlloc,_KLS_memFree); }
+    #warning _KLS_MEMORY_DEBUG is defined
+#else
+    #define _KLS_MEMORY_PUSH(...)
+    #define _KLS_MEMORY_POP(...)
+    #define _KLS_MEMORY_MTX(...)
+    #define _KLS_MEMORY_SHOW()
+#endif
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef _KLS_UNIT_TESTS
+    #define _KLS_UNIT_TEST(...) KLS_ATTR(constructor) static void KLS_MVN(unit_test)(){KLS_libInit();{__VA_ARGS__}}
+#else
+    #define _KLS_UNIT_TEST(...)
+#endif
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+#define _KLS_MAIN0()
+#define _KLS_MAIN1(...) argc
+#define _KLS_MAIN2(...) argc,argv
+#define _KLS_MAIN3(...) argc,argv,env
+#define main(...)\
+    __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
+    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); KLS_libInit(); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)()); (void)argc; (void)argv; (void)env;}\
+    KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+#define _KLS_ARGS_COUNT(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( 1+ )
+#define _KLS_ALLOC(...) {__VA_ARGS__}) )
+#define _KLS_CMPCAST(_t_,_a_) ((unsigned _t_*)&(_a_))
+#define __KLS_CMP(_t_,_1_,_2_,...) ( sizeof(_1_)==sizeof(_t_) ? *_KLS_CMPCAST(_t_,_1_) ^ *_KLS_CMPCAST(_t_,_2_) : (__VA_ARGS__) )
+#define _KLS_CMP(_1_,_2_) (sizeof(_1_)==sizeof(_2_) ? __KLS_CMP(char,_1_,_2_, __KLS_CMP(short,_1_,_2_, __KLS_CMP(int,_1_,_2_, _KLS_CMPCAST(int,_1_)[0] ^ _KLS_CMPCAST(int,_2_)[0] || _KLS_CMPCAST(int,_1_)[1] ^ _KLS_CMPCAST(int,_2_)[1] ) ) ) : 1 )
+#define _KLS_CMP2(_a_,_b_) ({ KLS_TYPEOF(_a_) _1_=(_a_); KLS_TYPEOF(_b_) _2_=(_b_); _KLS_CMP(_1_,_2_); })
+#define _KLS_CMP3(_a_,_b_,_d_) (fabs((_a_)-(_b_))>(_d_))
+#define __KLS_AVERAGE(_i_,_s_,_arg_) M_WHEN(M_IS_ARG(_arg_))( (_s_)+=(_arg_); )
+#define ____KLS_EXTREMUM(_op_,_1_,_c_) {KLS_TYPEOF(_c_) _3_=(_c_); if(_3_ _op_ _1_.x) memcpy(&_1_,&_3_,sizeof(_3_));}
+#define ___KLS_EXTREMUM(...) ____KLS_EXTREMUM(__VA_ARGS__)
+#define __KLS_EXTREMUM(_i_,_a_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( ___KLS_EXTREMUM(M_EXTRACT _a_, __VA_ARGS__) )
+#define _KLS_EXTREMUM(_op_,_value_,...) ({\
+    struct{KLS_TYPEOF(_value_) x;}_1_={(_value_)};\
+    M_FOREACH(__KLS_EXTREMUM,(_op_,_1_),__VA_ARGS__) _1_.x;\
+})
+#define _KLS_AVERAGE(_value_,...) ({\
+    double _1_=(_value_); M_FOREACH(__KLS_AVERAGE,_1_,__VA_ARGS__)\
+    _1_/(KLS_ARGS_COUNT(__VA_ARGS__)+1);\
+})
+#define _KLS_TYPE_ALIGN(_expr_) ((sizeof(struct{char ________; _expr_;})-sizeof(char))%sizeof(struct{_expr_;})+1)
+char *_KLS_stringv(const char *format, va_list ap[2]);
+KLS_COLOR _KLS_rgbDetect(KLS_byte,KLS_byte,KLS_byte);
+KLS_INIT(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+#define _KLS_ARRAY_AT(...) M_OVERLOAD(_KLS_ARRAY_AT_,__VA_ARGS__)(__VA_ARGS__)
+#define _KLS_ARRAY_AT_2(_i_)  (_i_[0])
+#define _KLS_ARRAY_AT_4(_i_)  (_KLS_ARRAY_AT_2(_i_)*_i_[3]+_i_[2])
+#define _KLS_ARRAY_AT_6(_i_)  (_KLS_ARRAY_AT_4(_i_)*_i_[5]+_i_[4])
+#define _KLS_ARRAY_AT_8(_i_)  (_KLS_ARRAY_AT_6(_i_)*_i_[7]+_i_[6])
+#define _KLS_ARRAY_AT_10(_i_) (_KLS_ARRAY_AT_8(_i_)*_i_[9]+_i_[8])
+#define _KLS_ARRAY_AT_12(_i_) (_KLS_ARRAY_AT_10(_i_)*_i_[11]+_i_[10])
+#define _KLS_ARRAY_AT_14(_i_) (_KLS_ARRAY_AT_12(_i_)*_i_[13]+_i_[12])
+#define _KLS_ARRAY_AT_16(_i_) (_KLS_ARRAY_AT_14(_i_)*_i_[15]+_i_[14])
+#define _KLS_ARRAY_AT_18(_i_) (_KLS_ARRAY_AT_16(_i_)*_i_[17]+_i_[16])
+#define _KLS_ARRAY_AT_20(_i_) (_KLS_ARRAY_AT_18(_i_)*_i_[19]+_i_[18])
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+struct __KLS_t_HEAP_NODE;
+typedef struct{
+    struct __KLS_t_HEAP_NODE *first, **last;
+}_KLS_t_HEAP_FREES;
+typedef struct{
+    void *p;
+    _KLS_t_HEAP_FREES *frees;
+    pthread_mutex_t mtx;
+}_KLS_t_HEAP_HEADER;
+typedef struct __KLS_t_HEAP_NODE{
+    _KLS_t_HEAP_HEADER *h;
+    struct __KLS_t_HEAP_NODE *prev, *next, **free;
+    KLS_size size;
+}_KLS_t_HEAP_NODE;
+#define _KLS_HEAP(_N_,_S_) \
+    struct{\
+        _KLS_t_HEAP_HEADER _h;\
+        _KLS_t_HEAP_NODE _n;\
+        char buff[_S_];\
+        _KLS_t_HEAP_FREES frees;\
+    }_N_[1]={{ {_N_,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),PTHREAD_MUTEX_INITIALIZER}, {(void*)_N_,NULL,NULL,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),(_S_)}, {0}, {(void*)(((_KLS_t_HEAP_HEADER*)_N_)+1),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES)} }}
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+KLS_byte _KLS_threadTask(void *id,void *task);
+KLS_byte _KLS_threadPoolTask(void *pool,void *task);
+#define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
+#define _KLS_THREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__)}
+#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
+#define _KLS_THREAD_PACK(_str_,...) M_FOREACH(__KLS_THREAD_PACK,_str_,__VA_ARGS__)
+#define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
+#define _KLS_THREAD_CALL(_ttf_,_id_,_f_,...) ({\
+    _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=_f_ ? KLS_malloc(sizeof(*KLS_MVN(_thr1))) : NULL;\
+    if(KLS_MVN(_thr1)){KLS_MVN(_thr1)->p=NULL; KLS_MVN(_thr1)->f=(_f_);_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,KLS_MVN(_thr1));\
+})
+/////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+
 #undef KLS_INIT
+
 #endif // KLS_LIB_H
