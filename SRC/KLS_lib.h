@@ -463,7 +463,6 @@ void KLS_stringRect(const char *string,const KLS_t_FONT *font,int *width,int *he
 char *KLS_stringReadFile(const char *filePath);
 char *KLS_string(char **variable,const char *format, ...);// KLS_ATTR(format,(__printf__, 2, 3));
 char *KLS_stringReplace(const char *string, const char *from, const char *to);
-char *KLS_stringJoinList(const char **stringList, int stringListLen, const char *separator);
 
 char *KLS_stringv(const char *format);
 #define KLS_stringv(_1_) ({va_list _2_[2]; va_start(_2_[0],_1_); va_start(_2_[1],_1_); _KLS_stringv(_1_,_2_);})
@@ -477,8 +476,6 @@ const char *KLS_stringPosition(const char *string,const KLS_t_FONT *font,KLS_byt
 const char *KLS_stringSep(const char * const * string,unsigned int *len,...);
 const char *_KLS_stringSep(const char ** string,unsigned int *len,const char * const * separators);
 #define KLS_stringSep(_1_,_2_,...) ({ const char *_3_[]={__VA_ARGS__,NULL}; _KLS_stringSep((_1_),_2_,_3_); })
-
-KLS_t_VECTOR KLS_stringSplit(const char *string, const char *separator); // <char*>
 
 
 

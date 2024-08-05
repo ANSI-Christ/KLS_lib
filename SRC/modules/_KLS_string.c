@@ -33,64 +33,21 @@ unsigned int KLS_stringWordCount(const char *string,const char *word){
 char *KLS_stringReplace(const char *string,const char *from, const char *to){
     char *str=NULL;
     if(string && from){
-        KLS_size lenFrom=strlen(from), lenTo=to?strlen(to):0;
+        const KLS_size lenFrom=strlen(from), lenTo=to?strlen(to):0;
         KLS_size len=strlen(string)+1+KLS_stringWordCount(string,from)*(lenTo-lenFrom);
         if( (str=KLS_malloc(len)) ){
             const char *end;
-            *str=0;
+            len=0;
             while( (end=strstr(string,from))){
-                strncat(str,string,end-string);
-                strncat(str,to,lenTo);
+                const unsigned int n=end-string;
+                strncat(str+len,string,n); len+=n;
+                strcat(str+len,to); len+=lenTo;
                 string=end+lenFrom;
             }
-            strcat(str,string);
+            strcat(str+len,string);
         }
     }
     return str;
-}
-
-char *KLS_stringJoinList(const char **stringList,int stringListLen,const char *separator){
-    int i,len=1;
-    char *str=NULL;
-    if(!stringList) return NULL;
-    for(i=0;i<stringListLen;++i)
-        if(stringList[i])
-            len+=strlen(stringList[i]);
-    if(separator)
-        len+=strlen(separator)*(stringListLen-1);
-    if( len>0 && (str=KLS_malloc(len)) ){
-        memset(str,0,len);
-        for(i=0;i<stringListLen;++i){
-            if(stringList[i])
-                strcat(str,stringList[i]);
-            if(separator && i<(stringListLen-1))
-                strcat(str,separator);
-        }
-    }
-    return str;
-}
-
-KLS_t_VECTOR KLS_stringSplit(const char *string, const char *separator){
-    KLS_t_VECTOR v={NULL};
-    if(string && separator){
-        char *tmp;
-        const char *end;
-        KLS_size lenSep=strlen(separator),cnt=KLS_stringWordCount(string,separator)+2;
-        if( !(v=KLS_vectorNew(cnt,sizeof(char*),KLS_ptrDeleter)).data )
-            return v;
-        while( (end=strstr(string,separator)) ){
-            if( !(tmp=KLS_string(NULL,"%.*s",(int)(end-string),string)) ){
-                KLS_vectorFree(&v);
-                return v;
-            }
-            KLS_vectorPushBack(&v,&tmp);
-            string=end+lenSep;
-        }
-        if( (tmp=KLS_string(NULL,"%s",string)) )
-            KLS_vectorPushBack(&v,&tmp);
-        else KLS_vectorFree(&v);
-    }
-    return v;
 }
 
 char *KLS_stringReadFile(const char *filePath){
@@ -120,28 +77,26 @@ const char *_KLS_stringSep(const char **string,unsigned int *len,const char * co
     return x;
 }
 
-
+typedef struct{
+    char *left, *op, *right;
+}_KLS_t_SOLVE_MATCH;
 
 typedef struct{
     char *str, *breckets, *unBreckets;
     char *tmp, *tmp2, *tmp3;
     char precision[8];
-}KLS_t_SOLVE;
+}_KLS_t_SOLVE;
 
 typedef struct{
     const char *op;
-    const KLS_byte opLen:4;
-    const KLS_byte left:2;
-    const KLS_byte right:2;
-}KLS_t_SOLVE_OP;
+    const unsigned char len, left, right;
+}_KLS_t_SOLVE_OP;
 
-typedef struct{
-    const char *left, *op, *right;
-}KLS_t_SOLVE_MATCH;
 
-#define _ADD_OPS(...) KLS_$(KLS_t_SOLVE_OP)(__VA_ARGS__,_ADD_OP(0,NULL,0))
-#define _ADD_OP(left,op,right) {op,op?((sizeof op)-1):0,left,right}
-static const KLS_t_SOLVE_OP *_KLS_solveOps[]={
+
+#define _ADD_OPS(...) KLS_$(_KLS_t_SOLVE_OP)(__VA_ARGS__,_ADD_OP(0,NULL,0))
+#define _ADD_OP(left,op,right) { op,op ? sizeof(op)-1 : 0, left, right }
+static const _KLS_t_SOLVE_OP *_KLS_solveOps[]={
     _ADD_OPS( _ADD_OP(0,"!",1),     _ADD_OP(0,"~",1) ),
     _ADD_OPS( _ADD_OP(1,"!",0) ),
     _ADD_OPS( _ADD_OP(0,"asin",1),  _ADD_OP(0,"acos",1), _ADD_OP(0,"atan",1),
@@ -261,20 +216,7 @@ KLS_byte _KLS_solveReplace(char *str,const char *from,const char *to,char *tmp){
     return 0;
 }
 
-void _KLS_solveRemoveSymbols(char *str,const char *symbols,char *tmp){
-    const char *s, *_str=str;
-    KLS_byte chk;
-    *tmp=0;
-    while(*_str){
-        s=symbols; chk=1;
-        while(*s) chk&=(*_str!=*(s++));
-        if(chk) strncat(tmp,_str,1);
-        ++_str;
-    }
-    *str=0; strcat(str,tmp);
-}
-
-KLS_byte _KLS_solveGetBreckets(KLS_t_SOLVE *s){
+KLS_byte _KLS_solveGetBreckets(_KLS_t_SOLVE *s){
     if(s->str){
         char l;
         const char *begin=s->str,*str=begin;
@@ -314,54 +256,38 @@ const char *_KLS_solveFindEnd(const char *end){
     return NULL;
 }
 
-KLS_byte _KLS_solveFindVal(const char *str){
-    char c;
-    KLS_byte ret=1,cntDot=0,cntOp=0;
-    while( (c=*(str++)) ){
-        cntDot+=(c=='.');
-        cntOp+=(c=='-' || c=='+');
-        ret&=((c>='0' && c<='9') || (c=='.') || (c=='-') || (c=='+'));
-        ret&=cntDot<2 && cntOp<2;
-    }
-    return ret;
-}
-
-KLS_byte _KLS_solveFindOp(const char *str,const KLS_t_SOLVE_OP *op,KLS_t_SOLVE_MATCH *m, char *replace){
+KLS_byte _KLS_solveFindOp(const char *str,const _KLS_t_SOLVE_OP *op,_KLS_t_SOLVE_MATCH *m, char *replace){
     const char *begin, *end;
-    const KLS_t_SOLVE_OP *o;
+    const _KLS_t_SOLVE_OP *o;
     *replace=0;
     memset(m,0,sizeof(*m));
-    while(*str){
-        o=op;
-        while( (m->op=o->op) ){
-            begin=str;
-            if(!strncmp(begin,m->op,o->opLen)){
-                end=begin+o->opLen;
+    for(;*str;++str)
+        for(o=op;o->op;++o)
+            if(!strncmp(str,o->op,o->len)){
+                begin=str;
+                end=begin+o->len;
                 if(o->left){
                     if( !(begin=_KLS_solveFindLeft(begin)) )
-                        return 0;
+                        break;
                     m->left=begin;
                 }
                 if(o->right){
                     m->right=end;
                     if( !(end=_KLS_solveFindEnd(end)) ){
                         m->right=NULL;
-                        return 0;
+                        break;
                     }
                 }
+                m->op=o->op;
                 strncat(replace,begin,end-begin);
                 return 1;
             }
-            ++o;
-        }
-        ++str;
-    }
     return 0;
 }
 
-KLS_byte _KLS_solveTry(KLS_t_SOLVE *s){
+KLS_byte _KLS_solveTry(_KLS_t_SOLVE *s){
     unsigned int i;
-    KLS_t_SOLVE_MATCH m;
+    _KLS_t_SOLVE_MATCH m;
     while(_KLS_solveGetBreckets(s)){
         for(i=0;i<KLS_ARRAY_LEN(_KLS_solveOps);++i)
             while(_KLS_solveFindOp(s->unBreckets,_KLS_solveOps[i],&m,s->tmp2))
@@ -372,24 +298,47 @@ KLS_byte _KLS_solveTry(KLS_t_SOLVE *s){
     return 1;
 }
 
-KLS_size _KLS_solveAddLen(const char *str,const char *precision){
-    int ofs=0;
+int _KLS_solveAddLen(const char *str,const char *precision){
+    int ofs=0,size=0,n;
     float tmp;
-    char buf[64]={0};
-    KLS_size size=0;
-    for(;*str;++str) if(*str>='0' && *str<='9') break;
-    while(sscanf(str,"%f%n",&tmp,&ofs)==1){
-        str+=ofs;
-        ofs=sprintf(buf,precision,tmp)-ofs;
-        if(ofs>0) size+=ofs;
-        for(;*str;++str)
-            if(*str>='0' && *str<='9')
-                break;
-    }
+    char val[64];
+    do{
+        n=0;
+        sscanf(str+ofs,"%*[^0-9.]%n",&n);
+        ofs+=n;
+        if(sscanf(str+ofs,"%f%n",&tmp,&n)!=1)
+            break;
+        ofs+=n;
+        size+=sprintf(val,precision,tmp)-n;
+    }while(1);
     return size;
 }
 
-KLS_byte _KLS_solveMake(const char *str,KLS_t_SOLVE *s,int precision){
+void _KLS_solveRemoveSymbols(char *s,const char *symbols){
+    const char *fwd,*c;
+    while(*s){
+        for(c=symbols;*c;++c)
+            if(*s==*c){
+                fwd=s+1;
+                goto _mark;
+            }
+        ++s;
+    }
+    return;
+_mark:
+    while(*s){
+        for(c=symbols;*c;++c)
+            if(*fwd==*c){
+                ++fwd; goto _mark;
+            }
+        *s=*fwd;
+        ++s;
+        ++fwd;
+    }
+    *s=0;
+}
+
+KLS_byte _KLS_solveMake(const char *str,_KLS_t_SOLVE *s,int precision){
     memset(s,0,sizeof(*s));
     sprintf(s->precision,"%%.%df",precision<0?6:precision);
     if(str){
@@ -402,16 +351,20 @@ KLS_byte _KLS_solveMake(const char *str,KLS_t_SOLVE *s,int precision){
             s->tmp2=s->tmp+len1;             s->tmp2[-1]=s->tmp2[0]=0;
             s->tmp3=s->tmp2+len2;            s->tmp3[-1]=s->tmp3[0]=0;
             sprintf(s->str,"(%s)",str);
-            _KLS_solveRemoveSymbols(s->str,"\t\n ",s->tmp);
+            _KLS_solveRemoveSymbols(s->str,"\t\n ");
             return 1;
         }
     }
     return 0;
 }
 
+KLS_byte _KLS_solveFindVal(const char *str){
+    int n=-2; return sscanf(str,"%*f%n",&n)==0 && n==strlen(str);
+}
+
 double KLS_stringSolve(const char *str,int floatPrecision){
+    _KLS_t_SOLVE s={NULL};
     double answer=KLS_NAN;
-    KLS_t_SOLVE s;
     if(_KLS_solveMake(str,&s,floatPrecision)){
         if(_KLS_solveTry(&s) && _KLS_solveFindVal(s.str))
             answer=strtod(s.str,0);
