@@ -131,7 +131,6 @@ KLS_size _KLS_solveFac(KLS_size x){
 }
 
 int _KLS_solveOpValue(const char *frmt,const char *l,const char *op, const char *r, char *tmp){
-    KLS_byte chk=(!!l) | ((!!r)<<1);
     switch(*op){
         case '+': return sprintf(tmp,frmt,strtod(l,0) + strtod(r,0));
         case '-': return sprintf(tmp,frmt,strtod(l,0) - strtod(r,0));
@@ -150,7 +149,7 @@ int _KLS_solveOpValue(const char *frmt,const char *l,const char *op, const char 
             return -2;
         }
         case '!':
-            switch(chk){
+            switch((!!l) | ((!!r)<<1)){
                 case 1:{
                     double v=strtod(l,0);
                     if(v<0) return sprintf(tmp,"-%.0f" ,1.e-6+_KLS_solveFac(-v));
@@ -246,7 +245,7 @@ KLS_byte _KLS_solveOpFind(_KLS_t_SOLVE * const s,const _KLS_t_SOLVE_OP * const o
     const _KLS_t_SOLVE_OP *o=op;
     const char *str=s->brecket.c+1;
     for(;*str!=')';++str)
-        for(o=op;o->op;++o)
+        for(o=op;o->len;++o)
             if(!strncmp(str,o->op,o->len)){
                 if(o->left){
                     if( !(s->op.left.c=_KLS_solveOpLeft(str)) )

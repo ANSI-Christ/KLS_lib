@@ -244,9 +244,8 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb){
         if( (p=KLS_malloc(sizeof(*p)+sizeof(*p->threads)*(count))) ){
             memset(p,0,sizeof(*p)+sizeof(*p->threads)*(count));
             if(pthread_mutex_init(p->mtx,NULL)){
-                KLS_threadPoolDestroy(&p);
                 pthread_attr_destroy(a);
-                return p;
+                return KLS_free(p);
             }
             for(p->threads=(void*)(p+1);p->count<count;++p->count)
                 if( !_KLS_threadNew(a,p) ){
@@ -260,7 +259,7 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb){
 }
 
 KLS_t_THREAD KLS_threadSelf(){
-    return pthread_getspecific(_KLS_threadKey);
+    return _KLS_threadStatus ? pthread_getspecific(_KLS_threadKey) : NULL;
 }
 
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool){
@@ -316,7 +315,7 @@ KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec){
 KLS_byte _KLS_threadPoolTask(void *pool,void *task){
     if(_KLS_threadTaskAddQueue(pool?((KLS_t_THREAD_POOL)pool)->threads:NULL,task)){
         unsigned int i=((KLS_t_THREAD_POOL)pool)->count;
-        while(i) sem_post(((KLS_t_THREAD_POOL)pool)->threads[--i].request);
+        while(i--) sem_post(((KLS_t_THREAD_POOL)pool)->threads[i].request);
         return 1;
     } return 0;
 }
@@ -324,7 +323,7 @@ KLS_byte _KLS_threadPoolTask(void *pool,void *task){
 void _KLS_threadPoolClear(KLS_t_THREAD_POOL pool){
     if(pool){
         unsigned int i=pool->count;
-        while(i) while(!sem_trywait(pool->threads[--i].request));
+        while(i--) while(!sem_trywait(pool->threads[i].request));
         pthread_mutex_lock(pool->mtx);
         _KLS_threadTasksClear(pool->queue);
         pthread_mutex_unlock(pool->mtx);
