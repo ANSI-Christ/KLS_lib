@@ -15,6 +15,8 @@
     #define MSG_NOSIGNAL 0
 #endif
 
+
+
 #ifndef _NET_ERRNO
     #define _NET_ERRNO(...) __VA_ARGS__
     #define _NET_FUNC_DEF(_f_,...) _f_(__VA_ARGS__)
@@ -83,6 +85,19 @@ int poll(struct pollfd *p,int cnt,int timeout){
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+#ifndef AF_INET6
+    #define AF_INET6 (AF_INET+AF_UNSPEC+100)
+    struct sockaddr_in6 {
+        short sin6_family;
+        unsigned short sin6_port;
+        union {
+            unsigned char Byte[16];
+            unsigned short Word[8];
+            unsigned int __s6_addr32[4];
+        }sin6_addr;
+    };
+#endif
+
 typedef struct{
     union{
         struct sockaddr_storage st;
@@ -90,7 +105,7 @@ typedef struct{
         struct sockaddr_in a4;
         struct sockaddr_in6 a6;
     }d;
-    socklen_t l;
+    unsigned int l;
 }_NET_t_ADDR;
 
 #define _NET_ADDR(_var_) _NET_t_ADDR _var_={.l=sizeof(_var_.d)}
@@ -260,7 +275,7 @@ NET_t_SOCKET NET_socketAccept(NET_t_SOCKET *socket,NET_t_ADDRESS *address){
     if(socket->status==NET_SOCK_LISTENING){
         if(address){
             _NET_ADDR(a);
-            if( (ret.created=( (_NET_SOCK(&ret)=accept(_NET_SOCK(socket),&a.d.sa,&a.l)) != INVALID_SOCKET )) ){
+            if( (ret.created=( (_NET_SOCK(&ret)=accept(_NET_SOCK(socket),&a.d.sa,(void*)&a.l)) != INVALID_SOCKET )) ){
                 if( !(ret.created= _NET_addrFromNet(&a,address)) )
                     closesocket(_NET_SOCK(&ret));
             }
@@ -279,7 +294,7 @@ unsigned int NET_socketReceive(NET_t_SOCKET *socket,void *data,unsigned int size
     if(socket->created && data){
         if(from){
             _NET_ADDR(a);
-            ret=recvfrom(_NET_SOCK(socket),data,size,MSG_NOSIGNAL,&a.d.sa,&a.l);
+            ret=recvfrom(_NET_SOCK(socket),data,size,MSG_NOSIGNAL,&a.d.sa,(void*)&a.l);
             if(ret!=-1) _NET_addrFromNet(&a,from);
         }else ret=recvfrom(_NET_SOCK(socket),data,size,MSG_NOSIGNAL,NULL,NULL);
     }
