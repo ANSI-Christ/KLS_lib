@@ -408,9 +408,9 @@ void _NET_timeouts(NET_t_MANAGER m,time_t t){
                     switch(NET_socketError(&u->_.cntr)){
                         case 0: NET_socketConnect(&u->_.cntr,&u->address);
                             switch(errno){
-                                case EISCONN: case ECONNREFUSED: break;
+                                case EISCONN: case ECONNREFUSED: u->_.pulse=t; NET_socketFree(&u->_.cntr); break;
                                 default: if(t<u->_.pulse) break; NET_disconnect(u); --i; r|=1; continue;
-                            }
+                            } break;
                         case ECONNREFUSED: u->_.pulse=t; NET_socketFree(&u->_.cntr); break;
                         default: NET_disconnect(u); --i; r|=1; continue;
                     }
