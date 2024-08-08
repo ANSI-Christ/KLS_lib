@@ -19,9 +19,10 @@
 #define EXCEPTION    ((const struct _EXCEPTION*)(_TryCatch()->e))
 #define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
 
+void TryCatchClose();
 unsigned char TryCatchInit();
 
-void TryCatchClose();
+void TryCatchSetTerminator(void(*f)(void *arg),void *arg); /*by default exit(-1)*/
 void TryCatchSetSignalInitializer(void(*f)(void *arg),void *arg);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,12 +31,12 @@ void TryCatchSetSignalInitializer(void(*f)(void *arg),void *arg);
 struct _EXCEPTION{ const char *type, *where; void *data; };
 struct _TRYCATCH{ jmp_buf *jmp; struct _EXCEPTION e[1]; char buffer[95], final;};
 struct _TRYCATCH *_TryCatch();
+void _TryCatchFail();
 #define _CATCH(...) {__VA_ARGS__ break;}}
 #define _CATCH0() else{ _CATCH
 #define _CATCH1(_type_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _CATCH
 #define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(EXCEPTION->data); _CATCH
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
-#define _THROW_EXIT() exit(-1) /* pthread_exit(NULL) */
 #define _THROW0() ({\
     struct _TRYCATCH *_1_=_TryCatch();\
     if(_1_){\
@@ -44,7 +45,7 @@ struct _TRYCATCH *_TryCatch();
             else printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->e->type,_1_->e->where);\
         }else printf("\nterminate called after throwing at [" _THROW_INFO "]\n\n");\
     }else printf("\nterminate called after throwing at [" _THROW_INFO "]\n\n");\
-    _THROW_EXIT();\
+    _TryCatchTerminate();\
 })
 #define _THROW1(_type_,...) ({\
     struct _TRYCATCH *_1_=_TryCatch();\
@@ -59,13 +60,13 @@ struct _TRYCATCH *_TryCatch();
             M_EXTRACT( longjmp(*_1_->jmp,1); )\
         )\
     }printf("\nterminate called after throwing an instance of \'" M_STRING(_type_) "\' at [" _THROW_INFO "]\n\n");\
-    _THROW_EXIT();\
+    _TryCatchTerminate();\
 })
 #define _TRY(...) ({\
     jmp_buf _1tc_;\
     struct _TRYCATCH *_2tc_=_TryCatch();\
     void *_3tc_; char _4tc_;\
-    if(!_2tc_){printf("\n\nTRY FAULT at [" _THROW_INFO "]\n");_THROW_EXIT();}\
+    if(!_2tc_){printf("\n\nTRY FAULT at [" _THROW_INFO "]\n");_TryCatchTerminate();}\
     _3tc_=_2tc_->jmp;\
     _2tc_->jmp=&_1tc_;\
     _4tc_=!setjmp(_1tc_);\
@@ -81,14 +82,25 @@ struct _TRYCATCH *_TryCatch();
 #ifdef TRY_CATCH_IMPL
 
 static struct{
-    void(*f)(void *arg);
-    void *arg;
+    void(*sig_f)(void *sig_arg);
+    void *sig_arg;
+    void(*term_f)(void *term_arg);
+    void *term_arg;
     pthread_key_t key;
     unsigned char init;
 }_tcInit;
 
 void TryCatchSetSignalInitializer(void(*f)(void *arg),void *arg){
-    _tcInit.f=f; _tcInit.arg=arg;
+    _tcInit.sig_f=(void*)f; _tcInit.sig_arg=arg;
+}
+
+void TryCatchSetTerminator(void(*f)(void *arg),void *arg){
+    _tcInit.term_f=(void*)f; _tcInit.term_arg=arg;
+}
+
+void _TryCatchTerminate(){
+    if(!_tcInit.term_f) exit(-1);
+    _tcInit.term_f(_tcInit.term_arg);
 }
 
 void _TryCatchDeleter(struct _TRYCATCH *s){
@@ -118,7 +130,7 @@ struct _TRYCATCH *_TryCatch(){
             free(s); s=NULL;
         }else{
             memset(s,0,sizeof(*s));
-            if(_tcInit.f) _tcInit.f(_tcInit.arg);
+            if(_tcInit.sig_f) _tcInit.sig_f(_tcInit.sig_arg);
         }
     }
     return s;
