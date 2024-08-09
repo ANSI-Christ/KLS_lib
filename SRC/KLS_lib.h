@@ -245,7 +245,7 @@ void KLS_execNameSet(const char *name);
 void KLS_variableRevers(void *var,KLS_size size);
 void KLS_swap(void *var1, void *var2,KLS_size size);
 void KLS_pause(int sec,int mlsec,int mksec,int nnsec);
-void KLS_memmove(void *dst,const void *src,KLS_size size);
+void KLS_memmove(void *to,const void *from,KLS_size size);
 void KLS_binaryPrint(const void *ptr,KLS_size size,FILE *f);
 void KLS_addr2line(void * const *address,unsigned int count);
 void KLS_bitSet(void *data,unsigned int index,KLS_byte value);

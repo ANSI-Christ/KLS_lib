@@ -75,22 +75,6 @@ int _GUI_nextEvent(GUI_t_DISPLAY *d,XEvent *e){
         }
     return -1;
 }
-/*
-int _GUI_nextEvent(GUI_t_DISPLAY *d,XEvent *e){
-    while(1)
-        if(XPending(d->_.osDep[0].p)>0){
-            XNextEvent(d->_.osDep[0].p,e);
-            return e->type;
-        }else{
-            struct pollfd set[]={{.fd=XConnectionNumber(d->_.osDep[0].p),.events=POLLIN},{.fd=d->_.osDep[4].i,.events=POLLIN}};
-            if(poll(set,2-(set[1].fd==-1),-1)>0 && (set[1].revents & POLLIN)){
-                read(set[1].fd,&e->type,sizeof(int));
-                return GenericEvent;
-            }
-        }
-    return -1;
-}*/
-
 
 int GUI_displayEvent(GUI_t_DISPLAY *d){
     #define GUI_KCASE(_ev_) case _ev_: _GUI_KCASE
@@ -120,6 +104,9 @@ void _GUI_displayPost(GUI_t_DISPLAY *d,int value){
         write((&d->_.osDep[4].i)[1],&value,sizeof(value));
 }
 
+#if 1
+    #define _KLS_pipeInit(_fd_) pipe(_fd_)
+#else
 int _KLS_pipeInit(int fd[2]){
     struct _KLS_pipeStr{long fd[2];} s={-1,-1};
     struct _KLS_pipeStr(*f)(int fd[2])=(void*)pipe;
@@ -131,6 +118,7 @@ int _KLS_pipeInit(int fd[2]){
     }
     return fd[0]==-1;
 }
+#endif
 
 GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height){
     GUI_t_DISPLAY res={};
@@ -145,7 +133,7 @@ GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height)
         res._.osDep[2].p=DefaultGC(d,s);
         GUI_displaySetTitle(&res,title);
         GUI_displaySetSize(&res,width,height);
-        if(pipe(&res._.osDep[4].i)) // _KLS_pipeInit may be
+        if(_KLS_pipeInit(&res._.osDep[4].i))
             res._.osDep[4].i=-1;
     }
     return res;
