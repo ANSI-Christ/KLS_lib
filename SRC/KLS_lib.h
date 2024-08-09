@@ -867,7 +867,7 @@ extern const KLS_byte NET_W;
 
 
 NET_t_ADDRESS NET_address(const char *host,unsigned short port);
-const char *NET_addressToString(NET_t_ADDRESS *address,char name[40]);
+const char *NET_addressToString(NET_t_ADDRESS *address,char name[static 40]);
 
 
 int NET_socketError(NET_t_SOCKET *s);
