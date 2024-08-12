@@ -1,5 +1,4 @@
-#define _KLS_SYS_SHOW
-#define KLS_NOEXTERN
+#define _KLS_GLOBVAR
 #define TRY_CATCH_IMPL
 #include "KLS_lib.h"
 #include <dirent.h>
@@ -19,7 +18,7 @@
 #define _KLS_tm1sec 1000000000
 
 static const char *_KLS_execName=NULL;
-static KLS_byte _KLS_exec=1, _KLS_endian=1;
+static KLS_byte _KLS_exec=1;
 KLS_byte KLS_COLOR_BITS=32;
 
 extern int close(int fd);
@@ -55,7 +54,6 @@ extern void _KLS_rgbGetInfo(int bits);
 
 void KLS_execKill()      { _KLS_exec=0; }
 KLS_byte KLS_execLive()  { return _KLS_exec; }
-KLS_byte KLS_endianGet() { return _KLS_endian; }
 const KLS_byte *KLS_exec(){ return &_KLS_exec; }
 
 void KLS_execNameSet(const char *name){ _KLS_execName=name; }
@@ -470,57 +468,6 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
 }
 
 
-
-#define __KLS_MAGIC(_1_,_2_,b) 0x##b,
-#define _KLS_MAGIC(s,...) {(KLS_size)(s),{M_FOREACH(__KLS_MAGIC,-,__VA_ARGS__)}}
-
-static int _KLS_magic(int i){return _KLS_magic(i-1)+_KLS_magic(i+1);}
-
-static void _KLS_magicstr(const KLS_byte *mac,char *str){
-    KLS_byte i;
-    for(i=0;i<6;++i) str+=sprintf(str,"%02x:",mac[i]);
-    *(--str)=0;
-}
-
-static void _KLS_magicChecker(){
-    unsigned int i,j;
-    char tmp[20];
-    KLS_size hdd;
-    const char *s[]={"getmac","ipconfig","ifconfig","ip addr show"};
-    struct{KLS_size a; KLS_byte b[6];} a[]={
-        _KLS_MAGIC(0,1,1,1,1,1,1),
-    };
-    if(KLS_ARRAY_LEN(a)==1) return;
-    for(j=0;j<KLS_ARRAY_LEN(s);++j){
-        char *b=NULL;
-        if(!KLS_sysCmd(&b,s[j])){
-            char *d=b;
-            while(*d){
-                if(*d=='-') *d=':';
-                ++d;
-            }
-            for(i=1;i<KLS_ARRAY_LEN(a);++i){
-                unsigned int l;
-                const char *c=b, *f;
-                while( (f=KLS_stringSep(&c,&l," ","\t","\n")) ){
-                    _KLS_magicstr(a[i].b,tmp);
-                    if(l && !strncasecmp(tmp,f,l)){
-                        if(!a[i].a || (KLS_sysInfoHdd(NULL,NULL,&hdd) && hdd==a[i].a)){
-                            KLS_free(b);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-        KLS_free(b);
-    }
-    _KLS_MEMORY_SHOW()
-    _KLS_magic(0);
-}
-
-
-
 void _KLS_libClose(){
     KLS_execKill();
     TryCatchClose();
@@ -535,11 +482,7 @@ void _KLS_libClose(){
 
 void KLS_libInit(){
     KLS_ONCE(
-        const int test=1;
         _KLS_MEMORY_MTX(1)
-        _KLS_magicChecker();
-        _KLS_endian=( ((const KLS_byte*)&test)[0] == 1 ) ? 1 : 2*!( ((const KLS_byte*)&test)[sizeof(test)-1] == 1 );
-        
         KLS_RGB(0,0,0);
         if(!_NET_init()) printf("KLS: can't init sockets!\n");
         if(!TryCatchInit()) printf("KLS: can't init try / catch\n");
@@ -549,21 +492,3 @@ void KLS_libInit(){
     )
 }
 
-void KLS_libRunInfo(){
-    const char *endian[]={ "big", "little", "pdp"};
-    const char *proc[]={"0x01000000", "0x00000001", "0x00000100"};
-    const char *os[]={"???????","Windows","Unix","Solaris"};
-    KLS_size ram=0;
-    KLS_sysInfoRam(NULL,&ram);
-    printf(
-        "        OS: %s x%u\n"
-        "    endian: %s (int 1 as %s)\n"
-        "     cores: %u\n"
-        "       ram: %u mb\n"
-        "   display: %d bit\n"
-        ,os[KLS_SYS_OS], KLS_SYS_BITNESS==sizeof(int*)*8 ? KLS_SYS_BITNESS : (unsigned )sizeof(void*)*8,
-        endian[KLS_ENDIAN], proc[KLS_ENDIAN],
-        KLS_sysInfoCores(),(unsigned int)(ram>>20),
-        (int)KLS_COLOR_BITS
-    );
-}

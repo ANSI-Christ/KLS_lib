@@ -1,3 +1,6 @@
+#ifndef _KLS_OS_DEP_INC
+#define _KLS_OS_DEP_INC
+
 #include <poll.h>
 #include <netdb.h>
 #include <malloc.h>
@@ -86,3 +89,5 @@ unsigned int _NET_recvSize(NET_t_SOCKET *s){
 
 KLS_byte _NET_init(){return 1;}
 void _NET_close(){}
+
+#endif /* _KLS_OS_DEP_INC */

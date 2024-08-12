@@ -347,16 +347,16 @@ KLS_byte _KLS_solveMake(const char *str,_KLS_t_SOLVE *s,int precision){
     return 0;
 }
 
-KLS_byte _KLS_solveFindVal(const char *str){
-    int n=-2; return sscanf(str,"%*f%n",&n)==0 && n==(int)strlen(str);
-}
-
 double KLS_stringSolve(const char *str,int floatPrecision){
     _KLS_t_SOLVE s={NULL};
     double answer=KLS_NAN;
     if(_KLS_solveMake(str,&s,floatPrecision)){
-        if(_KLS_solveTry(&s) && _KLS_solveFindVal(s.str))
-            answer=strtod(s.str,0);
+        if(_KLS_solveTry(&s)){
+            char *end=NULL;
+            const double x=strtod(s.str,&end);
+            if(end && !*end && end!=s.str)
+                answer=x;
+        }
         KLS_freeData(s.str);
     }
     return answer;

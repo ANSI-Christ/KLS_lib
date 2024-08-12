@@ -1,3 +1,6 @@
+#ifndef _KLS_OS_DEP_INC
+#define _KLS_OS_DEP_INC
+
 #define NOMINMAX
 #include <winsock2.h>
 #include <windows.h>
@@ -197,3 +200,5 @@ unsigned int _NET_recvSize(NET_t_SOCKET *s){
 
 KLS_byte _NET_init(){WSADATA w; return !WSAStartup(0x0202,&w);}
 void _NET_close(){WSACleanup();}
+
+#endif /* _KLS_OS_DEP_INC */

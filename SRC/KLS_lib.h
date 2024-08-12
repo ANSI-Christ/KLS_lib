@@ -37,16 +37,8 @@
 #include "class.h"
 #include "trycatch.h"
 
-#include "KLS_sysDefs.h"
-#include "KLS_terminal.h"
 #include "KLS_0b.h"
 
-
-#ifdef KLS_NOEXTERN
-    #define KLS_INIT(var, ...) var __VA_ARGS__
-#else
-    #define KLS_INIT(var, ...) extern var
-#endif
 
 
 #define KLS_NAN  (0.0/0.0)
@@ -55,9 +47,8 @@
 #define KLS_RADIAN  (M_PI/180.)
 #define KLS_DEGREE  (180./M_PI)
 
-#define KLS_ENDIAN_BIG      0
-#define KLS_ENDIAN_LITTLE   1
-#define KLS_ENDIAN_PDP      2
+#define KLS_ENDIAN_BIG     0
+#define KLS_ENDIAN_LITTLE  1
 
 #define KLS_COLOR_BLACK          KLS_RGB(0, 0, 0)
 #define KLS_COLOR_WHITE          KLS_RGB(255, 255, 255)
@@ -69,6 +60,8 @@
 #define KLS_COLOR_GREY           KLS_RGB(128, 128, 128)
 #define KLS_COLOR_DARK_GREY      KLS_RGB(88, 88, 88)
 #define KLS_COLOR_LIGHT_GREY     KLS_RGB(195, 195, 195)
+
+
 
 
 typedef void*          KLS_any;
@@ -155,12 +148,6 @@ typedef struct{
 
 extern const KLS_t_FONT KLS_fontBase;
 extern KLS_byte KLS_COLOR_BITS;
-KLS_INIT(const KLS_byte _KLS_isfpnum[],={
-    0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,   0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,
-    0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,   0xa,0xa,0xa,0xa, 0xa,0xa,0xa,0xa,
-});
-
-
 
 
 // TEMPLATES SECTION
@@ -197,7 +184,7 @@ KLS_INIT(const KLS_byte _KLS_isfpnum[],={
 
 #define KLS_IS_CONST(_someExpression_) ( sizeof(int)==sizeof( *(1 ? ((void*)( (long)(_someExpression_)*0l )) : (int*)1) ) )
 
-#define KLS_IS_FLOAT(_value_) (!(KLS_byte)(*(const KLS_TYPEOF(_value_)*)_KLS_isfpnum))
+#define KLS_IS_FLOAT(_value_) ( !(char)(*(KLS_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa") )
 
 #define KLS_IS_NONCODE(_value_) ({ union{KLS_TYPEOF(_value_) t; uint64_t i;} KLS_MVN(nc)={.t=(_value_)}; KLS_MVN(nc).i==(((uint64_t)1)<<(sizeof(KLS_MVN(nc).t)*8-1)); })
 
@@ -219,6 +206,8 @@ KLS_INIT(const KLS_byte _KLS_isfpnum[],={
 
 #define KLS_ARGS_COUNT(...) (M_FOREACH(_KLS_ARGS_COUNT,-,__VA_ARGS__) 0)
 
+#define KLS_ENDIAN() ({ const union{const short s; const char c[sizeof(short)];}u={1}; u.c[0]; }) /* (*(const short * const )"\x01" == 0x01) */
+
 #define KLS_RUNTIME(...) ({\
     struct timespec KLS_MVN(_rt1)={0},KLS_MVN(_rt2)={0};\
     clock_gettime(CLOCK_REALTIME,&KLS_MVN(_rt1));\
@@ -236,7 +225,6 @@ int KLS_backTrace(void *address[],int count);
 
 void KLS_libInit();
 void KLS_execKill();
-void KLS_libRunInfo();
 void KLS_pausef(double sec);
 void KLS_freeFile(FILE *file);
 void KLS_freeData(void *data);
@@ -260,7 +248,6 @@ double KLS_mod(double value,double division);
 
 KLS_byte KLS_execLive();
 KLS_byte KLS_mallocSetHeap(void *heap);
-KLS_byte KLS_endianGet() KLS_ATTR(const);
 KLS_byte KLS_dataJoin(void **dst,KLS_size *dstSize,void **src,KLS_size *srcSize,KLS_byte frees); // frees:000000xy , where 'x' for free src, 'y' for free dst
 
 signed char KLS_bitGet(void *data,unsigned int index);
@@ -758,6 +745,7 @@ const char *KLS_signalGetString(int sigNum);
 
 
 
+
 // LOG SECTION
 #define KLS_LOG        KLS_log
 #define KLS_LOG_DATE   1
@@ -1230,23 +1218,19 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 
 // HIDDEN MACRO SECTION
 
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-#if(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_LITTLE)
-    #define KLS_ENDIAN KLS_ENDIAN_LITTLE
-#elif(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_BIG)
-    #define KLS_ENDIAN KLS_ENDIAN_BIG
-#elif(KLS_SYS_ENDIAN == KLS_SYS_ENDIAN_PDP)
-    #define KLS_ENDIAN KLS_ENDIAN_PDP
+#ifdef _KLS_GLOBVAR
+    #undef _KLS_GLOBVAR
+    #define _KLS_GLOBVAR(var, ...) var __VA_ARGS__
 #else
-    #define KLS_ENDIAN KLS_endianGet()
+    #define _KLS_GLOBVAR(var, ...) extern var
 #endif
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _KLS_MEMORY_DEBUG
-    KLS_INIT(KLS_size _KLS_memAlloc,=0);
-    KLS_INIT(KLS_size _KLS_memFree,=0);
-    KLS_INIT(pthread_mutex_t _KLS_memMtx[2]);
+    _KLS_GLOBVAR(KLS_size _KLS_memAlloc,=0);
+    _KLS_GLOBVAR(KLS_size _KLS_memFree,=0);
+    _KLS_GLOBVAR(pthread_mutex_t _KLS_memMtx[2]);
     #define _KLS_MEMORY_PUSH(_1_) if(_1_){ pthread_mutex_lock(_KLS_memMtx); ++_KLS_memAlloc; pthread_mutex_unlock(_KLS_memMtx); }
     #define _KLS_MEMORY_POP(_1_)  if(_1_){ pthread_mutex_lock(_KLS_memMtx+1); ++_KLS_memFree;  pthread_mutex_unlock(_KLS_memMtx+1); }
     #define _KLS_MEMORY_MTX(_1_)  if(_1_){ pthread_mutex_init(_KLS_memMtx,NULL); pthread_mutex_init(_KLS_memMtx+1,NULL); }else{ pthread_mutex_destroy(_KLS_memMtx); pthread_mutex_destroy(_KLS_memMtx+1); }
@@ -1299,7 +1283,7 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 #define _KLS_TYPE_ALIGN(_expr_) ((sizeof(struct{char ________; _expr_;})-sizeof(char))%sizeof(struct{_expr_;})+1)
 char *_KLS_stringv(const char *format, va_list ap[2]);
 KLS_COLOR _KLS_rgbDetect(KLS_byte,KLS_byte,KLS_byte);
-KLS_INIT(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);
+_KLS_GLOBVAR(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 #define _KLS_ARRAY_AT(...) M_OVERLOAD(_KLS_ARRAY_AT_,__VA_ARGS__)(__VA_ARGS__)
@@ -1352,7 +1336,6 @@ KLS_byte _KLS_threadPoolTask(void *pool,void *task);
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-
-#undef KLS_INIT
+#undef _KLS_GLOBVAR
 
 #endif // KLS_LIB_H

@@ -95,7 +95,7 @@ void KLS_canvasBMP(const KLS_t_CANVAS *canvas,const char *fileName){
         FILE *f=fopen(fileName,"wb");
         if(!f) return;
 
-        fwrite((KLS_endianGet()==KLS_ENDIAN_LITTLE)?"BM":"MB",2,1,f);
+        fwrite((KLS_ENDIAN()==KLS_ENDIAN_LITTLE?"BM":"MB"),2,1,f);
         _KLS_BMP_WR(unsigned int, 14+40+palitraSize+(KLS_size)canvas->m.elSize*canvas->m.rows*canvas->m.columns+canvas->m.rows*extraBytes);
         _KLS_BMP_WR(unsigned int, 0);
         _KLS_BMP_WR(unsigned int, 14+40+palitraSize);
