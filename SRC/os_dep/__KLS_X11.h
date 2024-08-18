@@ -27,7 +27,7 @@ int _GUI_setBut(GUI_t_DISPLAY *d,XButtonEvent *e,int event){
 
 int _GUI_setKey(GUI_t_DISPLAY *d,XKeyEvent *e,int event){
 #define GUI_KCASE(_f_,_t_) case XK_##_f_: _GUI_setKeyboard(d,event,GUI_KEY_##_t_,0); return event;
-    KeySym k; unsigned char s[2]={};
+    KeySym k; unsigned char s[2]={0,0};
     XLookupString(e,(void*)s,sizeof(s),&k,0);
     _GUI_setMouse(d,e->x,e->y);
     switch(k){

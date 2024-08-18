@@ -237,7 +237,7 @@ double KLS_polySquad(const KLS_t_POINT *poly,int len){
 }
 
 int _KLS_polyBounceCheck(const KLS_t_POINT *poly,int st, int end,double delta){
-    KLS_t_POINT p[1]={};
+    KLS_t_POINT p[1]={{0,0}};
     double dir=KLS_p2dir(poly[st].x,poly[st].y,poly[end].x,poly[end].y)+90.,
         x=KLS_lendir_x(100.,dir), y=KLS_lendir_y(100.,dir),distPrev=-1.,dist;
     int i,max=0;

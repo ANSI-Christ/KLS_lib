@@ -1,38 +1,27 @@
 
-// LOOK AT ./os_dep
-
-#ifndef _KLS_PTHREAD_KILL
-    #define _KLS_PTHREAD_KILL pthread_kill
-#endif
-
 void *KLS_signalSetHandler(int sigNum,void(*handler)(int sigNum)){
     return signal(sigNum,(void*)handler);
 }
 
 KLS_byte KLS_signalSend(pthread_t tid,int sigNum){
-    if(pthread_equal(tid,pthread_self()))
-        return !raise(sigNum);
-    return !_KLS_PTHREAD_KILL(tid,sigNum);
+    return !pthread_kill(tid,sigNum);
 }
 
 int KLS_signalGetMode(int sigNum){
     sigset_t s[1];
     sigemptyset(s);
     pthread_sigmask(0,NULL,s);
-    return sigismember(s,sigNum) ? KLS_SIGNAL_UNBLOCK : KLS_SIGNAL_BLOCK;
+    return sigismember(s,sigNum) ? SIG_UNBLOCK : SIG_BLOCK;
     (void)s; (void)sigNum;
 }
 
 void KLS_signalSetMode(int sigNum,int mode){
-    if(mode!=KLS_SIGNAL_DEFAULT){
-        sigset_t s[1];
-        sigemptyset(s);
-        sigaddset(s,sigNum);
-        mode=(mode==KLS_SIGNAL_BLOCK ? SIG_BLOCK : SIG_UNBLOCK);
-        pthread_sigmask(mode,s,NULL);
-        return;
-        (void)s; (void)sigNum;
-    }
+    sigset_t s[1];
+    sigemptyset(s);
+    sigaddset(s,sigNum);
+    pthread_sigmask(mode,s,NULL);
+    return;
+    (void)s; (void)sigNum;
 }
 
 const char *KLS_signalGetString(int sigNum){

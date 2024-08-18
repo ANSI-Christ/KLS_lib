@@ -68,16 +68,16 @@ unsigned int KLS_sysInfoCores(){
 typedef char sigset_t;
 
 
-#define _KLS_PTHREAD_KILL(_1_,_2_,_sig_) static void _pthread_kill_##_sig_(){raise(_sig_);}
-M_FOREACH(_KLS_PTHREAD_KILL,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
-#undef _KLS_PTHREAD_KILL
+#define pthread_kill(_1_,_2_,_sig_) static void _pthread_kill_##_sig_(){raise(_sig_);}
+M_FOREACH(pthread_kill,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+#undef pthread_kill
 
 static void *_pthread_killFunc(int sig){
-#define _KLS_PTHREAD_KILL(_1_,_2_,_sig_) case _sig_:return _pthread_kill_##_sig_;
+#define pthread_kill(_1_,_2_,_sig_) case _sig_:return _pthread_kill_##_sig_;
     switch(sig){
-        M_FOREACH(_KLS_PTHREAD_KILL,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+        M_FOREACH(pthread_kill,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
     } return NULL;
-#undef _KLS_PTHREAD_KILL
+#undef pthread_kill
 }
 
 #if defined(_M_IX86) || (defined(_X86_) && !defined(__amd64__))
@@ -126,22 +126,24 @@ static void *_CtxCtrlRegf(CONTEXT *c){
 #endif
 
 static int pthread_kill_win(pthread_t t,int sig){
-    void *p=pthread_gethandle(t);
     void *f=_pthread_killFunc(sig);
-    if(p && f){
+    if(f){
         CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
-        void **x=(void*)_CtxCtrlReg(c);
+        void **x=(void*)_CtxCtrlReg(c), *p=pthread_gethandle(t);
         SuspendThread(p);
         GetThreadContext(p,&c);
         *x=f;
         SetThreadContext(p,&c);
+        c.ContextFlags=CONTEXT_ALL;
+        GetThreadContext(p,&c);
         ResumeThread(p);
         return 0;
-    }
-    return -1;
+    } return -1;
 }
 
-#define _KLS_PTHREAD_KILL pthread_kill_win
+#define pthread_kill pthread_kill_win
+
+#define _KLS_THREAD_SIGNAL_CONTINUE SIGBREAK
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////  SOCKET  ///////////////////////////////////////////////////////////////////////////////

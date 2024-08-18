@@ -95,40 +95,6 @@ typedef struct{
 
 
 typedef struct{
-    void *data;
-    void (*deleter)(void *element);
-    unsigned int rows, columns, elSize;
-    struct{ unsigned int rr,rc,bh,bw,br,bc; }_;
-    int subRow, subColumn;
-    KLS_byte options, _free;
-}KLS_t_MATRIX;
-
-
-typedef struct{
-    void *data;
-    void (*deleter)(void *element);
-    KLS_size (*policy)(KLS_size size);
-    KLS_size size,sizeReal,sizeElement;
-}KLS_t_VECTOR;
-
-
-typedef struct{
-    void *first, *last;
-    void (*deleter)(void *element);
-    KLS_size size, sizeElement;
-}KLS_t_LIST;
-
-
-typedef struct{
-    void (*deleter)(void *element);
-    void *_[2];
-    KLS_size size;
-    unsigned int sizeElement;
-    KLS_byte _opt;
-}KLS_t_QUEUE;
-
-
-typedef struct{
     const char *url;
     const char *header;   //default "Connection: close\r\n"
     const char *protocol; //default "HTTP/1.0"
@@ -342,6 +308,10 @@ pthread_t KLS_threadPosix(KLS_t_THREAD id);
 KLS_t_THREAD KLS_threadSelf();
 KLS_t_THREAD KLS_threadCreate(size_t stackSize_kb);
 
+void KLS_threadPause(pthread_t tid);
+void KLS_threadResume(pthread_t tid);
+void KLS_threadPausable(KLS_byte pausable);
+
 void KLS_threadWait(KLS_t_THREAD id);
 void KLS_threadClear(KLS_t_THREAD id);
 void KLS_threadDestroy(KLS_t_THREAD *id);
@@ -374,12 +344,15 @@ void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
 KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec);
 KLS_byte KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args),...);
 
-KLS_t_THREAD KLS_threadPoolAt(KLS_t_THREAD_POOL pool,unsigned int index);
+KLS_t_THREAD KLS_threadPoolThreads(KLS_t_THREAD_POOL pool);
 
 unsigned int KLS_threadPoolSelfNum();
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
 
 #define KLS_threadPoolTask(_1_,_2_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),(_2_),__VA_ARGS__)
+
+
+
 
 
 
@@ -522,6 +495,15 @@ const char *KLS_regexFind(const void *regex,const char *begin,const char *end,KL
 #define KLS_MATRIX_SUBUNLIM_H    4
 #define KLS_MATRIX_SUBUNLIM_V    8
 
+typedef struct{
+    void *data;
+    void (*deleter)(void *element);
+    unsigned int rows, columns, elSize;
+    struct{ unsigned int rr,rc,bh,bw,br,bc; }_;
+    int subRow, subColumn;
+    KLS_byte options, _free;
+}KLS_t_MATRIX;
+
 void KLS_matrixFree(KLS_t_MATRIX *matrix);
 void KLS_matrixPrint(const KLS_t_MATRIX *matrix,void(*printer)(const void *element));
 void KLS_matrixPutElement(KLS_t_MATRIX *matrix,int row,int column,const void *element);
@@ -549,6 +531,14 @@ KLS_t_MATRIX KLS_matrixNew(void *matrix,unsigned int countRow,unsigned int count
 
 
 // VECTOR SECTION
+
+typedef struct{
+    void *data;
+    void (*deleter)(void *element);
+    KLS_size (*policy)(KLS_size size);
+    KLS_size size,sizeReal,sizeElement;
+}KLS_t_VECTOR;
+
 void KLS_vectorFree(KLS_t_VECTOR *vector);
 void KLS_vectorClear(KLS_t_VECTOR *vector);
 void KLS_vectorRemove(KLS_t_VECTOR *vector,KLS_size index);
@@ -569,6 +559,13 @@ KLS_t_VECTOR KLS_vectorNew(KLS_size size,KLS_size elementSize,void(*deleter)(voi
 
 
 // LIST SECTION
+
+typedef struct{
+    void *first, *last;
+    void (*deleter)(void *element);
+    KLS_size size, sizeElement;
+}KLS_t_LIST;
+
 void KLS_listForEach(KLS_any);
 void KLS_listClear(KLS_t_LIST *list);
 void KLS_listRemove(KLS_t_LIST *list,void *element);
@@ -605,6 +602,14 @@ KLS_t_LIST KLS_listNew(KLS_size elementSize,void(*deleter)(void *element));
 
 // QUEUE SECTION
 enum{ KLS_FIFO=0, KLS_LIFO };
+
+typedef struct{
+    void (*deleter)(void *element);
+    void *_[2];
+    KLS_size size;
+    unsigned int sizeElement;
+    KLS_byte _opt;
+}KLS_t_QUEUE;
 
 KLS_t_QUEUE KLS_queueNew(KLS_byte order,KLS_size elementSize,void(*deleter)(void *element));
 
@@ -729,9 +734,8 @@ void *KLS_canvasAtPix(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,KLS_t_POI
 
 
 // SIGNAL SECTION
-#define KLS_SIGNAL_DEFAULT   0
-#define KLS_SIGNAL_BLOCK     1
-#define KLS_SIGNAL_UNBLOCK  -1
+
+/* mod: SIG_BLOCK, SIG_UNBLOCK */
 
 int KLS_signalGetMode(int sigNum);
 
@@ -834,7 +838,7 @@ typedef struct{
 }NET_t_ADDRESS;
 
 typedef struct{
-    char _osDep[8];
+    union{void *p;int i;}_osDep[1];
     unsigned char created:1, version:2, protocol:1, status:3, blocked:1;
 }NET_t_SOCKET;
 

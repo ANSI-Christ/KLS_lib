@@ -49,15 +49,27 @@ struct _KLS_t_THREAD_POOL{
 
 #define _KLS_THREAD_POOL_ID(_p_) ( (KLS_t_THREAD) ( ((KLS_t_THREAD_POOL)(_p_))+1 ) )
 
-static pthread_key_t _KLS_threadKey;
 static char _KLS_threadStatus=0;
+static struct{
+    pthread_key_t self, stop;
+}_KLS_threadKey;
+
 
 char _KLS_threadInit(){
-    if(!_KLS_threadStatus) _KLS_threadStatus=!pthread_key_create(&_KLS_threadKey,NULL);
+    if(!_KLS_threadStatus){
+        if(pthread_key_create(&_KLS_threadKey.self,NULL)) return 0;
+        if(pthread_key_create(&_KLS_threadKey.stop,NULL)){
+            pthread_key_delete(_KLS_threadKey.self);
+            return 0;
+        } _KLS_threadStatus=1;
+    }
     return _KLS_threadStatus;
 }
 void _KLS_threadClose(){
-    if(_KLS_threadStatus) pthread_key_delete(_KLS_threadKey);
+    if(_KLS_threadStatus){
+        pthread_key_delete(_KLS_threadKey.self);
+        pthread_key_delete(_KLS_threadKey.stop);
+    }
 }
 
 char _KLS_threadAttr(void *a,size_t s){
@@ -76,7 +88,7 @@ char _KLS_threadAttr(void *a,size_t s){
 }
 
 void *_KLS_thread(_KLS_t_THREAD self){
-    if(pthread_setspecific(_KLS_threadKey,self)){
+    if(pthread_setspecific(_KLS_threadKey.self,self)){
         self->die=1;
         sem_post(self->answer);
         return NULL;
@@ -212,6 +224,10 @@ KLS_byte KLS_threadWaitTime(KLS_t_THREAD id,unsigned int msec){
     } return -1;
 }
 
+KLS_t_THREAD KLS_threadSelf(){
+    return _KLS_threadStatus ? pthread_getspecific(_KLS_threadKey.self) : NULL;
+}
+
 pthread_t KLS_threadPosix(KLS_t_THREAD id){
     return id ? id->tid : pthread_self();
 }
@@ -222,7 +238,7 @@ KLS_byte KLS_threadPolicySet(pthread_t tid,int policy,int priority){
 }
 
 KLS_byte KLS_threadPolicyGet(pthread_t tid,int *policy,int *priority){
-    struct sched_param s[1]={};
+    struct sched_param s[1];
     return !pthread_getschedparam(tid,policy,s) && ((*priority=s->sched_priority) || 1);
 }
 
@@ -256,9 +272,7 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb){
     return p;
 }
 
-KLS_t_THREAD KLS_threadSelf(){
-    return _KLS_threadStatus ? pthread_getspecific(_KLS_threadKey) : NULL;
-}
+
 
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool){
     return pool ? pool->count : 0;
@@ -344,10 +358,60 @@ unsigned int KLS_threadPoolSelfNum(){
     return 0;
 }
 
-KLS_t_THREAD KLS_threadPoolAt(KLS_t_THREAD_POOL pool,unsigned int index){
-    if(pool && index<pool->count)
-        return _KLS_THREAD_POOL_ID(pool)+index;
+KLS_t_THREAD KLS_threadPoolThreads(KLS_t_THREAD_POOL pool){
+    if(pool) return _KLS_THREAD_POOL_ID(pool);
     return NULL;
 }
 
 #undef _KLS_THREAD_POOL_ID
+
+
+
+#ifndef _KLS_THREAD_SIGNAL_PAUSE
+    #define _KLS_THREAD_SIGNAL_PAUSE  SIGINT
+#endif
+
+#ifndef _KLS_THREAD_SIGNAL_CONTINUE
+    #define _KLS_THREAD_SIGNAL_CONTINUE  SIGCONT
+#endif
+
+#define _KLS_THRSIG_P _KLS_THREAD_SIGNAL_PAUSE
+#define _KLS_THRSIG_C _KLS_THREAD_SIGNAL_CONTINUE
+
+void _KLS_threadPauser(int sig){
+    KLS_signalSetMode(sig,SIG_UNBLOCK);
+    KLS_signalSetHandler(sig,_KLS_threadPauser);
+    if(sig==_KLS_THRSIG_P){
+        pthread_setspecific(_KLS_threadKey.stop, ((char*)pthread_getspecific(_KLS_threadKey.stop))+1 );
+        while(pthread_getspecific(_KLS_threadKey.stop)) select(0,NULL,NULL,NULL,NULL); /* usleep(100000); */
+        return;
+    }
+    pthread_setspecific(_KLS_threadKey.stop, ((char*)pthread_getspecific(_KLS_threadKey.stop))-1 );
+}
+
+void KLS_threadPausable(KLS_byte pausable){
+    static char mask=4;
+    if(mask&4) mask=((KLS_signalGetMode(_KLS_THRSIG_C)==SIG_BLOCK)<<1) | (KLS_signalGetMode(_KLS_THRSIG_P)==SIG_BLOCK);
+    if(pausable){
+        KLS_signalSetHandler(_KLS_THRSIG_P,_KLS_threadPauser);
+        KLS_signalSetHandler(_KLS_THRSIG_C,_KLS_threadPauser);
+        KLS_signalSetMode(_KLS_THRSIG_P,SIG_UNBLOCK);
+        KLS_signalSetMode(_KLS_THRSIG_C,SIG_UNBLOCK);
+    }else{
+        KLS_signalSetMode(_KLS_THRSIG_P,(mask&1)?SIG_BLOCK:SIG_UNBLOCK);
+        KLS_signalSetMode(_KLS_THRSIG_C,(mask&2)?SIG_BLOCK:SIG_UNBLOCK);
+        KLS_signalSetHandler(_KLS_THRSIG_P,SIG_DFL);
+        KLS_signalSetHandler(_KLS_THRSIG_C,SIG_DFL);
+    }
+}
+
+void KLS_threadPause(pthread_t tid){
+    KLS_signalSend(tid,_KLS_THRSIG_P);
+}
+
+void KLS_threadResume(pthread_t tid){
+    KLS_signalSend(tid,_KLS_THRSIG_C);
+}
+
+#undef _KLS_THRSIG_P
+#undef _KLS_THRSIG_C
