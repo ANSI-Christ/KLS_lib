@@ -161,7 +161,7 @@ KLS_t_THREAD KLS_threadCreate(size_t stackSize_kb){
 }
 
 char _KLS_threadTaskAddQueue(_KLS_t_THREAD id,void *task){
-    if(id && task){
+    if(id && !id->die && task){
         pthread_mutex_lock(id->mtx);
         _KLS_threadTasksPush(id->queue,task);
         pthread_mutex_unlock(id->mtx);
@@ -251,7 +251,7 @@ const char *KLS_threadPolicyName(int policy){
 
 
 
-KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb){
+KLS_t_THREAD_POOL KLS_threadPoolCreateExt(unsigned int count,size_t stackSize_kb){
     KLS_t_THREAD_POOL p=NULL;
     pthread_attr_t a[1];
     if(count && _KLS_threadAttr(a,stackSize_kb)){
@@ -272,7 +272,9 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb){
     return p;
 }
 
-
+KLS_t_THREAD_POOL KLS_threadPoolCreate(){
+    return KLS_threadPoolCreateExt(KLS_sysInfoCores(),0);
+}
 
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool){
     return pool ? pool->count : 0;
@@ -383,7 +385,8 @@ void _KLS_threadPauser(int sig){
     KLS_signalSetHandler(sig,_KLS_threadPauser);
     if(sig==_KLS_THRSIG_P){
         pthread_setspecific(_KLS_threadKey.stop, ((char*)pthread_getspecific(_KLS_threadKey.stop))+1 );
-        while(pthread_getspecific(_KLS_threadKey.stop)) select(0,NULL,NULL,NULL,NULL); /* usleep(100000); */
+        while(pthread_getspecific(_KLS_threadKey.stop))
+            select(0,NULL,NULL,NULL,NULL);
         return;
     }
     pthread_setspecific(_KLS_threadKey.stop, ((char*)pthread_getspecific(_KLS_threadKey.stop))-1 );

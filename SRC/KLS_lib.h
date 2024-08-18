@@ -334,7 +334,8 @@ const char *KLS_threadPolicyName(int policy);
 typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
 
 KLS_t_THREAD_POOL KLS_threadPoolSelf();
-KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb);
+KLS_t_THREAD_POOL KLS_threadPoolCreate();
+KLS_t_THREAD_POOL KLS_threadPoolCreateExt(unsigned int count,size_t stackSize_kb);
 
 void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
 void KLS_threadPoolClear(KLS_t_THREAD_POOL pool);
