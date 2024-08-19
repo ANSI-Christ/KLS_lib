@@ -32,22 +32,28 @@ void _KLS_threadTasksClear(_KLS_t_THREAD_TASKS * const t){
 
 
 
-typedef struct _KLS_t_THREAD{
-    pthread_mutex_t *mtx;
-    _KLS_t_THREAD_TASKS *queue;
-    _KLS_t_THREAD_TASK *task;
+#define _KLS_THREAD_FIELDS \
+    sem_t request[1], answer[1];\
+    KLS_t_THREAD_POOL pool;\
+    _KLS_t_THREAD_TASK *task;\
     pthread_t tid;
-    sem_t request[1], answer[1];
-    char die, wait, pool;
+
+#define _KLS_THREAD_SHARE_FIELDS \
+    pthread_mutex_t mtx[1];\
+    _KLS_t_THREAD_TASKS queue[1];\
+    char die,wait
+
+typedef struct _KLS_t_THREAD{
+    _KLS_THREAD_FIELDS;
 } * const _KLS_t_THREAD;
 
-struct _KLS_t_THREAD_POOL{
-    pthread_mutex_t mtx[1];
-    _KLS_t_THREAD_TASKS queue[1];
+typedef struct _KLS_t_THREAD_POOL{
+    _KLS_THREAD_SHARE_FIELDS;
     unsigned int count;
-};
+    struct _KLS_t_THREAD id[1];
+} * const _KLS_t_THREAD_POOL;
 
-#define _KLS_THREAD_POOL_ID(_p_) ( (KLS_t_THREAD) ( ((KLS_t_THREAD_POOL)(_p_))+1 ) )
+
 
 static char _KLS_threadStatus=0;
 static struct{
@@ -88,8 +94,9 @@ char _KLS_threadAttr(void *a,size_t s){
 }
 
 void *_KLS_thread(_KLS_t_THREAD self){
+    _KLS_t_THREAD_POOL share=self->pool;
     if(pthread_setspecific(_KLS_threadKey.self,self)){
-        self->die=1;
+        share->die=1;
         sem_post(self->answer);
         return NULL;
     }
@@ -97,25 +104,22 @@ void *_KLS_thread(_KLS_t_THREAD self){
     while('0'){
         while(sem_wait(self->request));
 
-        if(self->die==1) break;
+        if(share->die==1) break;
 
-        pthread_mutex_lock(self->mtx);
-        if( !(self->task=_KLS_threadTasksPop(self->queue)) ){
-            if(self->die){
-                pthread_mutex_unlock(self->mtx);
-                return NULL;
-            }
-            if(self->wait){
-                self->wait=0;
-                sem_post(self->answer);
-            }
-        }
-        pthread_mutex_unlock(self->mtx);
+        pthread_mutex_lock(share->mtx);
+        self->task=_KLS_threadTasksPop(share->queue);
+        pthread_mutex_unlock(share->mtx);
 
         if(self->task){
             self->task->f(self->task+1);
             KLS_free(self->task);
+            continue;
         }
+
+        if(share->wait) sem_post(self->answer);
+
+        if(share->die) return NULL;
+
     }
     return NULL;
 }
@@ -123,30 +127,31 @@ void *_KLS_thread(_KLS_t_THREAD self){
 void *_KLS_threadFree(_KLS_t_THREAD id,char flags){
     if(flags & 1) sem_destroy(id->request);
     if(flags & 2) sem_destroy(id->answer);
-    if(id->pool) return NULL;
-    if(flags & 4) pthread_mutex_destroy(id->mtx);
-    if(flags & 8) _KLS_threadTasksClear(id->queue);
+    if(id->pool<id) return NULL;
+    if(flags & 4) pthread_mutex_destroy(id->pool->mtx);
+    if(flags & 8) _KLS_threadTasksClear(id->pool->queue);
     return KLS_free(id);
 }
 
 KLS_t_THREAD _KLS_threadNew(void *attr,KLS_t_THREAD_POOL pool){
-    struct _KLS_t_THREAD_SINGLE{struct _KLS_t_THREAD id; pthread_mutex_t mtx[1]; _KLS_t_THREAD_TASKS queue[1];} *id;
+    struct _KLS_t_THREAD_SINGLE{
+        _KLS_THREAD_FIELDS;
+        _KLS_THREAD_SHARE_FIELDS;
+        char end;
+    } *id;
     if(pool){
-        id=(void*)(_KLS_THREAD_POOL_ID(pool)+pool->count);
-        id->id.pool=1;
-        id->id.mtx=pool->mtx;
-        id->id.queue=pool->queue;
-    }else if( (id=KLS_malloc(sizeof(*id))) ){
-        memset(id,0,sizeof(*id));
-        id->id.mtx=id->mtx;
-        id->id.queue=id->queue;
-        if(pthread_mutex_init(id->id.mtx,NULL)) return _KLS_threadFree((void*)id,0);
+        id=(void*)(pool->id+pool->count);
+        id->pool=pool;
+    }else if( (id=KLS_malloc(KLS_OFFSET(*id,end))) ){
+        memset(id,0,KLS_OFFSET(*id,end));
+        id->pool=(void*)&id->mtx;
+        if(pthread_mutex_init(id->mtx,NULL)) return _KLS_threadFree((void*)id,0);
     }else return NULL;
-    if(sem_init(id->id.request,0,0)) return _KLS_threadFree((void*)id,4);
-    if(sem_init(id->id.answer,0,0)) return _KLS_threadFree((void*)id,5);
-    if(pthread_create(&id->id.tid,attr,(void*)_KLS_thread,(void*)id)) return _KLS_threadFree((void*)id,7);
-    while(sem_wait(id->id.answer));
-    if(id->id.die) return _KLS_threadFree((void*)id,7);
+    if(sem_init(id->request,0,0)) return _KLS_threadFree((void*)id,4);
+    if(sem_init(id->answer,0,0)) return _KLS_threadFree((void*)id,5);
+    if(pthread_create(&id->tid,attr,(void*)_KLS_thread,(void*)id)) return _KLS_threadFree((void*)id,7);
+    while(sem_wait(id->answer));
+    if(id->die) return _KLS_threadFree((void*)id,7);
     return (void*)id;
 }
 
@@ -161,10 +166,10 @@ KLS_t_THREAD KLS_threadCreate(size_t stackSize_kb){
 }
 
 char _KLS_threadTaskAddQueue(_KLS_t_THREAD id,void *task){
-    if(id && !id->die && task){
-        pthread_mutex_lock(id->mtx);
-        _KLS_threadTasksPush(id->queue,task);
-        pthread_mutex_unlock(id->mtx);
+    if(id && !id->pool->die && task){
+        pthread_mutex_lock(id->pool->mtx);
+        _KLS_threadTasksPush(id->pool->queue,task);
+        pthread_mutex_unlock(id->pool->mtx);
         return 1;
     }
     KLS_free(task); return 0;
@@ -180,16 +185,16 @@ KLS_byte _KLS_threadTask(void *id,void *task){
 void KLS_threadClear(KLS_t_THREAD id){
     if(id){
         while(!sem_trywait(id->request));
-        pthread_mutex_lock(id->mtx);
-        _KLS_threadTasksClear(id->queue);
-        pthread_mutex_unlock(id->mtx);
+        pthread_mutex_lock(id->pool->mtx);
+        _KLS_threadTasksClear(id->pool->queue);
+        pthread_mutex_unlock(id->pool->mtx);
     }
 }
 
 void _KLS_threadDestroy(KLS_t_THREAD *id,KLS_byte die){
     if(id && *id){
         _KLS_t_THREAD t=*id;
-        t->die=die;
+        t->pool->die=die;
         sem_post(t->request);
         pthread_join(t->tid,NULL);
         *id=_KLS_threadFree(t,15);
@@ -199,27 +204,32 @@ void _KLS_threadDestroy(KLS_t_THREAD *id,KLS_byte die){
 void KLS_threadDestroy(KLS_t_THREAD *id){ _KLS_threadDestroy(id,1); }
 void KLS_threadDestroyLater(KLS_t_THREAD *id){ _KLS_threadDestroy(id,2); }
 
-void _KLS_threadWaitPost(_KLS_t_THREAD id){
-    while(!sem_trywait(id->answer));
-    id->wait=1; sem_post(id->request);
+void _KLS_threadWaitPost(_KLS_t_THREAD id,const unsigned int count){
+    unsigned int i;
+    for(i=0;i<count;++i) while(!sem_trywait(id[i].answer));
+    for(i=0,id->pool->wait=1;i<count;++i) sem_post(id[i].request);
 }
 
 void KLS_threadWait(KLS_t_THREAD id){
     if(id){
-        _KLS_threadWaitPost(id);
+        _KLS_threadWaitPost(id,1);
         while(sem_wait(id->answer));
+        id->pool->wait=0;
     }
 }
 
 KLS_byte KLS_threadWaitTime(KLS_t_THREAD id,unsigned int msec){
     if(id){
         struct timespec t[1];
-        _KLS_threadWaitPost(id);
+        _KLS_threadWaitPost(id,1);
         clock_gettime(CLOCK_REALTIME,t);
         KLS_timespecAdd(t,msec/1000,(msec%1000)*1000000);
         while(sem_timedwait(id->answer,t))
-            if(errno==ETIMEDOUT)
+            if(errno==ETIMEDOUT){
+                id->pool->wait=0;
                 return 0;
+            }
+        id->pool->wait=0;
         return 1;
     } return -1;
 }
@@ -255,8 +265,9 @@ KLS_t_THREAD_POOL KLS_threadPoolCreateExt(unsigned int count,size_t stackSize_kb
     KLS_t_THREAD_POOL p=NULL;
     pthread_attr_t a[1];
     if(count && _KLS_threadAttr(a,stackSize_kb)){
-        if( (p=KLS_malloc(sizeof(*p)+sizeof(struct _KLS_t_THREAD)*(count))) ){
-            memset(p,0,sizeof(*p)+sizeof(struct _KLS_t_THREAD)*(count));
+        const unsigned int size=KLS_OFFSET(*p,id)+sizeof(struct _KLS_t_THREAD)*(count);
+        if( (p=KLS_malloc(size)) ){
+            memset(p,0,size);
             if(pthread_mutex_init(p->mtx,NULL)){
                 pthread_attr_destroy(a);
                 return KLS_free(p);
@@ -283,14 +294,11 @@ unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool){
 void _KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool,KLS_byte die){
     if(pool && *pool){
         unsigned int i;
-        KLS_t_THREAD_POOL p=*pool;
-        _KLS_t_THREAD id=_KLS_THREAD_POOL_ID(p);
-        for(i=0;i<p->count;++i){
-            id[i].die=die;
-            sem_post(id[i].request);
-        }
-        for(i=0;i<p->count;++i) pthread_join(id[i].tid,NULL);
-        for(i=0;i<p->count;++i) _KLS_threadFree(id+i,3);
+        _KLS_t_THREAD_POOL p=*pool;
+        p->die=die;
+        for(i=0;i<p->count;++i) sem_post(p->id[i].request);
+        for(i=0;i<p->count;++i) pthread_join(p->id[i].tid,NULL);
+        for(i=0;i<p->count;++i) _KLS_threadFree(p->id+i,3);
         pthread_mutex_destroy(p->mtx);
         _KLS_threadTasksClear(p->queue);
         KLS_freeData(*pool);
@@ -308,20 +316,21 @@ void KLS_threadPoolWait(KLS_t_THREAD_POOL pool){
 KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec){
     if(pool){
         const unsigned count=pool->count;
-        const _KLS_t_THREAD id=_KLS_THREAD_POOL_ID(pool);
         unsigned int i;
         struct timespec t[1];
-        for(i=0;i<count;++i)
-            _KLS_threadWaitPost(id+i);
+        _KLS_threadWaitPost(pool->id,count);
         clock_gettime(CLOCK_REALTIME,t);
         KLS_timespecAdd(t,msec/1000,(msec%1000)*1000000);
         for(i=0;i<count;++i)
-            while(sem_timedwait(id[i].answer,t))
-                if(errno==ETIMEDOUT)
+            while(sem_timedwait(pool->id[i].answer,t))
+                if(errno==ETIMEDOUT){
+                    pool->wait=0;
                     return 0;
+                }
+        pool->wait=0;
         pthread_mutex_lock(pool->mtx);
         for(i=0;i<count;++i)
-            if(id[i].task)
+            if(pool->id[i].task)
                 break;
         pthread_mutex_unlock(pool->mtx);
         return i==count;
@@ -329,19 +338,17 @@ KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec){
 }
 
 KLS_byte _KLS_threadPoolTask(void *pool,void *task){
-    if(_KLS_threadTaskAddQueue(pool?_KLS_THREAD_POOL_ID(pool):NULL,task)){
-        const _KLS_t_THREAD id=_KLS_THREAD_POOL_ID(pool);
+    if(_KLS_threadTaskAddQueue(pool ? ((KLS_t_THREAD_POOL)pool)->id : NULL,task)){
         unsigned int i=((KLS_t_THREAD_POOL)pool)->count;
-        while(i--) sem_post(id[i].request);
+        while(i) sem_post(((KLS_t_THREAD_POOL)pool)->id[--i].request);
         return 1;
     } return 0;
 }
 
 void _KLS_threadPoolClear(KLS_t_THREAD_POOL pool){
     if(pool){
-        const _KLS_t_THREAD id=_KLS_THREAD_POOL_ID(pool);
         unsigned int i=pool->count;
-        while(i--) while(!sem_trywait(id[i].request));
+        while(i--) while(!sem_trywait(pool->id[i].request));
         pthread_mutex_lock(pool->mtx);
         _KLS_threadTasksClear(pool->queue);
         pthread_mutex_unlock(pool->mtx);
@@ -350,23 +357,22 @@ void _KLS_threadPoolClear(KLS_t_THREAD_POOL pool){
 
 KLS_t_THREAD_POOL KLS_threadPoolSelf(){
     const _KLS_t_THREAD t=KLS_threadSelf();
-    if(t) return (void*)(t->mtx);
-    return NULL;
+    return t ? t->pool : NULL;
 }
 
 unsigned int KLS_threadPoolSelfNum(){
     const _KLS_t_THREAD t=KLS_threadSelf();
-    if(t && t->pool) return 1+(unsigned int)(t-_KLS_THREAD_POOL_ID(t->mtx));
+    if(t && t->pool<t) return 1+(unsigned int)(t-t->pool->id);
     return 0;
 }
 
 KLS_t_THREAD KLS_threadPoolThreads(KLS_t_THREAD_POOL pool){
-    if(pool) return _KLS_THREAD_POOL_ID(pool);
-    return NULL;
+    return pool ? pool->id : NULL;
 }
 
 #undef _KLS_THREAD_POOL_ID
-
+#undef _KLS_THREAD_FIELDS
+#undef _KLS_THREAD_SHARE_FIELDS
 
 
 #ifndef _KLS_THREAD_SIGNAL_PAUSE
