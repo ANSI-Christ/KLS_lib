@@ -39,7 +39,7 @@ typedef struct _KLS_t_THREAD{
     sem_t request[1], answer[1];
     KLS_t_THREAD_POOL pool;
     _KLS_t_THREAD_TASK *task;
-    pthread_t tid; char sleep;
+    pthread_t tid;
 } * const _KLS_t_THREAD;
 
 typedef struct _KLS_t_THREAD_POOL{
@@ -77,6 +77,7 @@ void _KLS_threadClose(){
 
 static void *_KLS_threadWorker(_KLS_t_THREAD self){
     _KLS_t_THREAD_POOL p=self->pool;
+    char deepSleep=1;
     if(pthread_setspecific(_KLS_threadKey.self,self)){
         p->die=1; sem_post(self->answer);
         return NULL;
@@ -90,24 +91,22 @@ static void *_KLS_threadWorker(_KLS_t_THREAD self){
         pthread_mutex_unlock(p->mtx);
 
         if(self->task){
-            self->sleep=0;
             self->task->f(self->task+1);
             KLS_free(self->task);
+            deepSleep=0;
             continue;
         }
 
         if(p->wait) {sem_trywait(self->answer);sem_post(self->answer);}
         if(p->die) return NULL;
 
-        if(self->sleep){
+        if(deepSleep){
             sem_wait(self->request);
-            self->sleep=0;
-            continue;
+            deepSleep=0; continue;
         }
-        self->sleep=1;
+
         _KLS_THREAD_MKSLEEP(1000);
-
-
+        deepSleep=1;
     }
     return NULL;
 }
@@ -118,11 +117,10 @@ static KLS_t_THREAD _KLS_threadSelf(){
 }
 
 void _KLS_threadPoolWake(_KLS_t_THREAD id,unsigned int i){
-    while(i)
-        if(id[--i].sleep){
-            sem_trywait(id[i].request);
-            sem_post(id[i].request);
-        }
+    while(i){
+        sem_trywait(id[--i].request);
+        sem_post(id[i].request);
+    }
 }
 
 static char _KLS_threadStart(_KLS_t_THREAD_POOL p,void *attr){
@@ -135,7 +133,6 @@ static char _KLS_threadStart(_KLS_t_THREAD_POOL p,void *attr){
         return -2;
     }
     id->pool=p;
-    id->sleep=1;
     if(pthread_create(&id->tid,attr,(void*)_KLS_threadWorker,id)){
         sem_destroy(id->request);
         sem_destroy(id->answer);
