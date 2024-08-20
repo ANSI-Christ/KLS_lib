@@ -304,14 +304,15 @@ KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),
 
 typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD;
 
-#define KLS_threadSelf          KLS_threadPoolSelf
-#define KLS_threadClear         KLS_threadPoolClear
-#define KLS_threadTask          KLS_threadPoolTask
-#define KLS_threadWait          KLS_threadPoolWait
-#define KLS_threadWaitTime      KLS_threadPoolWaitTime
-#define KLS_threadDestroy       KLS_threadPoolDestroy
-#define KLS_threadDestroyLater  KLS_threadPoolDestroyLater
-#define KLS_threadCreate(_kb_)  KLS_threadPoolCreate(1,_kb_)
+#define KLS_threadSelf           KLS_threadPoolSelf
+#define KLS_threadClear          KLS_threadPoolClear
+#define KLS_threadTask           KLS_threadPoolTask
+#define KLS_threadWait           KLS_threadPoolWait
+#define KLS_threadWaitTime       KLS_threadPoolWaitTime
+#define KLS_threadTaskPrio       KLS_threadPoolTaskPrio
+#define KLS_threadDestroy        KLS_threadPoolDestroy
+#define KLS_threadDestroyLater   KLS_threadPoolDestroyLater
+#define KLS_threadCreate(...)    KLS_threadPoolCreate(1,__VA_ARGS__)
 
 void KLS_threadPause(pthread_t tid);
 void KLS_threadResume(pthread_t tid);
@@ -333,7 +334,7 @@ const char *KLS_threadPolicyName(int policy);
 typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
 
 KLS_t_THREAD_POOL KLS_threadPoolSelf();
-KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,size_t stackSize_kb);
+KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,size_t stackSize_kb);
 
 void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
 void KLS_threadPoolClear(KLS_t_THREAD_POOL pool);
@@ -342,11 +343,13 @@ void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
 
 KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec);
 KLS_byte KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args),...);
+KLS_byte KLS_threadPoolTaskPrio(KLS_t_THREAD_POOL pool,unsigned char prio,void(*task)(void *args),...);
 
 unsigned int KLS_threadPoolNum();
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
 
-#define KLS_threadPoolTask(_1_,_2_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),(_2_),__VA_ARGS__)
+#define KLS_threadPoolTask(_1_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),0,(_3_),__VA_ARGS__)
+#define KLS_threadPoolTaskPrio(_1_,_2_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),(_2_),(_3_),__VA_ARGS__)
 
 
 
@@ -732,7 +735,8 @@ void *KLS_canvasAtPix(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,KLS_t_POI
 
 // SIGNAL SECTION
 
-/* mod: SIG_BLOCK, SIG_UNBLOCK */
+#define KLS_SIGNAL_BLOCKED     SIG_BLOCK
+#define KLS_SIGNAL_UNBLOCKED   SIG_UNBLOCK
 
 int KLS_signalGetMode(int sigNum);
 
@@ -1323,15 +1327,15 @@ typedef struct __KLS_t_HEAP_NODE{
     }_N_[1]={{ {_N_,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),PTHREAD_MUTEX_INITIALIZER}, {(void*)_N_,NULL,NULL,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),(_S_)}, {0}, {(void*)(((_KLS_t_HEAP_HEADER*)_N_)+1),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES)} }}
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-char _KLS_threadPoolTask(void *pool,void *task);
+char _KLS_threadPoolTask(void *pool,void *task,unsigned char prio);
 #define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
 #define _KLS_THREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__)}
 #define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
 #define _KLS_THREAD_PACK(_str_,...) M_FOREACH(__KLS_THREAD_PACK,_str_,__VA_ARGS__)
 #define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
-#define _KLS_THREAD_CALL(_ttf_,_id_,_f_,...) ({\
+#define _KLS_THREAD_CALL(_ttf_,_id_,_pr_,_f_,...) ({\
     _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=_f_ ? KLS_malloc(sizeof(*KLS_MVN(_thr1))) : NULL;\
-    if(KLS_MVN(_thr1)){KLS_MVN(_thr1)->p=NULL; KLS_MVN(_thr1)->f=(_f_);_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,KLS_MVN(_thr1));\
+    if(KLS_MVN(_thr1)){KLS_MVN(_thr1)->p=NULL; KLS_MVN(_thr1)->f=(_f_);_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,KLS_MVN(_thr1),(_pr_));\
 })
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
