@@ -107,7 +107,7 @@ void _GUI_displayPost(GUI_t_DISPLAY *d,int value){
 #if 1
     #define _KLS_pipeInit(_fd_) pipe(_fd_)
 #else
-int _KLS_pipeInit(int fd[2]){
+static int _KLS_pipeInit(int fd[2]){
     struct _KLS_pipeStr{long fd[2];} s={-1,-1};
     struct _KLS_pipeStr(*f)(int fd[2])=(void*)pipe;
     fd[0]=fd[1]=-1; s=f(fd);
