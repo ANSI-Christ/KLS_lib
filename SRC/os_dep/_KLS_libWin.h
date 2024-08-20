@@ -47,9 +47,8 @@ KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all){
 }
 
 unsigned int KLS_sysInfoCores(){
-    static unsigned int cores=0;
-    KLS_ONCE( SYSTEM_INFO sys; GetSystemInfo(&sys); cores=sys.dwNumberOfProcessors; )
-    return cores;
+    SYSTEM_INFO sys; GetSystemInfo(&sys);
+    return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

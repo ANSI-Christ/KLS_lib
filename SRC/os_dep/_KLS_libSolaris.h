@@ -43,13 +43,10 @@ KLS_byte KLS_fsDirCreate(const char *directory){
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 KLS_byte KLS_sysInfoRam(KLS_size *left,KLS_size *all){
-    static KLS_size ps=0;
-    KLS_size x;
-    KLS_ONCE(ps=sysconf(_SC_PAGE_SIZE);)
-    x=ps*sysconf(_SC_PHYS_PAGES);
-    if(all) *all=x;
+    KLS_size ps=sysconf(_SC_PAGE_SIZE);
+    if(all) *all=ps*sysconf(_SC_PHYS_PAGES);
     if(left) *left=ps*sysconf(_SC_AVPHYS_PAGES);
-    return x>0;
+    return ps>0;
 }
 
 KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all){
@@ -61,10 +58,9 @@ KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all){
     } return 0;
 }
 
-unsigned KLS_sysInfoCores(){
-    static unsigned int cores=0;
-    KLS_ONCE(cores=sysconf(_SC_NPROCESSORS_CONF);)
-    return cores;
+unsigned int KLS_sysInfoCores(){
+    const int n=sysconf(_SC_NPROCESSORS_CONF);
+    return n>1 ? n : 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

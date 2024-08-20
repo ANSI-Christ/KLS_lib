@@ -501,7 +501,7 @@ KLS_t_POINT KLS_polyLabel(const KLS_t_POINT *poly,int len, double delta){
 
 
 typedef struct{
-    char r,c;
+    signed char r,c;
 }_KLS_t_MATRIX_DIR;
 
 static const _KLS_t_MATRIX_DIR _KLS_matrixPolyDirs[8]={ {-1,0}, {-1,-1}, {0,-1}, {1,-1}, {1,0}, {1,1}, {0,1}, {-1,1} };
