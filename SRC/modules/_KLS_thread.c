@@ -288,8 +288,8 @@ unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool){
     return pool ? pool->count : 0;
 }
 
-pthread_t KLS_threadPosix(KLS_t_THREAD id){
-    return id ? id->id->tid : pthread_self();
+const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool,unsigned int num){
+    return (pool && (num-1<pool->count)) ? &pool->id[num-1].tid : NULL;
 }
 
 

@@ -298,12 +298,6 @@ KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),
 
 #define KLS_THREAD_ARGS(...) M_IF(M_COUNT(__VA_ARGS__))(M_EXTRACT(struct{M_FOREACH(_KLS_THREAD_ARGS,-,__VA_ARGS__)}*), void*)
 
-#define KLS_THREAD_POLICY_OTHER  SCHED_OTHER
-#define KLS_THREAD_POLICY_FIFO   SCHED_FIFO
-#define KLS_THREAD_POLICY_RR     SCHED_RR
-
-typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD;
-
 #define KLS_threadSelf           KLS_threadPoolSelf
 #define KLS_threadClear          KLS_threadPoolClear
 #define KLS_threadTask           KLS_threadPoolTask
@@ -312,16 +306,19 @@ typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD;
 #define KLS_threadTaskPrio       KLS_threadPoolTaskPrio
 #define KLS_threadDestroy        KLS_threadPoolDestroy
 #define KLS_threadDestroyLater   KLS_threadPoolDestroyLater
+#define KLS_threadPosix(...)     KLS_threadPoolPosix(__VA_ARGS__,1)
 #define KLS_threadCreate(...)    KLS_threadPoolCreate(1,__VA_ARGS__)
 
 void KLS_threadPause(pthread_t tid);
 void KLS_threadResume(pthread_t tid);
 void KLS_threadPausable(KLS_byte pausable);
 
+#define KLS_THREAD_POLICY_OTHER  SCHED_OTHER
+#define KLS_THREAD_POLICY_FIFO   SCHED_FIFO
+#define KLS_THREAD_POLICY_RR     SCHED_RR
+
 KLS_byte KLS_threadPolicySet(pthread_t tid,int policy,int priority);
 KLS_byte KLS_threadPolicyGet(pthread_t tid,int *policy,int *priority);
-
-pthread_t KLS_threadPosix(KLS_t_THREAD id);
 
 const char *KLS_threadPolicyName(int policy);
 
@@ -347,6 +344,8 @@ KLS_byte KLS_threadPoolTaskPrio(KLS_t_THREAD_POOL pool,unsigned char prio,void(*
 
 unsigned int KLS_threadPoolNum();
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
+
+const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool,unsigned int num);
 
 #define KLS_threadPoolTask(_1_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),0,(_3_),__VA_ARGS__)
 #define KLS_threadPoolTaskPrio(_1_,_2_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),(_2_),(_3_),__VA_ARGS__)
