@@ -8,7 +8,6 @@ Some stuff:
   - timer
   - class system
   - signals
-  - log system
   - string calculator
   - list
   - vector
