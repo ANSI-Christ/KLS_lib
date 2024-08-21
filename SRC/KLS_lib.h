@@ -750,26 +750,6 @@ const char *KLS_signalGetString(int sigNum);
 
 
 
-// LOG SECTION
-#define KLS_LOG        KLS_log
-#define KLS_LOG_DATE   1
-#define KLS_LOG_TIME   2
-#define KLS_LOG_FILE   4
-#define KLS_LOG_LINE   8
-#define KLS_LOG_FUNC   16
-#define KLS_LOG_TID    32
-#define KLS_LOG_CLOSE  64
-
-
-KLS_byte KLS_logSet(unsigned int index, FILE *file, int options);
-KLS_byte KLS_logGet(unsigned int index, FILE **file, int *options);
-KLS_byte KLS_logSetCreation(unsigned int index, FILE *file,int options);
-
-void KLS_log(const char *format, ...);// KLS_ATTR(format,(__printf__,1,2));
-void _KLS_logFmt(const char *file, unsigned int line,const char *func,const char *format, ...);
-#define KLS_log(...) _KLS_logFmt(M_FILE(),M_LINE(),M_FUNCTION(),__VA_ARGS__)
-
-
 
 
 // NETWORK SECTION

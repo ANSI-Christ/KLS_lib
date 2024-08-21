@@ -44,7 +44,6 @@ extern void _KLS_rgbGetInfo(int bits);
 #include "./modules/_KLS_matrix.c"
 #include "./modules/_KLS_canvas.c"
 #include "./modules/_KLS_signal.c"
-#include "./modules/_KLS_log.c"
 #include "./modules/_KLS_timer.c"
 #include "./modules/_KLS_regex.c"
 #include "./modules/_KLS_net.c"
@@ -471,7 +470,6 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
 void _KLS_libClose(){
     KLS_execKill();
     TryCatchClose();
-    _KLS_logClose();
     _NET_close();
     _KLS_threadClose();
     _KLS_timerClose();
@@ -487,7 +485,6 @@ void KLS_libInit(){
         if(!_NET_init()) printf("KLS: can't init sockets!\n");
         if(!TryCatchInit()) printf("KLS: can't init try / catch\n");
         if(!_KLS_threadInit()) printf("KLS: can't init threads\n");
-        _KLS_logInit();
         atexit(_KLS_libClose);
     )
 }
