@@ -113,13 +113,11 @@ _mark:
                 pthread_cond_signal(p->cond+1);
         }
         if(sleep){
-            //printf("cw[%u]\n",self-p->id);
             pthread_cond_wait(p->cond,p->mtx);
             goto _mark;
         }
         pthread_mutex_unlock(p->mtx);
 
-        //printf("mk[%u]\n",self-p->id);
         _KLS_THREAD_MKSLEEP(1000);
         sleep|=1;
 
