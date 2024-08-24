@@ -26,6 +26,11 @@ typedef struct _KLS_t_THREAD_POOL{
     struct _KLS_t_THREAD id[1];
 } * const _KLS_t_THREAD_POOL;
 
+typedef struct{
+    sem_t sem[1];
+    pthread_attr_t attr[1];
+    void *id;
+}_KLS_t_THREAD_HELP;
 
 
 static char _KLS_threadStatus=0;
@@ -85,10 +90,16 @@ static void _KLS_threadPoolClear(_KLS_t_THREAD_POOL p){
 
 
 
-static void *_KLS_threadWorker(_KLS_t_THREAD self){
+static void *_KLS_threadWorker(_KLS_t_THREAD_HELP *h){
+    _KLS_t_THREAD self=h->id;
     _KLS_t_THREAD_POOL p=self->pool;
     unsigned char sleep=1;
-    pthread_setspecific(_KLS_threadKey.self,self);
+    if(pthread_setspecific(_KLS_threadKey.self,self)){
+        h->id=NULL;
+        sem_post(h->sem);
+        return NULL;
+    }
+    sem_post(h->sem);
     while('0'){
 
         pthread_mutex_lock(p->mtx);
@@ -131,26 +142,40 @@ static struct _KLS_t_THREAD *_KLS_threadSelf(){
     return _KLS_threadStatus ? pthread_getspecific(_KLS_threadKey.self) : NULL;
 }
 
-static char _KLS_threadStart(_KLS_t_THREAD_POOL p,void *attr){
-    _KLS_t_THREAD id=p->id+p->count;
-    id->pool=p;
-    if(pthread_create(&id->tid,attr,(void*)_KLS_threadWorker,id))
-        return -1;
-    return 0;
+static void _KLS_threadHelpClose(_KLS_t_THREAD_HELP *h){
+    sem_destroy(h->sem);
+    pthread_attr_destroy(h->attr);
 }
 
-static char _KLS_threadAttr(void *a,size_t s){
+static char _KLS_threadHelpInit(_KLS_t_THREAD_HELP *h,size_t s){
     do{
-        if(pthread_attr_init(a)) return -1;
-        if(s && pthread_attr_setstacksize(a,s<<10)) break;
-        if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
+        if(sem_init(h->sem,0,0)) return -1;
+        if(pthread_attr_init(h->attr)){
+            sem_destroy(h->sem);
+            return -2;
+        }
+        if(s && pthread_attr_setstacksize(h->attr,s<<10)) break;
+        if(pthread_attr_setinheritsched(h->attr,PTHREAD_INHERIT_SCHED)) break;
         #ifdef PTHREAD_FPU_ENABLED
-        if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
+        if(pthread_setfpustate(h->attr,PTHREAD_FPU_ENABLED)) break;
         #endif
         return 0;
     }while(0);
-    pthread_attr_destroy(a);
-    return -2;
+    _KLS_threadHelpClose(h);
+    return -3;
+}
+
+static char _KLS_threadStart(_KLS_t_THREAD_POOL p,_KLS_t_THREAD_HELP *h){
+    _KLS_t_THREAD id=h->id=p->id+p->count;
+    id->pool=p;
+    if(pthread_create(&id->tid,h->attr,(void*)_KLS_threadWorker,h))
+        return -1;
+    while(sem_wait(h->sem));
+    if(!h->id){
+        pthread_join(id->tid,NULL);
+        return -2;
+    }
+    return 0;
 }
 
 KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,size_t stackSize_kb){
@@ -158,8 +183,9 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,siz
     if(!count) count=KLS_sysInfoCores();
     if(!count) return NULL;
     {
-        pthread_attr_t a[1];
-        if(_KLS_threadAttr(a,stackSize_kb)) return NULL;
+        _KLS_t_THREAD_HELP h[1];
+        if(_KLS_threadHelpInit(h,stackSize_kb))
+            return NULL;
         {
             const unsigned int sizeQueue=sizeof(_KLS_t_THREAD_QUEUE)*(prio+1);
             KLS_t_THREAD_POOL p=KLS_malloc(KLS_OFFSET(*p,id)+sizeof(struct _KLS_t_THREAD)*count+sizeQueue);
@@ -184,13 +210,13 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,siz
                 p->queue=(void*)(p->id+count);
                 memset(p->queue,0,sizeQueue);
                 for(p->count=0;p->count<count;++p->count)
-                    if(_KLS_threadStart(p,a)){
+                    if(_KLS_threadStart(p,h)){
                         KLS_threadPoolDestroy(&p);
                         break;
                     }
                 break;
             }
-            pthread_attr_destroy(a);
+            _KLS_threadHelpClose(h);
             return p;
         }
     }
