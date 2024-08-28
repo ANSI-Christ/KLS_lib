@@ -1325,6 +1325,7 @@ char _KLS_threadPoolTask(void *pool,void *task,unsigned char prio);
 #define __KLS_THREAD_PACK(_index_,_str_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _str_->M_JOIN(_,_index_)=(__VA_ARGS__); )
 #define _KLS_THREAD_CALL(_ttf_,_id_,_pr_,_f_,...) ({\
     _KLS_THREAD_STRUCT(__VA_ARGS__) *KLS_MVN(_thr1)=_f_ ? KLS_malloc(KLS_OFFSET(*KLS_MVN(_thr1),size)) : NULL;\
+    { M_ASSERT( sizeof(struct{void *p[2];}) + KLS_OFFSET(struct{M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char size;},size) == KLS_OFFSET(*KLS_MVN(_thr1),size) ) ThreadTask_bad_align_of_arguments; }\
     if(KLS_MVN(_thr1)){KLS_MVN(_thr1)->p=NULL; KLS_MVN(_thr1)->f=(_f_);_KLS_THREAD_PACK(KLS_MVN(_thr1),__VA_ARGS__);} _ttf_(_id_,KLS_MVN(_thr1),(_pr_));\
 })
 /////////////////////////////////////////////////////////////////////////////////////////////

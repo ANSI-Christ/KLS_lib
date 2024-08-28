@@ -156,7 +156,7 @@ void KLS_heapInfo(void *heap,FILE *f){
             fprintf(f,"  %c [%zu / %zu]: %p<-(%p)->%p {%p}\n",n->free?'f':'a',n->size,n->size+sizeof(*n),n->prev,n,n->next,n->free);
             n=n->next;
         }
-        fputs(f,"free array:\n");
+        fputs("free array:\n",f);
         do{
             fprintf(f,"  {%p}: (%p)\n",i,*i);
         }while(i++!=&h->frees->first);
