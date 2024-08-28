@@ -80,7 +80,8 @@ void _KLS_timerClose(){
     if(g->create){
         pthread_mutex_lock(g->mtx);
         KLS_listClear(g->list);
-        g->t.tv_sec=g->t.tv_nsec=0;
+        g->t.tv_sec=0;
+        g->t.tv_nsec=0;
         if(mtxDel)g->mtxDel=1;
         pthread_cond_signal(g->cond);
         pthread_mutex_unlock(g->mtx);

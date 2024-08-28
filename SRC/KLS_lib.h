@@ -1283,27 +1283,36 @@ _KLS_GLOBVAR(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);
 #define _KLS_ARRAY_AT_20(_i_) (_KLS_ARRAY_AT_18(_i_)*_i_[19]+_i_[18])
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-struct __KLS_t_HEAP_NODE;
-typedef struct{
-    struct __KLS_t_HEAP_NODE *first, **last;
-}_KLS_t_HEAP_FREES;
-typedef struct{
+typedef struct _KLS_t_HEAP_NODE _KLS_t_HEAP_NODE;
+typedef struct _KLS_t_HEAP_FREES _KLS_t_HEAP_FREES;
+typedef struct _KLS_t_HEAP_HEADER _KLS_t_HEAP_HEADER;
+
+
+struct _KLS_t_HEAP_HEADER{
     void *p;
     _KLS_t_HEAP_FREES *frees;
     pthread_mutex_t mtx;
-}_KLS_t_HEAP_HEADER;
-typedef struct __KLS_t_HEAP_NODE{
+};
+struct _KLS_t_HEAP_FREES{
+    _KLS_t_HEAP_NODE *first, **last;
+};
+struct _KLS_t_HEAP_NODE{
     _KLS_t_HEAP_HEADER *h;
-    struct __KLS_t_HEAP_NODE *prev, *next, **free;
+    _KLS_t_HEAP_NODE *prev, *next, **free;
     KLS_size size;
-}_KLS_t_HEAP_NODE;
+};
 #define _KLS_HEAP(_N_,_S_) \
     struct{\
         _KLS_t_HEAP_HEADER _h;\
         _KLS_t_HEAP_NODE _n;\
         char buff[_S_];\
         _KLS_t_HEAP_FREES frees;\
-    }_N_[1]={{ {_N_,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),PTHREAD_MUTEX_INITIALIZER}, {(void*)_N_,NULL,NULL,(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES),(_S_)}, {0}, {(void*)(((_KLS_t_HEAP_HEADER*)_N_)+1),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES)} }}
+    }_N_[1]={{\
+        { _N_, (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES), PTHREAD_MUTEX_INITIALIZER },\
+        { (void*)_N_, NULL, NULL, (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES), (_S_) },\
+        { 0 },\
+        { (void*)(((_KLS_t_HEAP_HEADER*)_N_)+1), (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES) }\
+    }}
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 char _KLS_threadPoolTask(void *pool,void *task,unsigned char prio);
