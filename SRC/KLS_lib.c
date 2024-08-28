@@ -7,14 +7,6 @@
 #include <sys/stat.h>
 
 
-#ifdef _KLS_MALLOC_HEAP
-    KLS_HEAP(__KLS_mallocHeap,_KLS_MALLOC_HEAP);
-    static void *_KLS_mallocHeap=&__KLS_mallocHeap;
-#else
-    #define _KLS_MALLOC_HEAP 0
-    static void *_KLS_mallocHeap=NULL;
-#endif
-
 #define _KLS_tm1sec 1000000000
 
 static const char *_KLS_execName=NULL;
@@ -347,13 +339,21 @@ void _KLS_free(void *data){
 }
 
 void *KLS_malloc(KLS_size size){
-    if(_KLS_MALLOC_HEAP) return KLS_heapAlloc(_KLS_mallocHeap,size);
+    #ifdef _KLS_MALLOC_HEAP
+    static pthread_mutex_t mtx[1]={PTHREAD_MUTEX_INITIALIZER};
+    static KLS_HEAP(heap,_KLS_MALLOC_HEAP,mtx);
+    return KLS_heapAlloc(heap,size);
+    #else
     return _KLS_malloc(size);
+    #endif
 }
 
 void *KLS_free(void *data){
+    #ifdef _KLS_MALLOC_HEAP
     if(_KLS_MALLOC_HEAP){KLS_heapFree(data);return NULL;}
+    #else
     _KLS_free(data); return NULL;
+    #endif
 }
 
 void KLS_ptrDeleter(void *data){
@@ -469,22 +469,22 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
 
 void _KLS_libClose(){
     KLS_execKill();
-    TryCatchClose();
     _NET_close();
     _KLS_threadClose();
     _KLS_timerClose();
+    TryCatchClose();
     _KLS_MEMORY_SHOW()
     _KLS_MEMORY_MTX(0)
-    printf("KLS: exit!\n");
+    puts("KLS: exit!\n");
 }
 
 void KLS_libInit(){
     KLS_ONCE(
         _KLS_MEMORY_MTX(1)
         KLS_RGB(0,0,0);
-        if(!_NET_init()) printf("KLS: can't init sockets!\n");
-        if(!TryCatchInit()) printf("KLS: can't init try / catch\n");
-        if(!_KLS_threadInit()) printf("KLS: can't init threads\n");
+        if(!_NET_init()) puts("KLS: can't init sockets!\n");
+        if(!TryCatchInit()) puts("KLS: can't init try / catch\n");
+        if(!_KLS_threadInit()) puts("KLS: can't init threads\n");
         atexit(_KLS_libClose);
     )
 }

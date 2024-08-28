@@ -213,7 +213,6 @@ double KLS_round(double value,double step);
 double KLS_mod(double value,double division);
 
 KLS_byte KLS_execLive();
-KLS_byte KLS_mallocSetHeap(void *heap);
 KLS_byte KLS_dataJoin(void **dst,KLS_size *dstSize,void **src,KLS_size *srcSize,KLS_byte frees); // frees:000000xy , where 'x' for free src, 'y' for free dst
 
 signed char KLS_bitGet(void *data,unsigned int index);
@@ -234,14 +233,14 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size); //first
 
 
 // HEAP SECTION
-#define KLS_HEAP(_name_,_size_) _KLS_HEAP(_name_,_size_)
+#define KLS_HEAP(_name_,_size_,...)  _KLS_HEAP(_name_,_size_, M_IF(M_IS_ARG(__VA_ARGS__))((__VA_ARGS__),(NULL)) )
 
 void KLS_heapFree(void *data);
-void KLS_heapInfo(void *heap);
 void KLS_heapClose(void *heap);
+void KLS_heapInfo(void *heap,FILE *f);
 
-void *KLS_heapInit(void *heap,KLS_size size);
 void *KLS_heapAlloc(void *heap,KLS_size size);
+void *KLS_heapInit(void *heap,KLS_size size,pthread_mutex_t *mtx);
 
 
 
@@ -1181,12 +1180,12 @@ void GUI_widgetDrawRectExt(void *widget,int x,int y,int w,int h,const void *colo
 void GUI_widgetDrawTextExt(void *widget,int x,int y,const KLS_t_FONT *font,KLS_byte align,const char *text,const void *color);
 
 KLS_byte GUI_widgetInFocus(void *widget);
-KLS_byte GUI_widgetIsMoved(void *widget);    // returns (x<<0) | (y<<1)
-KLS_byte GUI_widgetIsResized(void *widget);  // returns (width<<0) | (height<<1)
+KLS_byte GUI_widgetIsMoved(void *widget);    /* returns (x<<0) | (y<<1) */
+KLS_byte GUI_widgetIsResized(void *widget);  /* returns (width<<0) | (height<<1) */
 KLS_byte GUI_widgetIsSelected(void *widget);
 
 void *GUI_widgetSelect(void *widget);
-void *GUI_widgetBlockOn(void *widget); // return prev (this function help create widgets that blocking parents, for example message box or warning box)
+void *GUI_widgetBlockOn(void *widget); /* return prev (this function help create widgets that blocking parents, for example message box or warning box) */
 void *GUI_widgetFind(void *widget,const char *id);
 void *GUI_widgetInsert(void *widget,void *parent);
 
@@ -1287,32 +1286,35 @@ typedef struct _KLS_t_HEAP_NODE _KLS_t_HEAP_NODE;
 typedef struct _KLS_t_HEAP_FREES _KLS_t_HEAP_FREES;
 typedef struct _KLS_t_HEAP_HEADER _KLS_t_HEAP_HEADER;
 
-
 struct _KLS_t_HEAP_HEADER{
-    void *p;
+    void *p, *mtx;
     _KLS_t_HEAP_FREES *frees;
-    pthread_mutex_t mtx;
 };
+
 struct _KLS_t_HEAP_FREES{
     _KLS_t_HEAP_NODE *first, **last;
 };
+
 struct _KLS_t_HEAP_NODE{
     _KLS_t_HEAP_HEADER *h;
     _KLS_t_HEAP_NODE *prev, *next, **free;
     KLS_size size;
 };
-#define _KLS_HEAP(_N_,_S_) \
+
+
+#define _KLS_HEAP(_N_,_S_,_M_) \
     struct{\
         _KLS_t_HEAP_HEADER _h;\
         _KLS_t_HEAP_NODE _n;\
         char buff[_S_];\
         _KLS_t_HEAP_FREES frees;\
     }_N_[1]={{\
-        { _N_, (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES), PTHREAD_MUTEX_INITIALIZER },\
+        { _N_, (_M_),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES) },\
         { (void*)_N_, NULL, NULL, (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES), (_S_) },\
         { 0 },\
         { (void*)(((_KLS_t_HEAP_HEADER*)_N_)+1), (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES) }\
     }}
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 char _KLS_threadPoolTask(void *pool,void *task,unsigned char prio);

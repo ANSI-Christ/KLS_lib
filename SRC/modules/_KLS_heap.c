@@ -1,12 +1,11 @@
 
 
-void *KLS_heapInit(void *heap,KLS_size size){
+void *KLS_heapInit(void *heap,KLS_size size,pthread_mutex_t *mtx){
 #define _KLS_HEAP_STRUCT struct{_KLS_t_HEAP_HEADER h; _KLS_t_HEAP_NODE n; _KLS_t_HEAP_FREES f;}
     _KLS_t_HEAP_HEADER * const h=heap;
     if(h && size>sizeof(_KLS_HEAP_STRUCT)){
         _KLS_t_HEAP_NODE * const n=(void*)(h+1);
-        if(pthread_mutex_init(&h->mtx,NULL))
-            return NULL;
+        h->mtx=mtx;
         h->p=n->h=heap;
         h->frees=heap+size-sizeof(_KLS_t_HEAP_FREES);
         h->frees->first=n;
@@ -69,19 +68,24 @@ void *_KLS_heapFindFree(_KLS_t_HEAP_FREES *f,const KLS_size size){
 }
 
 void *KLS_heapAlloc(void *heap,KLS_size size){
-    void *p=NULL;
-    if(size<(UINT64_MAX/2)){
+    if(size < ((~((KLS_size)0))>>1) ){
         _KLS_t_HEAP_HEADER * const h=heap;
         if(_KLS_heapIsInit(h)){
             const unsigned char align=size%sizeof(void*);
+            void *p;
             if(align) size+=sizeof(void*)-align;
-            pthread_mutex_lock(&h->mtx);
-            if((p=_KLS_heapFindFree(h->frees,size)))
-                p=_KLS_heapNewNode(heap,p,size);
-            pthread_mutex_unlock(&h->mtx);
+            if(h->mtx){
+                pthread_mutex_lock(h->mtx);
+                if( (p=_KLS_heapFindFree(h->frees,size)) )
+                    p=_KLS_heapNewNode(heap,p,size);
+                pthread_mutex_unlock(h->mtx);
+                return p;
+            }
+            if( (p=_KLS_heapFindFree(h->frees,size)) )
+                return _KLS_heapNewNode(heap,p,size);
         }
     }
-    return p;
+    return NULL;
 }
 
 void _KLS_heapRemove(_KLS_t_HEAP_NODE *n){
@@ -121,44 +125,41 @@ void KLS_heapFree(void *data){
     if(data){
         _KLS_t_HEAP_NODE *n=data;
         if(!(--n)->free){
-            void *mtx=&n->h->mtx;
-            pthread_mutex_lock(mtx);
+            void * const mtx=n->h->mtx;
+            if(mtx){
+                pthread_mutex_lock(mtx);
+                _KLS_heapRemove(n);
+                pthread_mutex_unlock(mtx);
+                return;
+            }
             _KLS_heapRemove(n);
-            pthread_mutex_unlock(mtx);
         }
     }
 }
 
 void KLS_heapClose(void *heap){
     _KLS_t_HEAP_HEADER *h=heap;
-    if(_KLS_heapIsInit(h)){
-        pthread_mutex_destroy(&h->mtx);
+    if(_KLS_heapIsInit(h))
         h->p=NULL;
-    }
 }
 
-void KLS_heapInfo(void *heap){
+void KLS_heapInfo(void *heap,FILE *f){
     _KLS_t_HEAP_NODE *n=_KLS_heapIsInit(heap);
     if(n){
         _KLS_t_HEAP_HEADER *h=heap;
         _KLS_t_HEAP_NODE **i=h->frees->last;
-        pthread_mutex_lock(&h->mtx);
-        printf("\nHEAP: %p\n",h);
+        void * const mtx=h->mtx;
+        if(mtx) pthread_mutex_lock(mtx);
+        if(!f) f=stdout;
+        fprintf(f,"\nHEAP: %p\n",h);
         while(n){
-            printf("  %c [%zu / %zu]: %p<-(%p)->%p {%p}\n",n->free?'f':'a',n->size,n->size+sizeof(*n),n->prev,n,n->next,n->free);
+            fprintf(f,"  %c [%zu / %zu]: %p<-(%p)->%p {%p}\n",n->free?'f':'a',n->size,n->size+sizeof(*n),n->prev,n,n->next,n->free);
             n=n->next;
         }
-        printf("free array:\n");
+        fputs(f,"free array:\n");
         do{
-            printf("  {%p}: (%p)\n",i,*i);
+            fprintf(f,"  {%p}: (%p)\n",i,*i);
         }while(i++!=&h->frees->first);
-        pthread_mutex_unlock(&h->mtx);
+        if(mtx) pthread_mutex_unlock(mtx);
     }
-}
-
-KLS_byte KLS_mallocSetHeap(void *heap){
-    if(_KLS_heapIsInit(heap)){
-        _KLS_mallocHeap=heap;
-        return 1;
-    } return 0;
 }

@@ -36,6 +36,8 @@ void GUI_displayInterrupt(GUI_t_DISPLAY *d){
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#define _GUI_SERVICE_FLAG (1<<(sizeof(int)*8-1))
+
 void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
     if(p){
         if(p->last){
@@ -166,7 +168,7 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
 
 void _GUI_inputService(CLASS GUI *gui,int event,int key){
     if(event){
-        if(!(gui->flags & 32)){ // current widget isn't moving or resizing
+        if(!(gui->flags & 32)){ /* current widget isn't moving or resizing */
             if( (event & GUI_EVENT_CURSOR)
             && (gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y))!=gui->select )
                 return;
@@ -188,7 +190,7 @@ void _GUI_inputService(CLASS GUI *gui,int event,int key){
 }
 
 void _GUI_widgetGetFocus(CLASS GUI *gui){
-    if(gui->flags & 32) return; // current widget moving or resizing
+    if(gui->flags & 32) return; /* current widget moving or resizing */
     gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
 }
 
@@ -241,7 +243,7 @@ void GUI_widgetDelete(CLASS GUI_WIDGET **widget){
             if(w->gui){
                 if(GUI_widgetIsSelected(w))
                     w->gui->select=NULL;
-                if(w->gui->flags & (1<<31)){
+                if(w->gui->flags & _GUI_SERVICE_FLAG){
                     if(w!=(void*)w->gui){
                         if(w->gui->trash){
                             GUI_widgetInsert(w,w->gui->trash);
@@ -362,10 +364,10 @@ int _GUI_objService(CLASS GUI *gui){
     e=GUI_displayEvent(&gui->display);
     KLS_timerStop(gui->timer);
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
-        gui->flags|=(1<<31); // service flag on
+        gui->flags|=_GUI_SERVICE_FLAG;
         _GUI_inputService(gui,e & ~GUI_EVENT_UPDATE,gui->display.input.key);
         _GUI_widgetUpdate((void*)gui);
-        gui->flags&=~(1<<31); // service flag off
+        gui->flags&=~_GUI_SERVICE_FLAG;
         GUI_widgetDelete(&gui->trash);
         _GUI_widgetGetFocus(gui);
         _GUI_widgetDraw((void*)gui);
