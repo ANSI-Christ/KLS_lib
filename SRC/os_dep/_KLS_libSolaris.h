@@ -3,8 +3,6 @@
 
 #include <poll.h>
 #include <netdb.h>
-#include <malloc.h>
-#include <termios.h>
 #include <fcntl.h>
 #include <sys/sysinfo.h>
 #include <sys/statvfs.h>

@@ -121,7 +121,7 @@ _mark:
                 if(p->id[i].task)
                     break;
             if(i==p->count)
-                pthread_cond_signal(p->cond+1);
+                pthread_cond_broadcast(p->cond+1);
         }
         if(sleep){
             pthread_cond_wait(p->cond,p->mtx);

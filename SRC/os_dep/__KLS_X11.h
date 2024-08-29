@@ -2,6 +2,8 @@
 #include "X11/keysym.h"
 #include "X11/Xutil.h"
 
+#include <sys/select.h>
+
 KLS_COLOR _KLS_rgbDetect(KLS_byte r,KLS_byte g,KLS_byte b){
     Display *d=XOpenDisplay(NULL);
     if(d){
