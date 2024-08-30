@@ -85,8 +85,8 @@ typedef union{
 }_KLS_u_SOLVE_PTR;
 
 typedef struct{
-    _KLS_u_SOLVE_PTR op, beg, end;
-    int left, right, res;
+    _KLS_u_SOLVE_PTR op, end;
+    double *left, *right, *res;
 }_KLS_t_SOLVE_MATCH;
 
 typedef struct{
@@ -107,7 +107,8 @@ static const _KLS_t_SOLVE_OP *_KLS_solveOps[]={
     _ADD_OPS( _ADD_OP(1,"!",0) ),
     _ADD_OPS( _ADD_OP(0,"asin",1),  _ADD_OP(0,"acos",1), _ADD_OP(0,"atan",1),
               _ADD_OP(0,"sin",1),   _ADD_OP(0,"cos",1),  _ADD_OP(0,"tan",1),
-              _ADD_OP(0,"log10",1), _ADD_OP(0,"log2",1), _ADD_OP(0,"log",1)
+              _ADD_OP(0,"log10",1), _ADD_OP(0,"log2",1), _ADD_OP(0,"log",1),
+              _ADD_OP(0,"sqrt",1)
             ),
     _ADD_OPS( _ADD_OP(1,"@",1) ), /*pow(l,r)*/
     _ADD_OPS( _ADD_OP(1,"*",1),  _ADD_OP(1,"/",1),  _ADD_OP(1,"%",1) ),
@@ -162,6 +163,7 @@ char _KLS_solveOpCalc(const double * const l,const char *op,const double * const
     if(!strncmp(op,"asin",4)) { *x = asin(*r); return 0; }
     if(!strncmp(op,"acos",4)) { *x = acos(*r); return 0; }
     if(!strncmp(op,"atan",4)) { *x = atan(*r); return 0; }
+    if(!strncmp(op,"sqrt",4)) { *x = sqrt(*r); return 0; }
     if(!strncmp(op,"log",3)) { *x = log(*r); return 0; }
     if(!strncmp(op,"sin",3)) { *x = sin(*r); return 0; }
     if(!strncmp(op,"cos",3)) { *x = cos(*r); return 0; }
@@ -202,7 +204,7 @@ const char *_KLS_solveOpLeft(const char *s,int *id){
     if(*--s==']')
         for(--s;*s!='(';--s)
             if(*s=='['){
-                *id=-atoi(s+1);
+                *id=atoi(s+1);
                 return s;
             }
     return NULL;
@@ -211,7 +213,7 @@ const char *_KLS_solveOpLeft(const char *s,int *id){
 const char *_KLS_solveOpRight(const char *s,int *id){
     if(*s=='['){
         char *end;
-        *id=-strtod(s+1,&end);
+        *id=strtod(s+1,&end);
         return end+1;
     }
     return NULL;
@@ -239,25 +241,31 @@ const char *_KLS_solveBrecket(const char *s){
     return NULL;
 }
 
-KLS_byte _KLS_solveOpFind(const char *s,const _KLS_t_SOLVE_OP * const ops,_KLS_t_SOLVE_MATCH *m){
+KLS_byte _KLS_solveOpFind(const char *s,double *v,const _KLS_t_SOLVE_OP * const ops,_KLS_t_SOLVE_MATCH *m){
     const _KLS_t_SOLVE_OP *op;
     for(;*s!=')';++s)
         for(op=ops;op->len;++op)
             if(!strncmp(s,op->op,op->len)){
+                int i;
+
                 if(op->right){
-                    if( !(m->end.c=_KLS_solveOpRight(s+op->len,&m->right)) )
+                    if( !(m->end.c=_KLS_solveOpRight(s+op->len,&i)) )
                         break;
-                    m->res=m->right;
+                    m->res=m->right=v-i;
                 }else{
-                    m->right=1;
+                    m->right=NULL;
                     m->end.c=s+op->len;
                 }
+
                 if(op->left){
-                    if( !_KLS_solveOpLeft(s,&m->left) )
+                    if( !_KLS_solveOpLeft(s,&i) )
                         break;
-                    m->res=m->left;
-                }else m->left=1;
-                m->beg.c=s;
+                    m->res=m->left=v-i;
+                }else{
+                    m->left=NULL;
+                    m->end.c=s+op->len;
+                }
+
                 m->op.c=s;
                 return 1;
             }
@@ -267,15 +275,15 @@ KLS_byte _KLS_solveOpFind(const char *s,const _KLS_t_SOLVE_OP * const ops,_KLS_t
 KLS_byte _KLS_solveTry(_KLS_t_SOLVE * const solve){
     _KLS_t_SOLVE_MATCH match;
     _KLS_u_SOLVE_PTR brecket;
-    double val;
+    double x;
     unsigned int i;
     while( (brecket.c=_KLS_solveBrecket(solve->str)) ){
         for(i=0;i<KLS_ARRAY_LEN(_KLS_solveOps);++i)
-            while(_KLS_solveOpFind(brecket.c,_KLS_solveOps[i],&match)){
-                if(_KLS_solveOpCalc((match.left>0 ? NULL : solve->val+match.left),match.op.c,(match.right>0 ? NULL : solve->val+match.right),&val))
+            while(_KLS_solveOpFind(brecket.c,solve->val,_KLS_solveOps[i],&match)){
+                if(_KLS_solveOpCalc(match.left,match.op.c,match.right,&x))
                     return 0;
-                solve->val[match.res]=val;
-                _KLS_solveRemove(match.beg.m,match.end.m);
+                *match.res=x;
+                _KLS_solveRemove(match.op.m,match.end.m);
             }
         _KLS_solveUnbrecket(brecket.m);
     }
