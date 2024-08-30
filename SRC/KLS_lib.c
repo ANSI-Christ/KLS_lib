@@ -220,6 +220,26 @@ void KLS_variableRevers(void *var,KLS_size size){
     KLS_revers(var,size,1);
 }
 
+int KLS_utos(size_t n,char *s){
+    int cnt=-1,f=0,b;
+    char c;
+    do{
+        s[++cnt]=n%10+'0'; n/=10;
+    }while(n>0);
+    for(b=cnt;f<b;++f,--b){
+        c=s[f];
+        s[f]=s[b];
+        s[b]=c;
+    }
+    return cnt+1;
+}
+
+int KLS_itos(ptrdiff_t n,char *s){
+    if(n<0){
+        *s='-'; return KLS_utos(-n,s+1)+1;
+    } return KLS_utos(n,s);
+}
+
 void KLS_binaryPrint(const void *ptr,KLS_size size,FILE *f){
     KLS_byte i;
     unsigned char *tmp=KLS_malloc(size*8+size+1), *str=tmp;

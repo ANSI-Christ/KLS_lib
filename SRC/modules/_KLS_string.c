@@ -285,7 +285,7 @@ KLS_byte _KLS_solveTry(_KLS_t_SOLVE * const solve){
 char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s){
 #define _KLS_SOLVE_PUSH(_symb_) *str=_symb_, ++str
     char *str=solve->str;
-    signed int vals=0;
+    int vals=0;
     for(_KLS_SOLVE_PUSH('(');*s;++s)
         switch(*s){
             case ' ': case '\n': case '\t': case '\r':
@@ -306,7 +306,7 @@ char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s){
                     _KLS_SOLVE_PUSH('+');
                 }
                 _KLS_SOLVE_PUSH('[');
-                str+=sprintf(str,"%d",-vals);
+                str+=KLS_utos(-vals,str);
                 _KLS_SOLVE_PUSH(']');
                 --vals; continue;
             }
@@ -323,7 +323,7 @@ char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s){
 _KLS_t_SOLVE *_KLS_solveNew(const char *s){
     const unsigned int vals=s?strlen(s):0;
     if(vals){
-        unsigned int size=vals*2+8;
+        unsigned int size=vals+8;
         size+=sizeof(double)-(size%sizeof(double)) + (vals-1)*sizeof(double);
         _KLS_t_SOLVE *p=KLS_malloc(KLS_OFFSET(*p,str)+size+sizeof(double));
         if(p) p->val=(void*)(p->str+size);

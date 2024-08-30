@@ -187,6 +187,8 @@ extern KLS_byte KLS_COLOR_BITS;
 
 
 // COMMON SECTION
+int KLS_utos(size_t n,char *s);
+int KLS_itos(ptrdiff_t n,char *s);
 int KLS_backTrace(void *address[],int count);
 
 void KLS_libInit();
