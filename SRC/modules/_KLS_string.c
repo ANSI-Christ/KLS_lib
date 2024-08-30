@@ -200,20 +200,34 @@ void _KLS_solveRemove(char *beg, char *end){
     *beg=0;
 }
 
-const char *_KLS_solveOpLeft(const char *s,int *id){
+const char *_KLS_solveOpLeft(const char *s,double *v,double **p){
     if(*--s==']')
         for(--s;*s!='(';--s)
             if(*s=='['){
-                *id=atoi(s+1);
+                v-=atoi(s+1);
+                *p=v;
+                if(*--s=='-'){
+                    if(s[-1]!=']'){
+                        *v=-*v;
+                        *(char*)KLS_UNCONST(s)='+';
+                    }
+                }
                 return s;
             }
     return NULL;
 }
 
-const char *_KLS_solveOpRight(const char *s,int *id){
+const char *_KLS_solveOpRight(const char *s,double *v,double **p){
+    char sign=0;
+    if(*s=='-'){
+        ++s; sign|=1;
+    }else if(*s=='+')
+        ++s;
     if(*s=='['){
         char *end;
-        *id=strtod(s+1,&end);
+        v-=(int)(strtod(s+1,&end)+0.1);
+        *p=v;
+        if(sign) *v=-*v;
         return end+1;
     }
     return NULL;
@@ -246,24 +260,23 @@ KLS_byte _KLS_solveOpFind(const char *s,double *v,const _KLS_t_SOLVE_OP * const 
     for(;*s!=')';++s)
         for(op=ops;op->len;++op)
             if(!strncmp(s,op->op,op->len)){
-                int i;
 
                 if(op->right){
-                    if( !(m->end.c=_KLS_solveOpRight(s+op->len,&i)) )
+                    if( !(m->end.c=_KLS_solveOpRight(s+op->len,v,&m->right)) )
                         break;
-                    m->res=m->right=v-i;
+                    m->res=m->right;
                 }else{
                     m->right=NULL;
                     m->end.c=s+op->len;
                 }
 
                 if(op->left){
-                    if( !_KLS_solveOpLeft(s,&i) )
+                    if( !_KLS_solveOpLeft(s,v,&m->left) )
                         break;
-                    m->res=m->left=v-i;
+                    m->res=m->left;
                 }else{
                     m->left=NULL;
-                    m->end.c=s+op->len;
+                    m->end.c=strchr(s+op->len,'[');
                 }
 
                 m->op.c=s;
@@ -300,8 +313,7 @@ char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s){
                 continue;
             case '0': case '1': case '2': case '3':
             case '4': case '5': case '6': case '7':
-            case '8': case '9': case '+': case '-':
-            {
+            case '8': case '9': {
                 char *end;
                 double x=strtod(s,&end);
                 if(end==s){
@@ -310,9 +322,6 @@ char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s){
                 }
                 s=end-1;
                 solve->val[vals]=x;
-                if(str[-1]==']'){
-                    _KLS_SOLVE_PUSH('+');
-                }
                 _KLS_SOLVE_PUSH('[');
                 str+=KLS_utos(-vals,str);
                 _KLS_SOLVE_PUSH(']');
@@ -340,13 +349,13 @@ _KLS_t_SOLVE *_KLS_solveNew(const char *s){
 }
 
 double KLS_stringSolve(const char *str){
-    _KLS_t_SOLVE *solve=_KLS_solveNew(str);
     double answer=KLS_NAN;
+    _KLS_t_SOLVE *solve=_KLS_solveNew(str);
     if(solve){
         if(_KLS_solveInit(solve,str) && _KLS_solveTry(solve)){
-            int i;
-            const char *end=_KLS_solveOpRight(solve->str,&i);
-            if(end && !*end) answer=solve->val[i];
+            double *val;
+            const char *end=_KLS_solveOpRight(solve->str,solve->val,&val);
+            if(end && !*end) answer=*val;
         }
         KLS_free(solve);
     }
