@@ -425,7 +425,7 @@ char *KLS_stringReplace(const char *string, const char *from, const char *to);
 char *KLS_stringv(const char *format);
 #define KLS_stringv(_1_) ({va_list _2_[2]; va_start(_2_[0],_1_); va_start(_2_[1],_1_); _KLS_stringv(_1_,_2_);})
 
-double KLS_stringSolve(const char *string,int floatPrecision);
+double KLS_stringSolve(const char *string);
 
 unsigned int KLS_stringWordCount(const char *string, const char *word);
 
