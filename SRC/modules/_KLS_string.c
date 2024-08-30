@@ -140,11 +140,11 @@ char _KLS_solveOpCalc(const double * const l,const char *op,const double * const
         case '%': *x = KLS_mod(*l,*r); return 0;
         case '~':{
             if(*r>INT_MAX) return -1;
-            *x = ~*(int*)r; return 0;
+            *x = ~(int)*r; return 0;
         }
         case '^':{
             if(*l>INT_MAX || *r>INT_MAX) return -1;
-            *x = *(int*)l ^ *(int*)r; return 0;
+            *x = (int)*l ^ (int)*r; return 0;
         }
         case '!':
             switch((!!l) | ((!!r)<<1)){
@@ -174,21 +174,21 @@ char _KLS_solveOpCalc(const double * const l,const char *op,const double * const
     if(!strncmp(op,"!=",2)) { *x = *l != *r; return 0; }
     if(!strncmp(op,"<<",2)) {
         if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = *(int*)l << *(int*)r; return 0;
+        *x = (int)*l << (int)*r; return 0;
     }
     if(!strncmp(op,">>",2)) {
         if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = *(int*)l >> *(int*)r; return 0;
+        *x = (int)*l >> (int)*r; return 0;
     }
     if(*op=='>') { *x = *l > *r; return 0;}
     if(*op=='<') { *x = *l < *r; return 0;}
     if(*op=='&') {
         if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = *(int*)l & *(int*)r; return 0;
+        *x = (int)*l & (int)*r; return 0;
     }
     if(*op=='|') {
         if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = *(int*)l | *(int*)r; return 0;
+        *x = (int)*l | (int)*r; return 0;
     }
     return -1;
 }
