@@ -1,6 +1,6 @@
 
 KLS_t_QUEUE KLS_queueNew(KLS_byte order,KLS_size elementSize,void(*deleter)(void *element)){
-    return (KLS_t_QUEUE){deleter,{NULL},0,elementSize,order};
+    const KLS_t_QUEUE q={deleter,{NULL},0,elementSize,order}; return q;
 }
 
 void KLS_queueClear(KLS_t_QUEUE *queue){

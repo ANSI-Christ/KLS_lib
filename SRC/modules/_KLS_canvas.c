@@ -31,7 +31,7 @@ KLS_t_CANVAS KLS_canvasNewExt(void *buffer,unsigned int pixWidth,unsigned int pi
 }
 
 KLS_t_CANVAS KLS_canvasNew(void *buffer,unsigned int pixWidth,unsigned int pixHeight){
-    KLS_t_CANVAS c={.m=KLS_matrixNew(buffer,pixHeight,pixWidth,sizeof(KLS_COLOR),NULL), .left=0, .up=0, .right=pixWidth, .down=pixHeight, ._dv=1, ._dh=1};
+    const KLS_t_CANVAS c={.m=KLS_matrixNew(buffer,pixHeight,pixWidth,sizeof(KLS_COLOR),NULL), .left=0, .up=0, .right=pixWidth, .down=pixHeight, ._dv=1, ._dh=1};
     return c;
 }
 

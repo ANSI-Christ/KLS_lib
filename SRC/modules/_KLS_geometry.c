@@ -43,7 +43,7 @@ KLS_byte KLS_angleInSector_rad(double angle_rad,double angleSector_rad,double an
 }
 
 KLS_t_POINT KLS_point(double x,double y){
-    return (KLS_t_POINT){x,y};
+    const KLS_t_POINT p={x,y}; return p;
 }
 
 double KLS_point2Line(double x,double y,double x1,double y1,double x2,double y2){

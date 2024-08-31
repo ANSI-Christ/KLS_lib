@@ -1,6 +1,6 @@
 
 KLS_t_LIST KLS_listNew(KLS_size elementSize,void(*deleter)(void *element)){
-    return (KLS_t_LIST){NULL,NULL,deleter,0,elementSize};
+    const KLS_t_LIST l={NULL,NULL,deleter,0,elementSize}; return l;
 }
 
 KLS_t_LIST KLS_listCopy(const KLS_t_LIST *list){
