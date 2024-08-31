@@ -303,7 +303,7 @@ KLS_byte _KLS_solveTry(_KLS_t_SOLVE * const solve){
     return 1;
 }
 
-char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s){
+char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s,va_list args){
 #define _KLS_SOLVE_PUSH(_symb_) *str=_symb_, ++str
     char *str=solve->str;
     int vals=0;
@@ -327,6 +327,17 @@ char _KLS_solveInit(_KLS_t_SOLVE *solve,const char *s){
                 _KLS_SOLVE_PUSH(']');
                 --vals; continue;
             }
+            case '?':
+                switch(*++s){
+                    case 'f': solve->val[vals]=va_arg(args,double); break;
+                    case 'd': solve->val[vals]=va_arg(args,int); break;
+                    default: return 0;
+                }
+                _KLS_SOLVE_PUSH('[');
+                str+=KLS_utos(-vals,str);
+                _KLS_SOLVE_PUSH(']');
+                --vals;
+                continue;
             default:
                 if(strchr("[]{}\'\";:|\\",*s)) return 0;
                 _KLS_SOLVE_PUSH(*s); continue;
@@ -348,16 +359,19 @@ _KLS_t_SOLVE *_KLS_solveNew(const char *s){
     } return NULL;
 }
 
-double KLS_stringSolve(const char *str){
+double KLS_stringSolve(const char *str,...){
     double answer=KLS_NAN;
     _KLS_t_SOLVE *solve=_KLS_solveNew(str);
     if(solve){
-        if(_KLS_solveInit(solve,str) && _KLS_solveTry(solve)){
+        va_list args;
+        va_start(args,str);
+        if(_KLS_solveInit(solve,str,args) && _KLS_solveTry(solve)){
             double *val;
             const char *end=_KLS_solveOpRight(solve->str,solve->val,&val);
             if(end && !*end) answer=*val;
         }
         KLS_free(solve);
+        va_end(args);
     }
     return answer;
 }
