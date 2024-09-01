@@ -85,7 +85,7 @@ typedef union{
 }_KLS_u_SOLVE_PTR;
 
 typedef struct{
-    _KLS_u_SOLVE_PTR op, end;
+    _KLS_u_SOLVE_PTR beg, end;
     double *left, *right, *res;
 }_KLS_t_SOLVE_MATCH;
 
@@ -100,7 +100,7 @@ typedef struct{
 }_KLS_t_SOLVE_OP;
 
 
-#define _ADD_OPS(...) KLS_$(_KLS_t_SOLVE_OP)(__VA_ARGS__,_ADD_OP(0,NULL,0))
+#define _ADD_OPS(...) (_KLS_t_SOLVE_OP[]){__VA_ARGS__,_ADD_OP(0,NULL,0)}
 #define _ADD_OP(left,op,right) { op,op ? sizeof(op)-1 : 0, left, right }
 static const _KLS_t_SOLVE_OP *_KLS_solveOps[]={
     _ADD_OPS( _ADD_OP(0,"!",1),     _ADD_OP(0,"~",1) ),
@@ -131,68 +131,63 @@ double _KLS_solveFac(KLS_size x){
     return res;
 }
 
-char _KLS_solveOpCalc(const double * const l,const char *op,const double * const r,double * const x){
-    switch(*op){
-        case '+': *x = *l + *r; return 0;
-        case '-': *x = *l - *r; return 0;
-        case '*': *x = *l * *r; return 0;
-        case '/': *x = *l / *r; return 0;
-        case '@': *x = pow(*l,*r); return 0;
-        case '%': *x = KLS_mod(*l,*r); return 0;
-        case '~':{
-            if(*r>INT_MAX) return -1;
-            *x = ~(int)*r; return 0;
-        }
-        case '^':{
-            if(*l>INT_MAX || *r>INT_MAX) return -1;
-            *x = (int)*l ^ (int)*r; return 0;
-        }
-        case '!':
-            switch((!!l) | ((!!r)<<1)){
-                case 1:{
-                    if(*l<0) *x = -_KLS_solveFac(-*l);
-                    else *x = _KLS_solveFac(*l);
-                    return 0;
-                }
-                case 2: *x = !*r; return 0;
-                default: return -1;
-            }
-    }
-    if(!strncmp(op,"log10",5)) { *x = log10(*r); return 0; }
-    if(!strncmp(op,"log2",4)) { *x = log2(*r); return 0; }
-    if(!strncmp(op,"asin",4)) { *x = asin(*r); return 0; }
-    if(!strncmp(op,"acos",4)) { *x = acos(*r); return 0; }
-    if(!strncmp(op,"atan",4)) { *x = atan(*r); return 0; }
-    if(!strncmp(op,"sqrt",4)) { *x = sqrt(*r); return 0; }
-    if(!strncmp(op,"log",3)) { *x = log(*r); return 0; }
-    if(!strncmp(op,"sin",3)) { *x = sin(*r); return 0; }
-    if(!strncmp(op,"cos",3)) { *x = cos(*r); return 0; }
-    if(!strncmp(op,"tan",3)) { *x = tan(*r); return 0; }
-    if(!strncmp(op,"||",2)) { *x = *l || *r; return 0; }
-    if(!strncmp(op,"&&",2)) { *x = *l && *r; return 0; }
-    if(!strncmp(op,">=",2)) { *x = *l >= *r; return 0; }
-    if(!strncmp(op,"<=",2)) { *x = *l <= *r; return 0; }
-    if(!strncmp(op,"==",2)) { *x = *l == *r; return 0; }
-    if(!strncmp(op,"!=",2)) { *x = *l != *r; return 0; }
-    if(!strncmp(op,"<<",2)) {
-        if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = (int)*l << (int)*r; return 0;
-    }
-    if(!strncmp(op,">>",2)) {
-        if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = (int)*l >> (int)*r; return 0;
-    }
-    if(*op=='>') { *x = *l > *r; return 0;}
-    if(*op=='<') { *x = *l < *r; return 0;}
-    if(*op=='&') {
-        if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = (int)*l & (int)*r; return 0;
-    }
-    if(*op=='|') {
-        if(*l>INT_MAX || *r>INT_MAX) return -1;
-        *x = (int)*l | (int)*r; return 0;
-    }
-    return -1;
+char _KLS_solveOpCalc(const double * const l,const unsigned int opRow,const unsigned int opColumn,const double * const r,double * const x){
+#define _OP_NUMBER(_row_,_column_) (_row_*1000 + _column_)
+#define _OP_SWITCH(_row_,_column_) switch(_OP_NUMBER(_row_,_column_)){ __OP_SWITCH
+#define __OP_SWITCH(...) __VA_ARGS__} return -1;
+#define _OP_CASE(_row_,_column_) case _OP_NUMBER(_row_,_column_): __OP_CASE
+#define __OP_CASE(...) __VA_ARGS__ return 0;
+    _OP_SWITCH(opRow,opColumn)(
+
+        _OP_CASE(1,1)( if(*l<0) *x = -_KLS_solveFac(-*l); else *x = _KLS_solveFac(*l); )
+        _OP_CASE(1,2)( if(*r>INT_MAX) break; *x = ~(int)*r; )
+
+        _OP_CASE(2,1)( *x = !*r; )
+
+        _OP_CASE(3,1)( *x = asin(*r); )
+        _OP_CASE(3,2)( *x = acos(*r); )
+        _OP_CASE(3,3)( *x = atan(*r); )
+        _OP_CASE(3,4)( *x = sin(*r); )
+        _OP_CASE(3,5)( *x = cos(*r); )
+        _OP_CASE(3,6)( *x = tan(*r); )
+        _OP_CASE(3,7)( *x = log10(*r); )
+        _OP_CASE(3,8)( *x = log2(*r); )
+        _OP_CASE(3,9)( *x = log(*r); )
+        _OP_CASE(3,10)( *x = sqrt(*r); )
+
+        _OP_CASE(4,1)( *x = pow(*l,*r); )
+
+        _OP_CASE(5,1)( *x = *l * *r; )
+        _OP_CASE(5,2)( *x = *l / *r; )
+        _OP_CASE(5,3)( *x = KLS_mod(*l,*r); )
+
+        _OP_CASE(6,1)( *x = *l + *r; )
+        _OP_CASE(6,2)( *x = *l - *r; )
+
+        _OP_CASE(7,1)( if(*l>INT_MAX || *r>INT_MAX) break; *x = (int)*l << (int)*r; )
+        _OP_CASE(7,2)( if(*l>INT_MAX || *r>INT_MAX) break; *x = (int)*l >> (int)*r; )
+
+        _OP_CASE(8,1)( *x = *l <= *r; )
+        _OP_CASE(8,2)( *x = *l >= *r; )
+        _OP_CASE(8,3)( *x = *l < *r; )
+        _OP_CASE(8,4)( *x = *l > *r; )
+
+        _OP_CASE(9,1)( *x = *l == *r; )
+        _OP_CASE(9,2)( *x = *l != *r; )
+
+        _OP_CASE(10,1)( if(*l>INT_MAX || *r>INT_MAX) break; *x = (int)*l & (int)*r; )
+        _OP_CASE(11,1)( if(*l>INT_MAX || *r>INT_MAX) break; *x = (int)*l ^ (int)*r; )
+        _OP_CASE(12,1)( if(*l>INT_MAX || *r>INT_MAX) break; *x = (int)*l | (int)*r; )
+
+        _OP_CASE(13,1)( *x = *l || *r; )
+        _OP_CASE(14,1)( *x = *l && *r; )
+
+    )
+#undef _OP_NUMBER
+#undef _OP_SWITCH
+#undef _OP_CASE
+#undef __OP_SWITCH
+#undef __OP_CASE
 }
 
 void _KLS_solveRemove(char *beg, char *end){
@@ -279,8 +274,8 @@ KLS_byte _KLS_solveOpFind(const char *s,double *v,const _KLS_t_SOLVE_OP * const 
                     m->end.c=strchr(s+op->len,'[');
                 }
 
-                m->op.c=s;
-                return 1;
+                m->beg.c=s;
+                return 1+(KLS_size)(op-ops);
             }
     return 0;
 }
@@ -288,15 +283,15 @@ KLS_byte _KLS_solveOpFind(const char *s,double *v,const _KLS_t_SOLVE_OP * const 
 KLS_byte _KLS_solveTry(_KLS_t_SOLVE * const solve){
     _KLS_t_SOLVE_MATCH match;
     _KLS_u_SOLVE_PTR brecket;
+    unsigned int r, c;
     double x;
-    unsigned int i;
     while( (brecket.c=_KLS_solveBrecket(solve->str)) ){
-        for(i=0;i<KLS_ARRAY_LEN(_KLS_solveOps);++i)
-            while(_KLS_solveOpFind(brecket.c,solve->val,_KLS_solveOps[i],&match)){
-                if(_KLS_solveOpCalc(match.left,match.op.c,match.right,&x))
+        for(r=0;r<KLS_ARRAY_LEN(_KLS_solveOps);++r)
+            while( (c=_KLS_solveOpFind(brecket.c,solve->val,_KLS_solveOps[r],&match)) ){
+                if(_KLS_solveOpCalc(match.left,r+1,c,match.right,&x))
                     return 0;
                 *match.res=x;
-                _KLS_solveRemove(match.op.m,match.end.m);
+                _KLS_solveRemove(match.beg.m,match.end.m);
             }
         _KLS_solveUnbrecket(brecket.m);
     }
