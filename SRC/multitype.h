@@ -21,7 +21,7 @@ typedef size_t multitype;
 #define __MT_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _MT_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
 #define _MT_COUNT(...) (M_FOREACH(__MT_COUNT,-,__VA_ARGS__) 0)
 #define __MT_COUNT(_1_,_2_,...) 1+
-#define _MT_LET(...) for( void **_1_=NULL; !_1_ ; M_FOREACH(_MT_UNPACK,_1_,__VA_ARGS__) (void)0 ) *((size_t*)&_1_)
+#define _MT_LET(...) for( void **_1_=(void*)0; !_1_ ; M_FOREACH(_MT_UNPACK,_1_,__VA_ARGS__) (void)0 ) *((size_t*)&_1_)
 #define _MT_RETURN(...) { _MT_STRUCT(__VA_ARGS__) _1_={ (void*)_1_.p, _MT_PACK(_1_,__VA_ARGS__), __VA_ARGS__ }; return _MT_address(_1_.p); } (void)0
 
 size_t _MT_address(void *p);
