@@ -21,7 +21,7 @@ KLS_byte KLS_fsDirCreate(const char *directory){
     );
 }
 
-const char *KLS_execNameGet(){
+const char *KLS_execNameGet(void){
     if(!_KLS_execName)
         KLS_execNameSet("\000");
     return _KLS_execName;
@@ -34,7 +34,7 @@ const char *KLS_execNameGet(){
 
 KLS_byte KLS_sysInfoRam(KLS_size *left,KLS_size *all){return 0;}
 KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all){return 0;}
-unsigned int KLS_sysInfoCores(){return 1;}
+unsigned int KLS_sysInfoCores(void){return 1;}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////  DRAW DISPLAY  //////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ unsigned int _NET_recvSize(NET_t_SOCKET *s){
     return len;
 }
 
-KLS_byte _NET_init(){return 1;}
-void _NET_close(){}
+KLS_byte _NET_init(void){return 1;}
+void _NET_close(void){}
 
 #endif /* _KLS_OS_DEP_INC */

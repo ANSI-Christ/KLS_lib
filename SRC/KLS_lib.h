@@ -189,8 +189,8 @@ int KLS_utos(size_t n,char *s);
 int KLS_itos(ptrdiff_t n,char *s);
 int KLS_backTrace(void *address[],int count);
 
-void KLS_libInit();
-void KLS_execKill();
+void KLS_libInit(void);
+void KLS_execKill(void);
 void KLS_pausef(double sec);
 void KLS_freeFile(FILE *file);
 void KLS_freeData(void *data);
@@ -212,15 +212,15 @@ void *KLS_dublicate(const void *data,KLS_size len);
 double KLS_round(double value,double step);
 double KLS_mod(double value,double division);
 
-KLS_byte KLS_execLive();
+KLS_byte KLS_execLive(void);
 KLS_byte KLS_dataJoin(void **dst,KLS_size *dstSize,void **src,KLS_size *srcSize,KLS_byte frees); // frees:000000xy , where 'x' for free src, 'y' for free dst
 
 signed char KLS_bitGet(void *data,unsigned int index);
 
-const char *KLS_execNameGet();
+const char *KLS_execNameGet(void);
 const char *KLS_getOpt(int argc, char *argv[],const char *opt);
 
-const KLS_byte *KLS_exec();
+const KLS_byte *KLS_exec(void);
 
 KLS_t_URL_DATA *KLS_urlRequest(const KLS_t_URL *url);
 
@@ -251,7 +251,7 @@ int KLS_sysCmd(char **output,const char *cmdFormat, ...); // KLS_ATTR(format,(__
 KLS_byte KLS_sysInfoRam(KLS_size *left,KLS_size *all);
 KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all);
 
-unsigned int KLS_sysInfoCores();
+unsigned int KLS_sysInfoCores(void);
 
 
 
@@ -329,7 +329,7 @@ const char *KLS_threadPolicyName(int policy);
 
 typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
 
-KLS_t_THREAD_POOL KLS_threadPoolSelf();
+KLS_t_THREAD_POOL KLS_threadPoolSelf(void);
 KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,size_t stackSize_kb);
 
 void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
@@ -341,7 +341,7 @@ KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec);
 KLS_byte KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args),...);
 KLS_byte KLS_threadPoolTaskPrio(KLS_t_THREAD_POOL pool,unsigned char prio,void(*task)(void *args),...);
 
-unsigned int KLS_threadPoolNum();
+unsigned int KLS_threadPoolNum(void);
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
 
 const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool,unsigned int num);
@@ -370,7 +370,7 @@ void KLS_timeFromSec(int timeSec,int *hour,int *min,int *sec);
 void KLS_timespecAdd(struct timespec *tm,int sec,int nanosec);
 void KLS_timespecSub(struct timespec *tm,int sec,int nanosec);
 
-KLS_t_DATETIME KLS_dateTimeSystem();
+KLS_t_DATETIME KLS_dateTimeSystem(void);
 KLS_t_DATETIME KLS_dateTimeFrom(time_t time);
 
 
@@ -1170,7 +1170,7 @@ CLASS_END(GUI_TEXTBOX);
     )
 CLASS_END(GUI);
 
-void GUI_coreDefault();
+void GUI_coreDefault(void);
 
 void GUI_widgetDelete(CLASS GUI_WIDGET **widget);
 
@@ -1228,7 +1228,7 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _KLS_UNIT_TESTS
-    #define _KLS_UNIT_TEST(...) KLS_ATTR(constructor) static void KLS_MVN(unit_test)(){KLS_libInit();{__VA_ARGS__}}
+    #define _KLS_UNIT_TEST(...) KLS_ATTR(constructor) static void KLS_MVN(unit_test)(void){KLS_libInit();{__VA_ARGS__}}
 #else
     #define _KLS_UNIT_TEST(...)
 #endif

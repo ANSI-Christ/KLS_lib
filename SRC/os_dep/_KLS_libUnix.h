@@ -17,7 +17,7 @@ extern int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout);
 
 extern char *program_invocation_name;
 
-const char *KLS_execNameGet(){
+const char *KLS_execNameGet(void){
     if(!_KLS_execName)
         KLS_execNameSet(program_invocation_name);
     return _KLS_execName;
@@ -59,7 +59,7 @@ KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all){
     } return 0;
 }
 
-unsigned int KLS_sysInfoCores(){
+unsigned int KLS_sysInfoCores(void){
     const int n=get_nprocs();
     return n>1 ? n : 1;
 }
@@ -84,7 +84,7 @@ unsigned int _NET_recvSize(NET_t_SOCKET *s){
     return len;
 }
 
-KLS_byte _NET_init(){return 1;}
-void _NET_close(){}
+KLS_byte _NET_init(void){return 1;}
+void _NET_close(void){}
 
 #endif /* _KLS_OS_DEP_INC */

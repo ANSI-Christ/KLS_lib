@@ -315,7 +315,7 @@ KLS_byte GUI_widgetIsResized(void *widget){
         | ((((CLASS GUI_WIDGET*)widget)->height!=((CLASS GUI_WIDGET*)widget)->m.rows)<<1);
 }
 
-void GUI_coreDefault(){}
+void GUI_coreDefault(void){}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 

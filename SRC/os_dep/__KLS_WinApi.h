@@ -88,8 +88,8 @@ void _GUI_displayPost(GUI_t_DISPLAY *d,int value){
     if(d->_.osDep[0].p) PostMessage(d->_.osDep[0].p,WM_SYNCPAINT,0,value);
 }
 
-void _displayClassFree();
-const void *_displayClassReg(){
+void _displayClassFree(void);
+const void *_displayClassReg(void){
     KLS_ONCE(
         WNDCLASS wc;
         memset(&wc,0,sizeof(wc));
@@ -99,7 +99,7 @@ const void *_displayClassReg(){
         if(RegisterClass(&wc)) atexit(_displayClassFree);
     ) return L"_KLS_displayClass";
 }
-void _displayClassFree(){UnregisterClass(_displayClassReg(),0);}
+void _displayClassFree(void){UnregisterClass(_displayClassReg(),0);}
 
 
 GUI_t_DISPLAY GUI_displayNew(const char *title,int x,int y,int width,int height){

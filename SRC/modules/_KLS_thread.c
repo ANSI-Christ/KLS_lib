@@ -39,7 +39,7 @@ static struct{
 }_KLS_threadKey;
 
 
-char _KLS_threadInit(){
+char _KLS_threadInit(void){
     if(!_KLS_threadStatus){
         if(pthread_key_create(&_KLS_threadKey.self,NULL)) return 0;
         if(pthread_key_create(&_KLS_threadKey.stop,NULL)){
@@ -49,7 +49,7 @@ char _KLS_threadInit(){
     }
     return _KLS_threadStatus;
 }
-void _KLS_threadClose(){
+void _KLS_threadClose(void){
     if(_KLS_threadStatus){
         pthread_key_delete(_KLS_threadKey.self);
         pthread_key_delete(_KLS_threadKey.stop);
@@ -138,7 +138,7 @@ _mark:
 }
 
 
-static struct _KLS_t_THREAD *_KLS_threadSelf(){
+static struct _KLS_t_THREAD *_KLS_threadSelf(void){
     return _KLS_threadStatus ? pthread_getspecific(_KLS_threadKey.self) : NULL;
 }
 
@@ -292,12 +292,12 @@ void KLS_threadPoolClear(KLS_t_THREAD_POOL pool){
     }
 }
 
-KLS_t_THREAD_POOL KLS_threadPoolSelf(){
+KLS_t_THREAD_POOL KLS_threadPoolSelf(void){
     const _KLS_t_THREAD t=_KLS_threadSelf();
     return t ? t->pool : NULL;
 }
 
-unsigned int KLS_threadPoolNum(){
+unsigned int KLS_threadPoolNum(void){
     const _KLS_t_THREAD t=_KLS_threadSelf();
     return t ? (unsigned int)(t-t->pool->id)+1 : 0;
 }

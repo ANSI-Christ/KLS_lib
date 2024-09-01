@@ -345,7 +345,7 @@ KLS_byte KLS_regexMatchSet(KLS_t_REGEX_FIND *f){
     return !ret;
 }
 
-KLS_byte KLS_regexFindGroup(){
+KLS_byte KLS_regexFindGroup(void){
     return 0;
 }
 

@@ -43,9 +43,9 @@ extern void _KLS_rgbGetInfo(int bits);
 
 
 
-void KLS_execKill()      { _KLS_exec=0; }
-KLS_byte KLS_execLive()  { return _KLS_exec; }
-const KLS_byte *KLS_exec(){ return &_KLS_exec; }
+void KLS_execKill(void)      { _KLS_exec=0; }
+KLS_byte KLS_execLive(void)  { return _KLS_exec; }
+const KLS_byte *KLS_exec(void){ return &_KLS_exec; }
 
 void KLS_execNameSet(const char *name){ _KLS_execName=name; }
 
@@ -56,7 +56,7 @@ int KLS_backTrace(void *address[],int count){
     return count;
 }
 
-const char *_KLS_addr2lineOpt(){
+const char *_KLS_addr2lineOpt(void){
     static const char *s=(void*)0x1;
     if(s==(void*)0x1){
         if(system("addr2line -h"))
@@ -298,7 +298,7 @@ KLS_t_DATETIME KLS_dateTimeFrom(time_t time){
     } return dt;
 }
 
-KLS_t_DATETIME KLS_dateTimeSystem(){
+KLS_t_DATETIME KLS_dateTimeSystem(void){
     time_t timeT=time(NULL);
     return KLS_dateTimeFrom(timeT);
 }
@@ -487,7 +487,7 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
 }
 
 
-void _KLS_libClose(){
+void _KLS_libClose(void){
     KLS_execKill();
     _NET_close();
     _KLS_threadClose();
@@ -498,7 +498,7 @@ void _KLS_libClose(){
     puts("KLS: exit!\n");
 }
 
-void KLS_libInit(){
+void KLS_libInit(void){
     KLS_ONCE(
         _KLS_MEMORY_MTX(1)
         KLS_RGB(0,0,0);

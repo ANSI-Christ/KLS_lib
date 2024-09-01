@@ -14,7 +14,7 @@ KLS_byte KLS_fsDirCreate(const char *directory){
     return directory && !mkdir(directory);
 }
 
-const char *KLS_execNameGet(){
+const char *KLS_execNameGet(void){
     if(!_KLS_execName){
         char *l=GetCommandLineA(), *a=l;
         KLS_execNameSet(l);
@@ -46,7 +46,7 @@ KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all){
     } return 0;
 }
 
-unsigned int KLS_sysInfoCores(){
+unsigned int KLS_sysInfoCores(void){
     SYSTEM_INFO sys; GetSystemInfo(&sys);
     return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
 }
@@ -67,7 +67,7 @@ unsigned int KLS_sysInfoCores(){
 typedef char sigset_t;
 
 
-#define pthread_kill(_1_,_2_,_sig_) static void _pthread_kill_##_sig_(){raise(_sig_);}
+#define pthread_kill(_1_,_2_,_sig_) static void _pthread_kill_##_sig_(void){raise(_sig_);}
 M_FOREACH(pthread_kill,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
 #undef pthread_kill
 
@@ -201,7 +201,7 @@ unsigned int _NET_recvSize(NET_t_SOCKET *s){
     return len;
 }
 
-KLS_byte _NET_init(){WSADATA w; return !WSAStartup(0x0202,&w);}
-void _NET_close(){WSACleanup();}
+KLS_byte _NET_init(void){WSADATA w; return !WSAStartup(0x0202,&w);}
+void _NET_close(void){WSACleanup();}
 
 #endif /* _KLS_OS_DEP_INC */

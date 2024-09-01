@@ -18,7 +18,7 @@ static struct{
 }_KLS_timerGlob={.mtx={PTHREAD_MUTEX_INITIALIZER}};
 
 
-void _KLS_timerPolicy(){
+void _KLS_timerPolicy(void){
     pthread_t tid=pthread_self();
     int pol,pri;
     if(KLS_threadPolicyGet(tid,&pol,&pri) && pol!=0)
@@ -74,7 +74,7 @@ _mark:
     (void)arg;
 }
 
-void _KLS_timerClose(){
+void _KLS_timerClose(void){
     const char mtxDel=0;
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
     if(g->create){
@@ -88,7 +88,7 @@ void _KLS_timerClose(){
     }else if(mtxDel)pthread_mutex_destroy(g->mtx);
 }
 
-KLS_byte _KLS_timerInit(){
+KLS_byte _KLS_timerInit(void){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
     if(!g->create){
         pthread_attr_t a[1];

@@ -11,7 +11,7 @@
     _CLASS_ARGS_DEF(_name_)\
     CLASS _name_{void(* const destructor)(void * const); _CLASS_LOOP(_CLASS_END(_name_))};\
     struct M_JOIN(_,_name_){M_IF(_CLASS_ABS(_name_))(const void *M_JOIN(M_JOIN(_,M_LINE()),pad)[1][1][1],void *(* const constructor)(void * const _CLASS_ARGS_STD(_name_))); _CLASS_LOOP(_CLASS_END(_name_))};\
-    extern const struct M_JOIN(_,_name_) *_name_()
+    extern const struct M_JOIN(_,_name_) *_name_(void)
 
 #define CLASS_COMPILE(_name_) \
     void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * const _CLASS_ARGS_STD(_name_) );\
@@ -29,7 +29,7 @@
             else{ M_JOIN(_dtor_,_name_)(self); return (void*)0; }\
         } return self;\
     }\
-    const struct M_JOIN(_,_name_) *_name_(){\
+    const struct M_JOIN(_,_name_) *_name_(void){\
         typedef union { void *p; struct M_JOIN(_,_name_) pad; struct{char pad[sizeof(struct M_JOIN(_,_name_))];} c; } M_JOIN(_t_u,_name_);\
         static M_JOIN(_t_u,_name_) c={(void*)1};\
         if(c.p==(void*)1){\
