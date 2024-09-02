@@ -307,7 +307,6 @@ KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),
 #define KLS_threadDestroyLater   KLS_threadPoolDestroyLater
 #define KLS_threadPosix(...)     KLS_threadPoolPosix(__VA_ARGS__,1)
 #define KLS_threadCreate(...)    KLS_threadPoolCreate(1,__VA_ARGS__)
-#define KLS_threadUntask(...)    KLS_threadPoolUntask
 
 void KLS_threadPause(pthread_t tid);
 void KLS_threadResume(pthread_t tid);
@@ -337,7 +336,6 @@ void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
 void KLS_threadPoolClear(KLS_t_THREAD_POOL pool);
 void KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool);
 void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
-void KLS_threadPoolUntask(KLS_t_THREAD_POOL p,void *task);
 
 void *KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args),...);
 void *KLS_threadPoolTaskPrio(KLS_t_THREAD_POOL pool,unsigned char prio,void(*task)(void *args),...);
