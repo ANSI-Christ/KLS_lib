@@ -81,6 +81,33 @@ static _KLS_t_THREAD_TASK *_KLS_threadPoolPop(_KLS_t_THREAD_POOL p){
     return t;
 }
 
+static void _KLS_threadPoolDel(_KLS_t_THREAD_POOL p,_KLS_t_THREAD_TASK * const task){
+    _KLS_t_THREAD_QUEUE *q=p->queue;
+    _KLS_t_THREAD_TASK *t;
+    unsigned char i=p->peak;
+    do{
+        q=p->queue+i;
+        if( (t=q->first) ){
+            if(t==task){
+                if( !(q->first=t->next) ){
+                    q->last=NULL;
+                    if(i==p->peak) while(p->peak && !p->queue[--p->peak].first);
+                }
+                KLS_free(task);
+                return;
+            }
+            do{
+                if(t->next==task){
+                    if( !(t->next=task->next) )
+                        q->last=t;
+                    KLS_free(task);
+                    return;
+                }
+            }while( (t=t->next) );
+        }
+    }while(i--);
+}
+
 static void _KLS_threadPoolClear(_KLS_t_THREAD_POOL p){
     void *t;
     while( (t=_KLS_threadPoolPop(p)) )
@@ -272,16 +299,24 @@ KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec){
     } return -1;
 }
 
-char _KLS_threadPoolTask(void *pool,void *task, unsigned char prio){
+void *_KLS_threadPoolTask(void *pool,const void *task,const unsigned int size,const unsigned char prio){
     _KLS_t_THREAD_POOL p=pool;
-    if(p && !p->die && task){
+    if( p && !p->die && ((void**)task)[1] && (pool=KLS_malloc(size)) ){
+        memcpy(pool,task,size);
         pthread_mutex_lock(p->mtx);
-        _KLS_threadPoolPush(p,task,prio);
+        _KLS_threadPoolPush(p,pool,prio);
         pthread_cond_signal(p->cond);
         pthread_mutex_unlock(p->mtx);
-        return 1;
+        return pool;
+    } return NULL;
+}
+
+void KLS_threadPoolUntask(KLS_t_THREAD_POOL p,void *task){
+    if(p && task){
+        pthread_mutex_lock(p->mtx);
+        _KLS_threadPoolDel(p,task);
+        pthread_mutex_unlock(p->mtx);
     }
-    KLS_free(task); return 0;
 }
 
 void KLS_threadPoolClear(KLS_t_THREAD_POOL pool){
