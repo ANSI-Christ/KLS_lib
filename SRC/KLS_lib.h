@@ -295,8 +295,12 @@ KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),
 
 // THREAD SECTION
 
+extern int KLS_thread_sigresume;
+extern int KLS_thread_sigpause;
+
 #define KLS_THREAD_ARGS(...) M_IF(M_COUNT(__VA_ARGS__))(M_EXTRACT(struct{M_FOREACH(_KLS_THREAD_ARGS,-,__VA_ARGS__)}*), void*)
 
+#define KLS_t_THREAD             KLS_t_THREAD_POOL
 #define KLS_threadSelf           KLS_threadPoolSelf
 #define KLS_threadClear          KLS_threadPoolClear
 #define KLS_threadTask           KLS_threadPoolTask
