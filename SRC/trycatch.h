@@ -42,7 +42,7 @@ void _TryCatchTerminate(void);
     if(_1_){\
         if(_1_->e->type){\
             if(_1_->jmp) longjmp(*_1_->jmp,1);\
-            else printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->e->type,_1_->e->where);\
+            printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->e->type,_1_->e->where);\
         }else puts("\nterminate called after throwing at [" _THROW_INFO "]\n");\
     }else puts("\nterminate called after throwing at [" _THROW_INFO "]\n");\
     _TryCatchTerminate();\
@@ -54,8 +54,10 @@ void _TryCatchTerminate(void);
         if(_1_->e->data!=_1_->buffer){free(_1_->e->data); _1_->e->data=_1_->buffer;}\
         M_IF(M_IS_ARG(M_PEEK(__VA_ARGS__)))(\
             M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->e->data=malloc(sizeof(_type_))) ){\
-                union M_JOIN(_t_u_,M_LINE()){_type_ v; struct{char _[sizeof(_type_)];} e;} _2_={.v=__VA_ARGS__};\
-                ((union M_JOIN(_t_u_,M_LINE())*)(_1_->e->data))->e=_2_.e; longjmp(*_1_->jmp,1);\
+                struct M_JOIN(_tc,M_LINE()){char _[sizeof(_type_)];};\
+                const struct{_type_ _;} _2_={__VA_ARGS__};\
+                *((struct M_JOIN(_tc,M_LINE())*)_1_->e->data)=*(const struct M_JOIN(_tc,M_LINE())*)&_2_;\
+                longjmp(*_1_->jmp,1);\
             }) , \
             M_EXTRACT( longjmp(*_1_->jmp,1); )\
         )\
