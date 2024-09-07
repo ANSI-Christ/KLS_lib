@@ -23,7 +23,7 @@
 #define M_BOOL(...) M_JOIN(_M_BOOL,M_IS_ARG(M_PEEK(__VA_ARGS__)))(__VA_ARGS__)
 #define M_CMP(_1_, _2_) _M_REVERS(M_NCMP(_1_, _2_))
 #define M_NCMP(_1_, _2_) M_IF( _M_BITAND(_M_IS_CMP(_1_))(_M_IS_CMP(_2_)) ) (_M_CMP,1 M_SKIP)(_1_, _2_)
-#define M_ASSERT(_condition_,...) typedef struct{char _[(_condition_)?1:-1];}
+#define M_ASSERT(_condition_,_reference_,...) struct M_JOIN(_reference_,M_LINE()){char _reference_[(_condition_)?1:-1];}
 
 #define M_OVERLOAD(macros,...) M_JOIN(macros,M_COUNT(__VA_ARGS__))
 #define M_FOREACH(macros,arg,...) M_LOOP(_M_FOREACH_MAP1(macros,arg,__VA_ARGS__,()()(),()()(),()()(),0))
