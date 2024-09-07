@@ -15,6 +15,10 @@
     #define MSG_NOSIGNAL 0
 #endif
 
+#ifndef AF_UNIX
+    #define AF_UNIX AF_INET
+#endif
+
 
 
 #ifndef _NET_ERRNO
@@ -328,6 +332,19 @@ int NET_socketError(NET_t_SOCKET *s){
     return _NET_ERRNO(e);
 }
 
+KLS_byte NET_socketPair(int protocol,NET_t_SOCKET *a, NET_t_SOCKET *b){
+    _NET_t_SOCKET pair[2];
+    if(socketpair(AF_UNIX,_NET_protocol(protocol),0,pair))
+        return 0;
+    _NET_SOCK(a)=pair[0]; _NET_SOCK(b)=pair[1];
+    a->status=b->status=NET_SOCK_CONNECTED;
+    a->protocol=b->protocol=protocol;
+    a->version=b->version=NET_IPU;
+    a->blocked=b->blocked=1;
+    a->created=b->created=1;
+    return 1;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifndef NET_KEEPALIVE_DEFAULT
@@ -347,7 +364,6 @@ typedef struct pollfd _NET_t_POLL;
 struct _NET_t_MANAGER{
     KLS_t_VECTOR service, poll, delays;
     KLS_t_LIST units;
-    sem_t sem[1];
     struct _NET_t_UNIT help;
 };
 
@@ -590,31 +606,26 @@ int _NET_proc(KLS_t_VECTOR *p,KLS_t_VECTOR *s,time_t *t){
             f[u->socket.protocol][NET_type(u)==NET_LISTENER](u,((_NET_t_POLL*)p->data)+i,*t);
         }
     *t=time(NULL);
-    return ((_NET_t_POLL*)p->data)->revents ? EINTR : 0;
+    return ((_NET_t_POLL*)p->data)->revents ? ELOOP : 0;
 }
 
 int NET_service(NET_t_MANAGER manager){
     if(manager){
-        int err=EINTR;
-        if(sem_trywait(manager->sem)){
-            time_t t=time(NULL);
-            do{
-                _NET_delays(&manager->delays,t);
-                err=_NET_proc(&manager->poll,&manager->service,&t);
-                _NET_timeouts(manager,t);
-                _NET_trashing(manager,t);
-            }while(!err);
-        }
+        int err=0;
+        time_t t=time(NULL);
+        do{
+            _NET_delays(&manager->delays,t);
+            err=_NET_proc(&manager->poll,&manager->service,&t);
+            _NET_timeouts(manager,t);
+            _NET_trashing(manager,t);
+        }while(!err);
         return err;
     }
     return EINVAL;
 }
 
 void NET_interrupt(NET_t_MANAGER manager){
-    if(manager){
-         sem_post(manager->sem);
-         NET_write(&manager->help,manager,1,NULL);
-    }
+    if(manager) NET_socketSend(&manager->help._.cntr,manager,1,NULL);
 }
 
 KLS_size _NET_vectorPolicy(KLS_size size){
@@ -624,7 +635,7 @@ KLS_size _NET_vectorPolicy(KLS_size size){
 void _NET_helpHandler(NET_t_UNIT u,KLS_byte e){
     switch(e){
         case NET_EVENT_RECEIVE: case NET_EVENT_ERROR:
-            NET_read(u,NULL,-1,NULL); sem_trywait(u->manager->sem);
+            NET_read(u,&e,1,NULL);
     }
 }
 
@@ -634,7 +645,6 @@ NET_t_MANAGER NET_new(unsigned int baseSize,unsigned short trashSize,unsigned sh
         memset(m,0,sizeof(*m));
         if(!(baseSize++)) baseSize=10;
         do{
-            if(sem_init(m->sem,0,0)) break;
             if(!(m->delays=KLS_vectorNew(10,sizeof(NET_t_UNIT),NULL)).data) break;
             if(!(m->poll=KLS_vectorNew(baseSize,sizeof(_NET_t_POLL),NULL)).data) break;
             if(!(m->service=KLS_vectorNew(baseSize,sizeof(NET_t_UNIT),NULL)).data) break;
@@ -651,10 +661,7 @@ NET_t_MANAGER NET_new(unsigned int baseSize,unsigned short trashSize,unsigned sh
             }
             m->help.timeout=trashTimeout;
             m->help.handler=_NET_helpHandler;
-            m->help.address=NET_address("127.0.0.1",7);
-            m->help.socket=NET_socketNew(NET_UDP,NET_IP4);
-            NET_socketSetBlock(&m->help.socket,0);
-            NET_socketConnect(&m->help.socket,&m->help.address);
+            if(!NET_socketPair(NET_UDP,&m->help.socket,&m->help._.cntr)) break;
             _NET_serviceAdd(&m->help,0,_NET_POLL_RD|_NET_POLL_CS);
             return m;
         }while(0);
@@ -670,8 +677,8 @@ void NET_free(NET_t_MANAGER *manager){
         KLS_vectorFree(&m->service);
         KLS_vectorFree(&m->poll);
         KLS_listClear(&m->units);
-        sem_destroy(m->sem);
         NET_socketFree(&m->help.socket);
+        NET_socketFree(&m->help._.cntr);
         KLS_freeData(*manager);
     }
 }

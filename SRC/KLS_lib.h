@@ -854,6 +854,7 @@ void NET_socketSetBlock(NET_t_SOCKET *socket,KLS_byte block);
 void *NET_lowLevelSocket(NET_t_SOCKET *socket);
 
 KLS_byte NET_socketListen(NET_t_SOCKET *socket,unsigned int peers);
+KLS_byte NET_socketPair(int protocol,NET_t_SOCKET *a, NET_t_SOCKET *b);
 KLS_byte NET_socketBind(NET_t_SOCKET *socket,const NET_t_ADDRESS *address);
 KLS_byte NET_socketOptionGet(NET_t_SOCKET *s,int level,int option,void *data,unsigned int dataSize);
 KLS_byte NET_socketOptionSet(NET_t_SOCKET *s,int level,int option,const void *data,unsigned int dataSize);
@@ -867,7 +868,7 @@ unsigned int NET_socketReceive(NET_t_SOCKET *socket,void *data,unsigned int size
 unsigned int NET_socketSend(NET_t_SOCKET *socket,const void *data,unsigned int size,const NET_t_ADDRESS *to);
 
 
-int NET_service(NET_t_MANAGER manager); /* returns [0=ok,EINTR,EINVAL,...] */
+int NET_service(NET_t_MANAGER manager); /* returns error codes, ELOOP is user interrupting */
 
 void NET_free(NET_t_MANAGER *manager);
 void NET_interrupt(NET_t_MANAGER manager);
