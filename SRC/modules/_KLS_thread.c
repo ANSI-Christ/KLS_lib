@@ -250,7 +250,7 @@ void KLS_threadPoolWait(KLS_t_THREAD_POOL pool){
     if(!pool) return;
     pthread_mutex_lock(pool->mtx);
     pool->wait=1;
-    pthread_cond_broadcast(pool->cond);
+    pthread_cond_signal(pool->cond);
     while(pthread_cond_wait(pool->cond+1,pool->mtx));
     pool->wait=0;
     pthread_mutex_unlock(pool->mtx);
@@ -265,7 +265,7 @@ KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec){
 
         pthread_mutex_lock(pool->mtx);
         pool->wait=1;
-        pthread_cond_broadcast(pool->cond);
+        pthread_cond_signal(pool->cond);
         ret=!pthread_cond_timedwait(pool->cond+1,pool->mtx,&t);
         pool->wait=0;
         pthread_mutex_unlock(pool->mtx);

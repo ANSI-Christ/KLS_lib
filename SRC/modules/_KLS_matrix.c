@@ -521,6 +521,18 @@ int _KLS_matrixGetColumnAlign(const char *string,unsigned int ofs,unsigned int i
     return (align*res)>>1;
 }
 
+struct _KLS_t_MATRIX_LETTER{
+    const void * const element;
+    const KLS_size size;
+};
+
+static KLS_byte _KLS_matrixLetter(const char * const from,void * const to,const struct _KLS_t_MATRIX_LETTER * const element){
+    if(to && *from){
+        memcpy(to,element->element,element->size);
+        return 1;
+    } return 0;
+}
+
 void KLS_matrixPutString(KLS_t_MATRIX *matrix,int row,int column,const void *element,const KLS_t_FONT *font,KLS_byte align,const char *string){
     if(string){
         if(!font) font=&KLS_fontBase;
@@ -534,15 +546,17 @@ void KLS_matrixPutString(KLS_t_MATRIX *matrix,int row,int column,const void *ele
         const unsigned int mask=1<<(font->bitmap->symbolWidth-1);
         const unsigned int ofsR=font->height+font->intervalRow;
         const unsigned int ofsC=font->width+font->intervalSymbol;
-        
+
         int r=row-_KLS_matrixGetRowAlign(string,ofsR,font->intervalRow,alignR);
         int c=column-_KLS_matrixGetColumnAlign(string,ofsC,font->intervalSymbol,alignC);
-        char *p=malloc(font->bitmap->symbolHeight*font->bitmap->symbolWidth + font->height*font->width);
+
+        char buffer[1024];
+        char *p=sizeof(buffer)<font->bitmap->symbolHeight*font->bitmap->symbolWidth ? KLS_malloc(font->bitmap->symbolHeight*font->bitmap->symbolWidth) : buffer;
 
         if(p){
+            struct _KLS_t_MATRIX_LETTER elem={element,matrix->elSize};
             int i,j;
-            KLS_t_MATRIX letter=KLS_matrixNew(p,font->bitmap->symbolHeight,font->bitmap->symbolWidth,sizeof(char),NULL);
-            KLS_t_MATRIX symb=KLS_matrixNew(p+font->bitmap->symbolHeight*font->bitmap->symbolWidth,font->height,font->width,sizeof(char),NULL);
+            KLS_t_MATRIX symb,letter=KLS_matrixNew(p,font->bitmap->symbolHeight,font->bitmap->symbolWidth,sizeof(char),NULL);
             while(*string){
                 unsigned char id=*string;
                 const char *bm=font->bitmap->symbols+id*symbHeight;
@@ -558,15 +572,13 @@ void KLS_matrixPutString(KLS_t_MATRIX *matrix,int row,int column,const void *ele
                     for(j=0;j<letter.columns;++j,++p)
                         *p=*(bm+((font->bitmap->symbolWidth-1-j)>>3)) & (mask>>j);
 
-                KLS_matrixTransform(&letter,&symb,NULL,NULL);
+                symb=KLS_matrixGetMatrix(matrix,r,c,font->height,font->width,0);
+                KLS_matrixTransform(&letter,&symb,(void*)_KLS_matrixLetter,&elem);
 
-                for(i=0,p=symb.data;i<symb.rows;++i)
-                    for(j=0;j<symb.columns;++j,++p)
-                        if(*p) KLS_matrixPutElement(matrix,r+i,c+j,element);
- 
                 c+=ofsC;
             }
-            free(letter.data);
+            if(letter.data!=buffer)
+                KLS_free(letter.data);
         }
         }
     }
