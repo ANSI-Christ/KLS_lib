@@ -138,7 +138,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_NONCODE(_type_)  ( (const union{KLS_size i; KLS_TYPEOF(_type_) t;}) (((KLS_size)1)<<(sizeof(_type_)*8-1)) ).t
 
-#define KLS_SIGNBIT(_value_) ( ((const union{KLS_TYPEOF(_value_) t; KLS_size i;})_value_).i >> (sizeof(_value_)*8-1) )
+#define KLS_SIGNBIT(_value_) ( ((const union{KLS_TYPEOF(_value_) t; KLS_size i;})(_value_)).i >> (sizeof(_value_)*8-1) )
 
 #define KLS_SIGN(_value_) ((signed char)(KLS_SIGNBIT(_value_)?-1:1))
 
@@ -152,7 +152,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_IS_SIGNED(_type_) ( ( (KLS_TYPEOF(_type_)) (1<<((sizeof(_type_)*8-1))) ) <= 0 )
 
-#define KLS_IS_NONCODE(_value_) ( ((const union{KLS_TYPEOF(_value_) t; KLS_size i;})_value_).i == (((KLS_size)1)<<(sizeof(_value_)*8-1)) )
+#define KLS_IS_NONCODE(_value_) ( ((const union{KLS_TYPEOF(_value_) t; KLS_size i;})(_value_)).i == (((KLS_size)1)<<(sizeof(_value_)*8-1)) )
 
 #define KLS_IS_CORRECT(_value_) ( (_value_)==(_value_) && !KLS_IS_INF(_value_) )
 
