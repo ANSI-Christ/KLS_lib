@@ -142,7 +142,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_SIGN(_value_) ((signed char)(KLS_SIGNBIT(_value_)?-1:1))
 
-#define KLS_UNCONST(_pointer_) (((union{KLS_TYPEOF(*(_pointer_)) *__;void *p;})(_pointer_)).p)
+#define KLS_UNCONST(_pointer_) ({ union{KLS_TYPEOF(_pointer_) _; KLS_TYPEOF(*(_pointer_)) *__; void *p;} KLS_MVN(uc)={(_pointer_)}; KLS_MVN(uc).p; })
 
 #define KLS_IS_ARRAY(_variable_) ((_variable_)==&(_variable_))
 
