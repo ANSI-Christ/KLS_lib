@@ -118,7 +118,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_UNIT_TEST _KLS_UNIT_TEST
 
-#define KLS_TYPEOF(...) __typeof__(__VA_ARGS__)
+#define KLS_TYPEOF __typeof__
 
 #define KLS_ATTR(_attr_,...) __attribute__(( __##_attr_##__ __VA_ARGS__ ))
 
@@ -136,9 +136,9 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_TYPE_ALIGN(_type_) _KLS_TYPE_ALIGN(KLS_TYPEOF(_type_) _1)
 
-#define KLS_NONCODE(_type_) ({ union{KLS_TYPEOF(_type_) t; KLS_size i;} KLS_MVN(nc)={.i=1}; KLS_MVN(nc).i<<=sizeof(KLS_MVN(nc).t)*8-1; KLS_MVN(nc).t; })
+#define KLS_NONCODE(_type_)  ( (const union{KLS_size i; KLS_TYPEOF(_type_) t;}) (((KLS_size)1)<<(sizeof(_type_)*8-1)) ).t
 
-#define KLS_SIGNBIT(_value_) ({ const union{KLS_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(sb)={.t=(_value_)}; (KLS_byte)(KLS_MVN(sb).i>>(sizeof(KLS_MVN(sb).t)*8-1)); })
+#define KLS_SIGNBIT(_value_) ( ((const union{KLS_TYPEOF(_value_) t; KLS_size i;})_value_).i >> (sizeof(_value_)*8-1) )
 
 #define KLS_SIGN(_value_) ((signed char)(KLS_SIGNBIT(_value_)?-1:1))
 
@@ -148,9 +148,11 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_IS_CONST(_someExpression_) ( sizeof(int)==sizeof( *(1 ? ((void*)( (long)(_someExpression_)*0l )) : (int*)1) ) )
 
-#define KLS_IS_FLOAT(_value_) ( !(char)(*(KLS_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa") )
+#define KLS_IS_FLOAT(_value_) ( !(const char)(*(KLS_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa") )
 
-#define KLS_IS_NONCODE(_value_) ({ const union{KLS_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(nc)={.t=(_value_)}; KLS_MVN(nc).i==(((KLS_size)1)<<(sizeof(KLS_MVN(nc).t)*8-1)); })
+#define KLS_IS_SIGNED(_type_) ( ( (KLS_TYPEOF(_type_)) (1<<((sizeof(_type_)*8-1))) ) <= 0 )
+
+#define KLS_IS_NONCODE(_value_) ( ((const union{KLS_TYPEOF(_value_) t; KLS_size i;})_value_).i == (((KLS_size)1)<<(sizeof(_value_)*8-1)) )
 
 #define KLS_IS_CORRECT(_value_) ( (_value_)==(_value_) && !KLS_IS_INF(_value_) )
 
@@ -170,7 +172,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_ARGS_COUNT(...) (M_FOREACH(_KLS_ARGS_COUNT,-,__VA_ARGS__) 0)
 
-#define KLS_ENDIAN() ({ const union{ short s; char c[sizeof(short)];}u={1}; u.c[0]; }) 
+#define KLS_ENDIAN() ({ const union{ short s; char c[sizeof(short)];}u={1}; u.c[0]; })
 
 #define KLS_RUNTIME(...) ({\
     struct timespec KLS_MVN(_rt1)={0},KLS_MVN(_rt2)={0};\
