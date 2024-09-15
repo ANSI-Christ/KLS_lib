@@ -142,7 +142,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_SIGN(_value_) ((signed char)(KLS_SIGNBIT(_value_)?-1:1))
 
-#define KLS_UNCONST(_pointer_) ({ union{KLS_TYPEOF(_pointer_) _; KLS_TYPEOF(*(_pointer_)) *__; void *p;} KLS_MVN(uc)={(_pointer_)}; KLS_MVN(uc).p; })
+#define KLS_UNCONST(_pointer_) ({ const union{KLS_TYPEOF(_pointer_) _; KLS_TYPEOF(*(_pointer_)) *__; void *p;} KLS_MVN(uc)={(_pointer_)}; KLS_MVN(uc).p; })
 
 #define KLS_IS_ARRAY(_variable_) ((_variable_)==&(_variable_))
 
@@ -150,7 +150,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_IS_FLOAT(_value_) ( !(const char)(*(KLS_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa") )
 
-#define KLS_IS_SIGNED(_type_) ( ( (KLS_TYPEOF(_type_)) (1<<((sizeof(_type_)*8-1))) ) <= 0 )
+#define KLS_IS_SIGNED(_type_) ( ( (KLS_TYPEOF(_type_)) (((KLS_size)1)<<((sizeof(_type_)*8-1))) ) <= 0 )
 
 #define KLS_IS_NONCODE(_value_) ({ const union{KLS_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(nc)={(_value_)}; KLS_MVN(nc).i==(((KLS_size)1)<<(sizeof(_value_)*8-1)); })
 
