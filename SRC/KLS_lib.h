@@ -142,7 +142,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_SIGN(_value_) ((signed char)(KLS_SIGNBIT(_value_)?-1:1))
 
-#define KLS_UNCONST(_pointer_) ({ const union{KLS_TYPEOF(_pointer_) _; KLS_TYPEOF(*(_pointer_)) *__; void *p;} KLS_MVN(uc)={(_pointer_)}; KLS_MVN(uc).p; })
+#define KLS_CAST(_type_) ( (_type_) _KLS_CAST
 
 #define KLS_IS_ARRAY(_variable_) ((_variable_)==&(_variable_))
 
@@ -1252,6 +1252,7 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
     KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
+#define _KLS_CAST(_pointer_) ({ const union{const void * const _; void *p;} M_JOIN(_cast,M_LINE())={(const void * const)(_pointer_)}; M_JOIN(_cast,M_LINE()).p; }) )
 #define _KLS_ARGS_COUNT(_1_,_2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( 1+ )
 #define _KLS_ALLOC(...) {__VA_ARGS__}) )
 #define _KLS_CMPCAST(_t_,_a_) ((unsigned _t_*)&(_a_))
@@ -1309,7 +1310,6 @@ struct _KLS_t_HEAP_NODE{
     KLS_size size;
 };
 
-
 #define _KLS_HEAP(_N_,_S_,_M_) \
     struct{\
         _KLS_t_HEAP_HEADER _h;\
@@ -1322,7 +1322,6 @@ struct _KLS_t_HEAP_NODE{
         { 0 },\
         { (void*)(((_KLS_t_HEAP_HEADER*)_N_)+1), (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES) }\
     }}
-
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 void *_KLS_threadPoolTask(void *pool,const void *task,const unsigned int size,unsigned char prio);

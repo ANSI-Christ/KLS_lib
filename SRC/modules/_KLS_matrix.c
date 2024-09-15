@@ -480,7 +480,7 @@ KLS_byte KLS_matrixTransform(const KLS_t_MATRIX * const from,KLS_t_MATRIX * cons
         if(!transformer){
             if(from->elSize==to->elSize){
                 transformer=(void*)_KLS_matrixTransformerDefault;
-                arg=KLS_UNCONST(&from->elSize);
+                arg=KLS_CAST(void*)(&from->elSize);
             }else return 0;
         }
         if(from->rows==to->rows && from->columns==to->columns){

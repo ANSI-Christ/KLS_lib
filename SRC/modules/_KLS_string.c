@@ -204,7 +204,7 @@ const char *_KLS_solveOpLeft(const char *s,double *v,double **p){
                 if(*--s=='-'){
                     if(s[-1]!=']'){
                         *v=-*v;
-                        *(char*)KLS_UNCONST(s)='+';
+                        *KLS_CAST(char*)(s)='+';
                     }
                 }
                 return s;

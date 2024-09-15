@@ -45,7 +45,7 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
             w->prev=p->last;
             p->last=w;
         }else p->child=p->last=w;
-        *(void**)KLS_UNCONST(&w->parent)=p;
+        *KLS_CAST(void **)(&w->parent)=p;
         p->core.insert(w);
     }else if( (p=w->parent) ){
         if(w->prev) w->prev->next=w->next;
@@ -53,7 +53,7 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
         if(w->next) w->next->prev=w->prev;
         else p->last=w->prev;
         w->prev=w->next=NULL;
-        *(void**)KLS_UNCONST(&w->parent)=NULL;
+        *KLS_CAST(void**)(&w->parent)=NULL;
     }
 }
 
@@ -274,7 +274,7 @@ void *GUI_widgetInsert(void *widget,void *parent){
 void *GUI_widgetFind(void *widget,const char *id){
     if(widget){
         if(id){
-            CLASS GUI_WIDGET *ret[2]={KLS_UNCONST(id)};
+            CLASS GUI_WIDGET *ret[2]={KLS_CAST(void*)(id)};
             _GUI_widgetFind(widget,ret); return ret[1];
         } return (void*)((CLASS GUI_WIDGET*)widget)->gui;
     } return NULL;
@@ -331,13 +331,13 @@ CLASS_COMPILE(GUI_WIDGET)(
         self->core.select=(void*)GUI_coreDefault;
         self->core.insert=(void*)GUI_coreDefault;
         self->core.update=(void*)GUI_coreDefault;
-        *(void**)KLS_UNCONST(&self->id)=KLS_UNCONST(id);
+        *KLS_CAST(void**)(&self->id)=KLS_CAST(void*)(id);
         if(parent==self){
-            *(void**)KLS_UNCONST(&self->gui)=(void*)self;
+            *KLS_CAST(void**)(&self->gui)=(void*)self;
             parent=NULL;
         }
         if(parent){
-            *(void**)KLS_UNCONST(&self->gui)=((CLASS GUI_WIDGET*)parent)->gui;
+            *KLS_CAST(void**)(&self->gui)=((CLASS GUI_WIDGET*)parent)->gui;
             _GUI_widgetLink(self,parent);
         }
     ),
@@ -396,10 +396,10 @@ void _GUI_objUpdate(CLASS GUI *self){
 
 CLASS_COMPILE(GUI)(
     constructor()(
-        *(void**)KLS_UNCONST(&self->service)=_GUI_objService;
-        *(void**)KLS_UNCONST(&self->update)=_GUI_objFps;
-        *(void**)KLS_UNCONST(&self->interrupt)=_GUI_objInterrupt;
-        *(void**)KLS_UNCONST(&self->setFps)=_GUI_setFps;
+        *KLS_CAST(void**)(&self->service)=_GUI_objService;
+        *KLS_CAST(void**)(&self->update)=_GUI_objFps;
+        *KLS_CAST(void**)(&self->interrupt)=_GUI_objInterrupt;
+        *KLS_CAST(void**)(&self->setFps)=_GUI_setFps;
         self->core.draw=(void*)_GUI_objDraw;
         self->core.update=(void*)_GUI_objUpdate;
         self->focus=self->select=self->block=(void*)self;
