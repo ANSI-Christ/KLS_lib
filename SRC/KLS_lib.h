@@ -140,7 +140,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_SIGNBIT(_value_) ({ const union{KLS_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(sb)={(_value_)}; KLS_MVN(sb).i>>(sizeof(_value_)*8-1); })
 
-#define KLS_SIGN(_value_) ((signed char)(KLS_SIGNBIT(_value_)?-1:1))
+#define KLS_SIGN(_value_) ((signed char)((KLS_IS_SIGNED(_value_) && KLS_SIGNBIT(_value_))?-1:1))
 
 #define KLS_CAST(_type_) ( (_type_) _KLS_CAST
 
