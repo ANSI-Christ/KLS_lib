@@ -148,9 +148,11 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_IS_CONST(_someExpression_) ( sizeof(int)==sizeof( *(1 ? ((void*)( (long)(_someExpression_)*0l )) : (int*)1) ) )
 
-#define KLS_IS_FLOAT(_value_) ( !(const char)(*(KLS_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa") )
+#define KLS_IS_FLOAT(_value_) ( ((const char)(*(KLS_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa")) == 0 )
 
-#define KLS_IS_SIGNED(_type_) ( ((KLS_TYPEOF(_type_))-1) < 0 )
+#define KLS_IS_SIGNED(_value_) ( ((KLS_TYPEOF(_value_))-1) < 0 )
+
+#define KLS_IS_POINTER(_value_) ( !KLS_IS_SIGNED(_value_) && sizeof(_value_)==sizeof(void*) )
 
 #define KLS_IS_NONCODE(_value_) ({ const union{KLS_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(nc)={(_value_)}; KLS_MVN(nc).i==(((KLS_size)1)<<(sizeof(_value_)*8-1)); })
 
