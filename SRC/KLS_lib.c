@@ -176,19 +176,24 @@ unsigned char KLS_bitGet(void *data,unsigned int index){
     return !!(*( ((KLS_byte*)data)+(index>>3) ) & 1<<(index&7));
 }
 
+
+static void _KLS_memmove_tf(KLS_size *to,const KLS_size *from,KLS_size count,unsigned char bytes){
+    while(count){ --count; *to=*from; ++to; ++from; };
+    {   unsigned char *t=(void*)to;
+        const unsigned char *f=(const void*)from;
+        while(bytes){ --bytes; *t=*f; ++t; ++f; }   }
+}
+
+static void _KLS_memmove_ft(unsigned char *to,const unsigned char *from,KLS_size count,unsigned char bytes){
+    while(bytes){ --bytes; *--to=*--from; }
+    {   KLS_size *t=(void*)to;
+        const KLS_size *f=(const void*)from;
+        while(count){ --count; *--t=*--f;}   }
+}
+
 void KLS_memmove(void *to,const void *from,KLS_size size){
-    union{const void *_;const unsigned char *c; const KLS_size *i;} f={from};
-    union{void *_; unsigned char *c; KLS_size *i;} t={to};
-    if(to<from){
-        while(size & (sizeof(*f.i)-1)){ --size; *t.c=*f.c; ++t.c; ++f.c; }
-        size/=sizeof(*f.i);
-        while(size){ --size; *t.i=*f.i; ++t.i; ++f.i; };
-        return;
-    }
-    t.c+=size; f.c+=size;
-    while(size & (sizeof(*f.i)-1)){ --size; *--t.c=*--f.c; }
-    size/=sizeof(*f.i);
-    while(size){ --size; *--t.i=*--f.i; }
+    if(to<from) return _KLS_memmove_tf(to,from,size/sizeof(size),size & (sizeof(size)-1));
+    _KLS_memmove_ft(to+size,from+size,size/sizeof(size),size & (sizeof(size)-1));
 }
 
 void KLS_swap(void *var1,void *var2,KLS_size size){
