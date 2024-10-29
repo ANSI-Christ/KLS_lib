@@ -167,18 +167,18 @@ void KLS_pausef(double sec){
 
 void KLS_bitSet(void *data,unsigned int index,KLS_byte value){
     KLS_byte *bt=((KLS_byte*)data)+(index>>3);
-    index%=8;
+    index&=7; /* index % 8*/
     if(value){*bt|=1<<index; return;}
     *bt&=255-(1<<index);
 }
 
-signed char KLS_bitGet(void *data,unsigned int index){
-    return !!(*( ((KLS_byte*)data)+(index>>3) ) & 1<<(index%8));
+unsigned char KLS_bitGet(void *data,unsigned int index){
+    return !!(*( ((KLS_byte*)data)+(index>>3) ) & 1<<(index&7));
 }
 
 void KLS_memmove(void *to,const void *from,KLS_size size){
-    union{const unsigned char *c; const KLS_size *i;} f={.c=from};
-    union{unsigned char *c; KLS_size *i;} t={.c=to};
+    union{const void *_;const unsigned char *c; const KLS_size *i;} f={from};
+    union{void *_; unsigned char *c; KLS_size *i;} t={to};
     if(to<from){
         while(size & (sizeof(*f.i)-1)){ --size; *t.c=*f.c; ++t.c; ++f.c; }
         size/=sizeof(*f.i);
@@ -192,28 +192,27 @@ void KLS_memmove(void *to,const void *from,KLS_size size){
 }
 
 void KLS_swap(void *var1,void *var2,KLS_size size){
-    union{unsigned char *c; KLS_size *i;} a={.c=var1}, b={.c=var2};
-    while(size & (sizeof(*a.i)-1)){
-        *a.c^=*b.c;
-        *b.c^=*a.c;
-        *a.c^=*b.c;
-        ++a.c; ++b.c;
-        --size;
-    }
+    union{void *_; unsigned char *c; KLS_size *i;} a={var1}, b={var2};
+    unsigned char bytes=size & (sizeof(*a.i)-1);
     size/=sizeof(*a.i);
     while(size){
         *a.i^=*b.i;
         *b.i^=*a.i;
         *a.i^=*b.i;
-        ++a.i; ++b.i;
-        --size;
+        ++a.i; ++b.i; --size;
+    }
+    while(bytes){
+        *a.c^=*b.c;
+        *b.c^=*a.c;
+        *a.c^=*b.c;
+        ++a.c; ++b.c; --bytes;
     }
 }
 
 void KLS_revers(void *array,KLS_size arraySize,KLS_size elementSize){
-    KLS_size i,len=arraySize>>1;
-    for(i=0;i<len;++i)
-        KLS_swap(array+elementSize*i,array+elementSize*(arraySize-i-1),elementSize);
+    const KLS_size len=arraySize>>1;
+    KLS_size i=0;
+    for(;i<len;++i) KLS_swap(array+elementSize*i,array+elementSize*(arraySize-i-1),elementSize);
 }
 
 void KLS_variableRevers(void *var,KLS_size size){

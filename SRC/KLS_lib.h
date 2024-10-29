@@ -219,8 +219,6 @@ double KLS_mod(double value,double division);
 KLS_byte KLS_execLive(void);
 KLS_byte KLS_dataJoin(void **dst,KLS_size *dstSize,void **src,KLS_size *srcSize,KLS_byte frees); // frees:000000xy , where 'x' for free src, 'y' for free dst
 
-signed char KLS_bitGet(void *data,unsigned int index);
-
 const char *KLS_execNameGet(void);
 const char *KLS_getOpt(int argc, char *argv[],const char *opt);
 
@@ -228,7 +226,9 @@ const KLS_byte *KLS_exec(void);
 
 KLS_t_URL_DATA *KLS_urlRequest(const KLS_t_URL *url);
 
-unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size); //first call for splitted data with crc=-1
+unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size); //first call with crc=-1
+
+unsigned char KLS_bitGet(void *data,unsigned int index);
 
 #define KLS_freeData(_1_) (_1_)=KLS_free(_1_)
 #define KLS_freeFile(_1_) ({ if((_1_) && (_1_)!=stdin && (_1_)!=stdout && (_1_)!=stderr) {fclose(_1_);(_1_)=NULL;} })
