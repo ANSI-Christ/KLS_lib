@@ -139,7 +139,7 @@
 
 #define _CLASS_CLEAR(_v_,_s_) \
     if(_s_){\
-        union{const void *_;char *c;int *i;} _1_={(const void*)(_v_)}; int _2_=(_s_); \
+        union{const void *_;char *c;int *i;} _1_={(const void*)(_v_)}; unsigned int _2_=(_s_); \
         while(_2_ & (sizeof(*_1_.i)-1)){ --_2_; *_1_.c=0; ++_1_.c; } _2_/=sizeof(*_1_.i);\
         while(_2_){ --_2_; *_1_.i=0; ++_1_.i; }\
     }
