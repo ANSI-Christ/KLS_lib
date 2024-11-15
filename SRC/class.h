@@ -161,7 +161,7 @@
     M_WHEN(_CLASS_EXT(_name_))( M_OBSTRUCT(__CLASS_END)()(_CLASS_EXT(_name_),_CLASS_EXT(_name_)) ) \
     _CLASS_PBL(_name_)\
     M_IF(M_IS_ARG(__VA_ARGS__))(\
-        M_WHEN(M_IS_ARG(M_PEEK(_CLASS_PRV(_name_))))( struct{_CLASS_PRV(_name_)}M_JOIN(_pad,__VA_ARGS__)[1][1][1]; ) , \
+        M_WHEN(M_IS_ARG(M_PEAK(_CLASS_PRV(_name_))))( struct{_CLASS_PRV(_name_)}M_JOIN(_pad,__VA_ARGS__)[1][1][1]; ) , \
         _CLASS_PRV(_name_)\
     )
 

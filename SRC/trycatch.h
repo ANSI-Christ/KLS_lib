@@ -52,7 +52,7 @@ void _TryCatchTerminate(void);
     if(_1_ && _1_->jmp){\
         _1_->e->type=M_STRING(_type_); _1_->e->where=_THROW_INFO;\
         if(_1_->e->data!=_1_->buffer){free(_1_->e->data); _1_->e->data=_1_->buffer;}\
-        M_IF(M_IS_ARG(M_PEEK(__VA_ARGS__)))(\
+        M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(\
             M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->e->data=malloc(sizeof(_type_))) ){\
                 struct M_JOIN(_tc,M_LINE()){char _[sizeof(_type_)];};\
                 const struct{_type_ _;} _2_={__VA_ARGS__};\
