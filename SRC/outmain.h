@@ -1,21 +1,33 @@
 #include "macro.h"
 
 #ifdef OUTMAIN_SYNTAX
-    #define _OUTMAIN_SYNTAX 0
-#endif
-
-#ifndef _OUTMAIN_SYNTAX
-    /* detecting compiller */
     #define _OUTMAIN_SYNTAX 1
 #endif
 
+/********   detecting compiller   ********/
+#if defined(__GNUC__) && !defined(_OUTMAIN_SYNTAX)
+    #define _OUTMAIN_SYNTAX 2
+#endif
+#if defined(__clang__) && !defined(_OUTMAIN_SYNTAX)
+    #define _OUTMAIN_SYNTAX 2
+#endif
+#if defined(__MINGW32__) && !defined(_OUTMAIN_SYNTAX)
+    #define _OUTMAIN_SYNTAX 2
+#endif
+#if defined(_MSC_VER) && !defined(_OUTMAIN_SYNTAX)
+    #define _OUTMAIN_SYNTAX 3
+#endif
+#if !defined(_OUTMAIN_SYNTAX)
+    OUTMAIN: syntax isn't detected, define macro OUTMAIN_SYNTAX as path to header with syntax!
+#endif
+
 /*****************   USER   **************/
-#if _OUTMAIN_SYNTAX == 0
+#if _OUTMAIN_SYNTAX == 1
     #include OUTMAIN_SYNTAX
 #endif
 
 /*****************   GCC   **************/
-#if _OUTMAIN_SYNTAX == 1
+#if _OUTMAIN_SYNTAX == 2
     #ifdef OUTMAIN_BEFORE
         __attribute__((__constructor__)) static void(M_JOIN(_v,OUTMAIN_BEFORE))(void){OUTMAIN_BEFORE();}
     #endif 
@@ -25,7 +37,7 @@
 #endif
 
 /*****************   VC   **************/
-#if _OUTMAIN_SYNTAX == 2 
+#if _OUTMAIN_SYNTAX == 3 
     #ifdef OUTMAIN_BEFORE
         #ifdef _WIN64
             #pragma section(".CRT$XCU",read)
@@ -49,7 +61,7 @@
 #endif
 
 /*****************   HZ   **************/
-#if _OUTMAIN_SYNTAX == 3
+#if _OUTMAIN_SYNTAX == 4
     #ifdef OUTMAIN_BEFORE
         #pragma startup OUTMAIN_BEFORE
     #endif 
@@ -59,7 +71,7 @@
 #endif
 
 /*****************   ASM   **************/
-#if _OUTMAIN_SYNTAX == 4
+#if _OUTMAIN_SYNTAX == 5
     #ifdef OUTMAIN_BEFORE
         __asm__ (".section .init \n call " M_STRING(OUTMAIN_BEFORE) " \n .section .text\n");
     #endif
