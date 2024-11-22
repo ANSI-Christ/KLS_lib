@@ -54,7 +54,7 @@
         #pragma startup OUTMAIN_BEFORE
     #endif 
     #ifdef OUTMAIN_AFTER
-        #pragma end OUTMAIN_AFTER
+        #pragma exit OUTMAIN_AFTER
     #endif 
 #endif
 
