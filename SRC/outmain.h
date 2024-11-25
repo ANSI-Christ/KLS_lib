@@ -29,10 +29,10 @@
 /*****************   GCC   **************/
 #if _OUTMAIN_SYNTAX == 2
     #ifdef OUTMAIN_BEFORE
-        __attribute__((__constructor__)) static void(M_JOIN(_v,OUTMAIN_BEFORE))(void){OUTMAIN_BEFORE();}
+        __attribute__((__constructor__)) static void M_JOIN(_f_OUTMAIN_BEFORE,OUTMAIN_BEFORE) (void) {OUTMAIN_BEFORE();}
     #endif 
     #ifdef OUTMAIN_AFTER
-        __attribute__((__destructor__)) static void(M_JOIN(_v,OUTMAIN_AFTER))(void){OUTMAIN_AFTER();}
+        __attribute__((__destructor__)) static void M_JOIN(_f_OUTMAIN_AFTER,OUTMAIN_AFTER) (void) {OUTMAIN_AFTER();}
     #endif 
 #endif
 
@@ -45,7 +45,7 @@
         #else
             #pragma data_seg(".CRT$XCU")
         #endif
-            static void(*M_JOIN(_v,OUTMAIN_BEFORE))(void) = OUTMAIN_BEFORE;
+            static void (*M_JOIN(_f_OUTMAIN_BEFORE,OUTMAIN_BEFORE)) (void) = OUTMAIN_BEFORE;
         #pragma data_seg()
     #endif
     #ifdef OUTMAIN_AFTER
@@ -55,7 +55,7 @@
         #else
             #pragma data_seg(".CRT$XPU")
         #endif
-            static void(*M_JOIN(_v,OUTMAIN_AFTER))(void) = OUTMAIN_AFTER;
+            static void (*M_JOIN(_f_OUTMAIN_AFTER,OUTMAIN_AFTER)) (void) = OUTMAIN_AFTER;
         #pragma data_seg()
     #endif
 #endif
@@ -81,10 +81,14 @@
 #endif
 
 
+
+
 #ifdef OUTMAIN_BEFORE
+    typedef struct{char _;} M_JOIN(_t_OUTMAIN_ONCE_BEFORE,OUTMAIN_BEFORE);
     #undef OUTMAIN_BEFORE
 #endif
 
 #ifdef OUTMAIN_AFTER
+    typedef struct{char _;} M_JOIN(_t_OUTMAIN_ONCE_AFTER,OUTMAIN_AFTER);
     #undef OUTMAIN_AFTER
 #endif
