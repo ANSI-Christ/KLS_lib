@@ -1,4 +1,4 @@
-KLS_lib is a general-purpose C library that claims to be cross-platform.
+KLS_lib is a general-purpose C library that tries to be cross-platform.
 
 Some stuff:
   - try / catch
