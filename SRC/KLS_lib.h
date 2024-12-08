@@ -305,7 +305,6 @@ extern int KLS_thread_sigpause;
 #define KLS_THREAD_ARGS(...) M_IF(M_COUNT(__VA_ARGS__))(M_EXTRACT(struct{M_FOREACH(_KLS_THREAD_ARGS,-,__VA_ARGS__)}*), void*)
 
 #define KLS_t_THREAD             KLS_t_THREAD_POOL
-#define KLS_threadSelf           KLS_threadPoolSelf
 #define KLS_threadClear          KLS_threadPoolClear
 #define KLS_threadTask           KLS_threadPoolTask
 #define KLS_threadWait           KLS_threadPoolWait
@@ -313,7 +312,7 @@ extern int KLS_thread_sigpause;
 #define KLS_threadTaskPrio       KLS_threadPoolTaskPrio
 #define KLS_threadDestroy        KLS_threadPoolDestroy
 #define KLS_threadDestroyLater   KLS_threadPoolDestroyLater
-#define KLS_threadPosix(...)     KLS_threadPoolPosix(__VA_ARGS__,1)
+#define KLS_threadPosix          KLS_threadPoolPosix
 #define KLS_threadCreate(...)    KLS_threadPoolCreate(1,__VA_ARGS__)
 
 void KLS_threadPause(pthread_t tid);
@@ -337,7 +336,6 @@ const char *KLS_threadPolicyName(int policy);
 
 typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
 
-KLS_t_THREAD_POOL KLS_threadPoolSelf(void);
 KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,size_t stackSize_kb);
 
 void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
@@ -345,15 +343,14 @@ void KLS_threadPoolClear(KLS_t_THREAD_POOL pool);
 void KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool);
 void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
 
-void *KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args),...);
-void *KLS_threadPoolTaskPrio(KLS_t_THREAD_POOL pool,unsigned char prio,void(*task)(void *args),...);
+void *KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args,unsigned int index,KLS_t_THREAD_POOL pool),...);
+void *KLS_threadPoolTaskPrio(KLS_t_THREAD_POOL pool,unsigned char prio,void(*task)(void *args,unsigned int index,KLS_t_THREAD_POOL pool),...);
 
 KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec);
 
-unsigned int KLS_threadPoolNum(void);
 unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
 
-const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool,unsigned int num);
+const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool);
 
 #define KLS_threadPoolTask(_1_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),0,(_3_),__VA_ARGS__)
 #define KLS_threadPoolTaskPrio(_1_,_2_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),(_2_),(_3_),__VA_ARGS__)
