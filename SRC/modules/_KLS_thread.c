@@ -44,37 +44,23 @@ typedef struct _KLS_t_THREAD_POOL{
 
 
 static void _KLS_threadPoolPush(_KLS_t_THREAD_POOL p,_KLS_t_THREAD_TASK * const t,unsigned char prio){
-    if(prio>p->peak) p->peak=prio;
-    {
-        _KLS_t_THREAD_QUEUE * const q=p->queue+prio;
-        if(q->last){
-            q->last->next=t;
-            q->last=t;
-            return;
-        }
-        q->first=q->last=t;
-    }
+    _KLS_t_THREAD_QUEUE * const q=p->queue + (prio>p->peak ? p->peak : prio);
+    if(q->last) q->last->next=t;
+    else q->first=t;
+    q->last=t;
 }
 
-static _KLS_t_THREAD_TASK *_KLS_threadPoolPop(_KLS_t_THREAD_POOL p,unsigned char * const busy){
+static void *_KLS_threadPoolPop(_KLS_t_THREAD_POOL p){
     _KLS_t_THREAD_QUEUE * const q=p->queue+p->peak;
     _KLS_t_THREAD_TASK * const t=q->first;
-    if(t){
-        if( !(q->first=t->next) ){
-            q->last=NULL;
-            while(p->peak && !p->queue[--p->peak].first);
-        }
-        if(busy[0]&1){busy[0]<<=1; ++p->busy;}
-        return t;
-    }
-    if(busy[0]&2){busy[0]>>=1; --p->busy;}
-    return NULL;
+    if(t && !(q->first=t->next)){
+        q->last=NULL;
+        while(p->peak && !p->queue[--p->peak].first);
+    } return t;
 }
 
 static void _KLS_threadPoolClear(_KLS_t_THREAD_POOL p){
-    void *t; unsigned char tmp=0;
-    while( (t=_KLS_threadPoolPop(p,&tmp)) )
-        KLS_free(t);
+    void *t; while( (t=_KLS_threadPoolPop(p)) ) KLS_free(t);
 }
 
 
@@ -97,13 +83,15 @@ static void *_KLS_threadWorker(_KLS_t_THREAD_POOL p){
 _mark:
         if(p->die==1)
             break;
-        if( (t=_KLS_threadPoolPop(p,&busy)) ){
+        if( (t=_KLS_threadPoolPop(p)) ){
+            if(busy&1){ busy<<=1; ++p->busy; }
             pthread_mutex_unlock(p->mtx);
             t->f(t+1,index,p);
             KLS_free(t);
             sleep|=64;
             continue;
         }
+        if(busy&2){ busy>>=1; --p->busy; }
         if(p->die)
             break;
         if(p->wait && !p->busy)
@@ -166,8 +154,8 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,siz
                 break;
             }
 
-            p->count=0;
             p->max=prio;
+            p->count=p->busy=0;
             p->die=p->wait=p->peak=0;
             memset(p->queue,0,queueSize);
             p->tid=(void*)(p->queue+1+prio);
