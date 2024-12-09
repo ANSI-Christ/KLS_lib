@@ -1,25 +1,4 @@
 
-static char _KLS_threadStatus=0;
-static struct{
-    pthread_key_t stop;
-}_KLS_threadKey;
-
-
-char _KLS_threadInit(void){
-    if(!_KLS_threadStatus){
-        if(pthread_key_create(&_KLS_threadKey.stop,NULL))
-            return 0;
-        _KLS_threadStatus=1 | ((KLS_signalGetMode(KLS_thread_sigresume)==SIG_BLOCK)<<2) | ((KLS_signalGetMode(KLS_thread_sigpause)==SIG_BLOCK)<<1);
-    } return _KLS_threadStatus;
-}
-void _KLS_threadClose(void){
-    if(_KLS_threadStatus){
-        _KLS_threadStatus=0;
-        pthread_key_delete(_KLS_threadKey.stop);
-    }
-}
-
-
 #define _KLS_THREAD_MKSLEEP(_mk_) {const struct timespec t={_mk_/1000000,(_mk_%1000000)*1000};nanosleep(&t,NULL);}
 
 typedef struct{
@@ -71,8 +50,7 @@ static void _KLS_threadPoolClear(_KLS_t_THREAD_POOL p){
 
 static unsigned int _KLS_threadIndex(const _KLS_t_THREAD_POOL p){
     unsigned int i=p->count-1;
-    const pthread_t tid=pthread_self();
-    const pthread_t * const tids=p->tid;
+    const pthread_t tid=pthread_self(), * const tids=p->tid;
     while(!pthread_equal(tid,tids[i])) --i;
     return i;
 }
@@ -80,7 +58,7 @@ static unsigned int _KLS_threadIndex(const _KLS_t_THREAD_POOL p){
 static void *_KLS_threadWorker(_KLS_t_THREAD_POOL p){
     const unsigned int index=_KLS_threadIndex(p);
     unsigned char sleep=0, busy=1;
-    _KLS_t_THREAD_TASK *t[5]={NULL};
+    _KLS_t_THREAD_TASK *t[1+3+1]={NULL};
 
     while('0'){
         pthread_mutex_lock(p->mtx);
@@ -89,9 +67,12 @@ _mark:
             break;
         if( (t[0]=_KLS_threadPoolPop(p)) ){
             unsigned int i=1, c=p->size/p->count;
-            for(c=c>3?3:c; c && (t[i]=_KLS_threadPoolPop(p)); ++i,--c);
+            if(c>(KLS_ARRAY_LEN(t)-2)) c=KLS_ARRAY_LEN(t)-2;
+            while(c && (t[i]=_KLS_threadPoolPop(p))) ++i,--c;
+
             if(busy&1){busy<<=1; ++p->busy;}
             pthread_mutex_unlock(p->mtx);
+
             for(i=0;t[i];++i){
                 t[i]->f(t[i]+1,index,p);
                 KLS_freeData(t[i]);
@@ -123,31 +104,24 @@ _mark:
 
 static char _KLS_threadAttrInit(void *a,size_t s){
     do{
-        if(pthread_attr_init(a)) return -1;
+        if(pthread_attr_init(a)) return 0;
         if(s && pthread_attr_setstacksize(a,s<<10)) break;
         if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
         #ifdef PTHREAD_FPU_ENABLED
         if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
         #endif
-        return 0;
+        return 1;
     }while(0);
     pthread_attr_destroy(a);
-    return -2;
+    return 0;
 }
 
 KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,size_t stackSize_kb){
-    if(!_KLS_threadStatus) return NULL;
-    if(!count) count=KLS_sysInfoCores();
-    if(!count) return NULL;
-    {
-        KLS_t_THREAD_POOL p;
-        pthread_attr_t attr[1];
+    pthread_attr_t attr[1];
+    if( (count || (count=KLS_sysInfoCores())) && _KLS_threadAttrInit(attr,stackSize_kb) ){
         const unsigned int queueSize=sizeof(_KLS_t_THREAD_QUEUE)*(1+(unsigned int)prio);
-
-        if(_KLS_threadAttrInit(attr,stackSize_kb))
-            return NULL;
-
-        while( (p=KLS_malloc( KLS_OFFSET(*p,queue) + queueSize + sizeof(pthread_t)*count)) ){
+        KLS_t_THREAD_POOL p=KLS_malloc( KLS_OFFSET(*p,queue) + queueSize + sizeof(pthread_t)*count);
+        while(p){
             if(pthread_mutex_init(p->mtx,NULL)){
                 KLS_freeData(p);
                 break;
@@ -178,7 +152,7 @@ KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,siz
         }
         pthread_attr_destroy(attr);
         return p;
-    }
+    } return NULL;
 }
 
 static void _KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool,KLS_byte die){
@@ -264,6 +238,25 @@ const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool){
 /***********************************************************************/
 /***********************************************************************/
 
+static char _KLS_threadStatus=0;
+static struct{
+    pthread_key_t stop;
+}_KLS_threadKey;
+
+char _KLS_threadInit(void){
+    if(!_KLS_threadStatus){
+        if(pthread_key_create(&_KLS_threadKey.stop,NULL))
+            return 0;
+        _KLS_threadStatus=1 | ((KLS_signalGetMode(KLS_thread_sigresume)==SIG_BLOCK)<<2) | ((KLS_signalGetMode(KLS_thread_sigpause)==SIG_BLOCK)<<1);
+    } return _KLS_threadStatus;
+}
+void _KLS_threadClose(void){
+    if(_KLS_threadStatus){
+        _KLS_threadStatus=0;
+        pthread_key_delete(_KLS_threadKey.stop);
+    }
+}
+
 #ifndef _KLS_THREAD_SIGNAL_PAUSE
     #define _KLS_THREAD_SIGNAL_PAUSE  SIGINT
 #endif
@@ -277,6 +270,7 @@ int KLS_thread_sigpause=_KLS_THREAD_SIGNAL_PAUSE;
 
 #undef _KLS_THREAD_SIGNAL_PAUSE
 #undef _KLS_THREAD_SIGNAL_CONTINUE
+
 
 void _KLS_threadPauser(int sig){
     KLS_signalSetHandler(sig,_KLS_threadPauser);
