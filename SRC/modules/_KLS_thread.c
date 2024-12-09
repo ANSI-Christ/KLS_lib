@@ -57,25 +57,25 @@ static unsigned int _KLS_threadIndex(const _KLS_t_THREAD_POOL p){
 
 static void *_KLS_threadWorker(_KLS_t_THREAD_POOL p){
     const unsigned int index=_KLS_threadIndex(p);
-    unsigned char sleep=0, busy=1;
-    _KLS_t_THREAD_TASK *t[1+3+1]={NULL};
+    unsigned char sleep=0, busy=1, i, c;
+    _KLS_t_THREAD_TASK *t, *a[3];
 
     while('0'){
         pthread_mutex_lock(p->mtx);
 _mark:
         if(p->die==1)
             break;
-        if( (t[0]=_KLS_threadPoolPop(p)) ){
-            unsigned int i=1, c=p->size/p->count;
-            if(c>(KLS_ARRAY_LEN(t)-2)) c=KLS_ARRAY_LEN(t)-2;
-            while(c && (t[i]=_KLS_threadPoolPop(p))) ++i,--c;
-
+        if( (t=_KLS_threadPoolPop(p)) ){
+            const unsigned int _c=p->size/p->count;
+            for(i=0, c=(_c>KLS_ARRAY_LEN(a)?KLS_ARRAY_LEN(a):_c); i<c && (a[i]=_KLS_threadPoolPop(p)); ++i);
             if(busy&1){busy<<=1; ++p->busy;}
             pthread_mutex_unlock(p->mtx);
 
-            for(i=0;t[i];++i){
-                t[i]->f(t[i]+1,index,p);
-                KLS_freeData(t[i]);
+            t->f(t+1,index,p);
+            KLS_free(t);
+            for(c=0;c<i;++c){
+                a[c]->f(a[c]+1,index,p);
+                KLS_free(a[c]);
             }
             sleep|=64;
             continue;
