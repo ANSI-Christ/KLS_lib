@@ -201,9 +201,10 @@ unsigned int _NET_recvSize(NET_t_SOCKET *s){
     return len;
 }
 
-KLS_byte _NET_init(void){WSADATA w; return !WSAStartup(0x0202,&w);}
-void _NET_close(void){WSACleanup();}
-
+static void _NET_wsainit(void){WSADATA w; WSAStartup(0x0202,&w);}
+#define PRAGMA_STARTUP _NET_wsainit
+#define PRAGMA_ATEXIT  WSACleanup
+#include "pragma.h"
 
 
 static int socketpair_tcp(struct addrinfo* addr_info, SOCKET sock[2]){

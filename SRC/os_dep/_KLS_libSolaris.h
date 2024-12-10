@@ -81,7 +81,4 @@ unsigned int _NET_recvSize(NET_t_SOCKET *s){
     return len;
 }
 
-KLS_byte _NET_init(void){return 1;}
-void _NET_close(void){}
-
 #endif /* _KLS_OS_DEP_INC */
