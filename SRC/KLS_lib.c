@@ -493,7 +493,6 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
 
 void _KLS_libClose(void){
     KLS_execKill();
-    _KLS_threadClose();
     _KLS_timerClose();
     _KLS_MEMORY_SHOW()
     _KLS_MEMORY_MTX(0)
@@ -504,7 +503,6 @@ void KLS_libInit(void){
     KLS_ONCE(
         _KLS_MEMORY_MTX(1)
         KLS_RGB(0,0,0);
-        if(!_KLS_threadInit()) puts("KLS: can't init threads\n");
         atexit(_KLS_libClose);
     )
 }

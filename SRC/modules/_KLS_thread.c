@@ -238,25 +238,6 @@ const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool){
 /***********************************************************************/
 /***********************************************************************/
 
-static char _KLS_threadStatus=0;
-static struct{
-    pthread_key_t stop;
-}_KLS_threadKey;
-
-char _KLS_threadInit(void){
-    if(!_KLS_threadStatus){
-        if(pthread_key_create(&_KLS_threadKey.stop,NULL))
-            return 0;
-        _KLS_threadStatus=1 | ((KLS_signalGetMode(KLS_thread_sigresume)==SIG_BLOCK)<<2) | ((KLS_signalGetMode(KLS_thread_sigpause)==SIG_BLOCK)<<1);
-    } return _KLS_threadStatus;
-}
-void _KLS_threadClose(void){
-    if(_KLS_threadStatus){
-        _KLS_threadStatus=0;
-        pthread_key_delete(_KLS_threadKey.stop);
-    }
-}
-
 #ifndef _KLS_THREAD_SIGNAL_PAUSE
     #define _KLS_THREAD_SIGNAL_PAUSE  SIGINT
 #endif
@@ -271,40 +252,58 @@ int KLS_thread_sigpause=_KLS_THREAD_SIGNAL_PAUSE;
 #undef _KLS_THREAD_SIGNAL_PAUSE
 #undef _KLS_THREAD_SIGNAL_CONTINUE
 
+static pthread_key_t _KLS_threadKey;
+static pthread_once_t _KLS_threadOnce=PTHREAD_ONCE_INIT;
+static unsigned char _KLS_threadStatus=0;
 
-void _KLS_threadPauser(int sig){
+static void _KLS_threadExit(void){
+    if(_KLS_threadStatus) pthread_key_delete(_KLS_threadKey);
+}
+
+static void _KLS_threadInit(void){
+    if(!pthread_key_create(&_KLS_threadKey,NULL)){
+        _KLS_threadStatus=1 | ((KLS_signalGetMode(KLS_thread_sigresume)==SIG_BLOCK)<<2) | ((KLS_signalGetMode(KLS_thread_sigpause)==SIG_BLOCK)<<1);
+        atexit(_KLS_threadExit);
+    }
+}
+
+static void _KLS_threadPauser(int sig){
     KLS_signalSetHandler(sig,_KLS_threadPauser);
     KLS_signalSetMode(sig,SIG_UNBLOCK);
     if(sig==KLS_thread_sigpause){
-        /* pthread_setspecific(_KLS_threadKey.stop,((char*)pthread_getspecific(_KLS_threadKey.stop))+1); */
-        char * const p=pthread_getspecific(_KLS_threadKey.stop);
-        pthread_setspecific(_KLS_threadKey.stop,p+1);
-        if(!p) while(pthread_getspecific(_KLS_threadKey.stop)) _KLS_THREAD_MKSLEEP(1000000);
+        /* pthread_setspecific(_KLS_threadKey,((char*)pthread_getspecific(_KLS_threadKey))+1); */
+        const char * const p=pthread_getspecific(_KLS_threadKey);
+        pthread_setspecific(_KLS_threadKey,p+1);
+        if(!p) while(pthread_getspecific(_KLS_threadKey)) _KLS_THREAD_MKSLEEP(1000000);
         return;
     }
-    pthread_setspecific(_KLS_threadKey.stop, ((char*)pthread_getspecific(_KLS_threadKey.stop))-1 );
+    pthread_setspecific(_KLS_threadKey, ((char*)pthread_getspecific(_KLS_threadKey))-1 );
 }
 
 void KLS_threadPausable(KLS_byte pausable){
-    if(pausable){
-        KLS_signalSetHandler(KLS_thread_sigpause,_KLS_threadPauser);
-        KLS_signalSetHandler(KLS_thread_sigresume,_KLS_threadPauser);
-        KLS_signalSetMode(KLS_thread_sigpause,SIG_UNBLOCK);
-        KLS_signalSetMode(KLS_thread_sigresume,SIG_UNBLOCK);
-    }else{
-        KLS_signalSetMode(KLS_thread_sigpause,(_KLS_threadStatus&2)?SIG_BLOCK:SIG_UNBLOCK);
-        KLS_signalSetMode(KLS_thread_sigresume,(_KLS_threadStatus&4)?SIG_BLOCK:SIG_UNBLOCK);
-        KLS_signalSetHandler(KLS_thread_sigpause,SIG_DFL);
-        KLS_signalSetHandler(KLS_thread_sigresume,SIG_DFL);
+    if(_KLS_threadStatus || (!pthread_once(&_KLS_threadOnce,_KLS_threadInit) && _KLS_threadStatus)){
+        if(pausable){
+            KLS_signalSetHandler(KLS_thread_sigpause,_KLS_threadPauser);
+            KLS_signalSetHandler(KLS_thread_sigresume,_KLS_threadPauser);
+            KLS_signalSetMode(KLS_thread_sigpause,SIG_UNBLOCK);
+            KLS_signalSetMode(KLS_thread_sigresume,SIG_UNBLOCK);
+        }else{
+            KLS_signalSetMode(KLS_thread_sigpause,(_KLS_threadStatus&2)?SIG_BLOCK:SIG_UNBLOCK);
+            KLS_signalSetMode(KLS_thread_sigresume,(_KLS_threadStatus&4)?SIG_BLOCK:SIG_UNBLOCK);
+            KLS_signalSetHandler(KLS_thread_sigpause,SIG_DFL);
+            KLS_signalSetHandler(KLS_thread_sigresume,SIG_DFL);
+        }
     }
 }
 
 void KLS_threadPause(pthread_t tid){
-    KLS_signalSend(tid,KLS_thread_sigpause);
+    if(_KLS_threadStatus || (!pthread_once(&_KLS_threadOnce,_KLS_threadInit) && _KLS_threadStatus))
+        KLS_signalSend(tid,KLS_thread_sigpause);
 }
 
 void KLS_threadResume(pthread_t tid){
-    KLS_signalSend(tid,KLS_thread_sigresume);
+    if(_KLS_threadStatus || (!pthread_once(&_KLS_threadOnce,_KLS_threadInit) && _KLS_threadStatus))
+        KLS_signalSend(tid,KLS_thread_sigresume);
 }
 
 KLS_byte KLS_threadPolicySet(pthread_t tid,int policy,int priority){
