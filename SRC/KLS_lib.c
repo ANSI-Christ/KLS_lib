@@ -10,7 +10,7 @@
 #define _KLS_tm1sec 1000000000
 
 static const char *_KLS_execName=NULL;
-static KLS_byte _KLS_exec=1;
+static char _KLS_exec=1;
 KLS_byte KLS_COLOR_BITS=32;
 
 extern int close(int fd);
@@ -490,20 +490,10 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
     return ~crc;
 }
 
-
-void _KLS_libClose(void){
+static void _KLS_libExit(void){
     KLS_execKill();
-    _KLS_timerClose();
     _KLS_MEMORY_SHOW()
-    _KLS_MEMORY_MTX(0)
-    puts("KLS: exit!\n");
 }
-
-void KLS_libInit(void){
-    KLS_ONCE(
-        _KLS_MEMORY_MTX(1)
-        KLS_RGB(0,0,0);
-        atexit(_KLS_libClose);
-    )
-}
+#define PRAGMA_ATEXIT _KLS_libExit
+#include "pragma.h"
 

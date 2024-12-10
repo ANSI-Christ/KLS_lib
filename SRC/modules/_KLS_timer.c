@@ -1,33 +1,43 @@
 
 #define KLS_TIMER_CLOCKID  CLOCK_REALTIME
+#define _KLS_timerLess(_1_,_2_) (_1_.tv_sec<_2_.tv_sec || (_1_.tv_sec==_2_.tv_sec && _1_.tv_nsec<_2_.tv_nsec))
 
 struct _KLS_t_TIMER{
     void(*f)(void *arg,unsigned int *interval);
     void *arg;
     struct timespec t;
     unsigned int msInterval;
-    char run;
+    char run, _size;
 };
 
 static struct{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[1];
-    struct timespec t;
     KLS_t_LIST list[1];
-    char create, mtxDel;
-}_KLS_timerGlob={.mtx={PTHREAD_MUTEX_INITIALIZER}};
+    struct timespec t;
+}_KLS_timerGlob={{PTHREAD_MUTEX_INITIALIZER}};
 
 
-void _KLS_timerPolicy(void){
+static void _KLS_timerExit(void){
+    KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
+    if(!g->list->sizeElement) return;
+    pthread_mutex_lock(g->mtx);
+    KLS_listClear(g->list);
+    g->t.tv_sec=g->t.tv_nsec=0;
+    pthread_cond_signal(g->cond);
+    pthread_mutex_unlock(g->mtx);
+}
+#define PRAGMA_ATEXIT _KLS_timerExit
+#include "pragma.h"
+
+static void _KLS_timerPolicy(void){
     pthread_t tid=pthread_self();
-    int pol,pri;
+    int pol=0, pri=0;
     if(KLS_threadPolicyGet(tid,&pol,&pri) && pol!=0)
         KLS_threadPolicySet(tid,pol,99);
 }
 
-#define _KLS_timerLess(_1_,_2_) (_1_.tv_sec<_2_.tv_sec || (_1_.tv_sec==_2_.tv_sec && _1_.tv_nsec<_2_.tv_nsec))
-
-void *_KLS_timerThread(void *arg){
+static void *_KLS_timerThread(void *arg){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
     struct timespec t, tmp;
     KLS_t_TIMER timer;
@@ -37,15 +47,14 @@ void *_KLS_timerThread(void *arg){
 _mark:
         t=g->t;
         switch(pthread_cond_timedwait(g->cond,g->mtx,&t)){
-            case -1: if(errno!=EINTR) break;
-            case 0: if(!g->list->first) break;
+            case -1: if(errno==EINTR) goto _mark; break;
+            case 0: if(g->list->first) goto _mark; break;
             case EINTR: goto _mark;
         }
         if(!(timer=g->list->first)){
-            g->create=0;
+            g->list->sizeElement=0;
             pthread_cond_destroy(g->cond);
             pthread_mutex_unlock(g->mtx);
-            if(g->mtxDel) pthread_mutex_destroy(g->mtx);
             break;
         }
         clock_gettime(KLS_TIMER_CLOCKID,&t);
@@ -74,23 +83,9 @@ _mark:
     (void)arg;
 }
 
-void _KLS_timerClose(void){
-    const char mtxDel=0;
+static char _KLS_timerInit(void){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
-    if(g->create){
-        pthread_mutex_lock(g->mtx);
-        KLS_listClear(g->list);
-        g->t.tv_sec=0;
-        g->t.tv_nsec=0;
-        if(mtxDel)g->mtxDel=1;
-        pthread_cond_signal(g->cond);
-        pthread_mutex_unlock(g->mtx);
-    }else if(mtxDel)pthread_mutex_destroy(g->mtx);
-}
-
-KLS_byte _KLS_timerInit(void){
-    KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
-    if(!g->create){
+    if(!g->list->sizeElement){
         pthread_attr_t a[1];
         pthread_t tid[1];
         do{
@@ -103,12 +98,12 @@ KLS_byte _KLS_timerInit(void){
             if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
             #endif
             g->t.tv_sec=time(NULL)+3600;
-            if( (g->create=!pthread_create(tid,a,_KLS_timerThread,NULL)) )
-                *g->list=KLS_listNew(sizeof(struct _KLS_t_TIMER),NULL);
+            if(!pthread_create(tid,a,_KLS_timerThread,NULL))
+                *g->list=KLS_listNew(KLS_OFFSET(struct _KLS_t_TIMER,_size),NULL);
         }while(0);
         pthread_attr_destroy(a);
-        if(!g->create) pthread_cond_destroy(g->cond);
-    } return g->create;
+        if(!g->list->sizeElement) pthread_cond_destroy(g->cond);
+    } return g->list->sizeElement>0;
 }
 
 KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg){
@@ -181,4 +176,5 @@ void KLS_timerDestroy(KLS_t_TIMER *timer){
     }
 }
 
+#undef _KLS_timerLess
 #undef KLS_TIMER_CLOCKID

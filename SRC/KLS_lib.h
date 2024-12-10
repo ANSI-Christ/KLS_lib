@@ -193,7 +193,6 @@ int KLS_utos(size_t n,char *s);
 int KLS_itos(ptrdiff_t n,char *s);
 int KLS_backTrace(void *address[],int count);
 
-void KLS_libInit(void);
 void KLS_execKill(void);
 void KLS_pausef(double sec);
 void KLS_freeFile(FILE *file);
@@ -1220,16 +1219,14 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 #ifdef _KLS_MEMORY_DEBUG
     _KLS_GLOBVAR(KLS_size _KLS_memAlloc,=0);
     _KLS_GLOBVAR(KLS_size _KLS_memFree,=0);
-    _KLS_GLOBVAR(pthread_mutex_t _KLS_memMtx[2]);
+    _KLS_GLOBVAR(pthread_mutex_t _KLS_memMtx[2],={PTHREAD_MUTEX_INITIALIZER,PTHREAD_MUTEX_INITIALIZER});
     #define _KLS_MEMORY_PUSH(_1_) if(_1_){ pthread_mutex_lock(_KLS_memMtx); ++_KLS_memAlloc; pthread_mutex_unlock(_KLS_memMtx); }
     #define _KLS_MEMORY_POP(_1_)  if(_1_){ pthread_mutex_lock(_KLS_memMtx+1); ++_KLS_memFree;  pthread_mutex_unlock(_KLS_memMtx+1); }
-    #define _KLS_MEMORY_MTX(_1_)  if(_1_){ pthread_mutex_init(_KLS_memMtx,NULL); pthread_mutex_init(_KLS_memMtx+1,NULL); }else{ pthread_mutex_destroy(_KLS_memMtx); pthread_mutex_destroy(_KLS_memMtx+1); }
     #define _KLS_MEMORY_SHOW()    { printf("KLS: allocs(%zu) frees(%zu)\n",_KLS_memAlloc,_KLS_memFree); }
     #warning _KLS_MEMORY_DEBUG is defined
 #else
     #define _KLS_MEMORY_PUSH(...)
     #define _KLS_MEMORY_POP(...)
-    #define _KLS_MEMORY_MTX(...)
     #define _KLS_MEMORY_SHOW()
 #endif
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -1247,7 +1244,7 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 #define _KLS_MAIN3(...) argc,argv,env
 #define main(...)\
     __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
-    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); KLS_libInit(); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)()); (void)argc; (void)argv; (void)env;}\
+    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)()); (void)argc; (void)argv; (void)env;}\
     KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
