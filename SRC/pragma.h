@@ -5,17 +5,14 @@
 #endif
 
 /********   detecting compiller   ********/
-#if defined(__GNUC__) && !defined(_PRAGMA_SYNTAX)
-    #define _PRAGMA_SYNTAX 2
+#if !defined(_PRAGMA_SYNTAX) && defined(__LCC__)
+    #define _PRAGMA_SYNTAX 4
 #endif
-#if defined(__clang__) && !defined(_PRAGMA_SYNTAX)
-    #define _PRAGMA_SYNTAX 2
-#endif
-#if defined(__MINGW32__) && !defined(_PRAGMA_SYNTAX)
-    #define _PRAGMA_SYNTAX 2
-#endif
-#if defined(_MSC_VER) && !defined(_PRAGMA_SYNTAX)
+#if !defined(_PRAGMA_SYNTAX) && defined(_MSC_VER)
     #define _PRAGMA_SYNTAX 3
+#endif
+#if !defined(_PRAGMA_SYNTAX) && ( defined(__GNUC__) || defined(__clang__) || defined(__MINGW32__) )
+    #define _PRAGMA_SYNTAX 2
 #endif
 #if !defined(_PRAGMA_SYNTAX)
     pragma.h: syntax undefined, define macro PRAGMA_SYNTAX as path to header with syntax!
