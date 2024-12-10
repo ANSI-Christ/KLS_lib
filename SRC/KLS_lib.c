@@ -496,7 +496,6 @@ void _KLS_libClose(void){
     _NET_close();
     _KLS_threadClose();
     _KLS_timerClose();
-    TryCatchClose();
     _KLS_MEMORY_SHOW()
     _KLS_MEMORY_MTX(0)
     puts("KLS: exit!\n");
@@ -507,7 +506,6 @@ void KLS_libInit(void){
         _KLS_MEMORY_MTX(1)
         KLS_RGB(0,0,0);
         if(!_NET_init()) puts("KLS: can't init sockets!\n");
-        if(!TryCatchInit()) puts("KLS: can't init try / catch\n");
         if(!_KLS_threadInit()) puts("KLS: can't init threads\n");
         atexit(_KLS_libClose);
     )
