@@ -18,7 +18,7 @@ static struct{
 }_KLS_timerGlob={{PTHREAD_MUTEX_INITIALIZER}};
 
 
-static void _KLS_timerExit(void){
+static void _KLS_timerClose(void){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
     if(!g->list->sizeElement) return;
     pthread_mutex_lock(g->mtx);
@@ -27,8 +27,6 @@ static void _KLS_timerExit(void){
     pthread_cond_signal(g->cond);
     pthread_mutex_unlock(g->mtx);
 }
-#define PRAGMA_ATEXIT _KLS_timerExit
-#include "pragma.h"
 
 static void _KLS_timerPolicy(void){
     pthread_t tid=pthread_self();

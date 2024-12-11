@@ -79,6 +79,7 @@ struct _TRYCATCH *_TryCatch(void);
 
 #ifdef TRY_CATCH_IMPL
 
+extern int atexit(void(*)(void));
 static pthread_key_t _TryCatchKey;
 static unsigned char _TryCatchInit;
 

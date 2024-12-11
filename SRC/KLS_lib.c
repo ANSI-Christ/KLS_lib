@@ -492,6 +492,7 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
 
 static void _KLS_libExit(void){
     KLS_execKill();
+    _KLS_timerClose();
     _KLS_MEMORY_SHOW()
 }
 #define PRAGMA_ATEXIT _KLS_libExit
