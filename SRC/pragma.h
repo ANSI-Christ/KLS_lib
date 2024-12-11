@@ -31,16 +31,17 @@
     #ifdef PRAGMA_ATEXIT
         __attribute__((__destructor__)) static void M_JOIN(_f_PRAGMA_ATEXIT,PRAGMA_ATEXIT) (void) {PRAGMA_ATEXIT();}
     #endif
-    #ifdef PRAGMA_PACK
-        #ifndef _PRAGMA_PACK
-            #define _PRAGMA_PACK
-        #endif
-    #endif
     #ifdef _PRAGMA_PACK
         __attribute__((packed,aligned(PRAGMA_PACK)));
         #undef PRAGMA_PACK
         #undef _PRAGMA_PACK
     #endif
+    #ifdef PRAGMA_PACK
+        #ifndef _PRAGMA_PACK
+            #define _PRAGMA_PACK
+        #endif
+    #endif
+
 #endif
 
 /*****************   VC   **************/
@@ -65,15 +66,15 @@
             static void (*M_JOIN(_f_PRAGMA_ATEXIT,PRAGMA_ATEXIT)) (void) = PRAGMA_ATEXIT;
         #pragma data_seg()
     #endif
-    #ifdef PRAGMA_PACK
-        #pragma pack(push,PRAGMA_PACK)
-        #undef PRAGMA_PACK
-        #define _PRAGMA_PACK
-    #endif
     #ifdef _PRAGMA_PACK
         ;
         #pragma pack(pop)
         #undef _PRAGMA_PACK
+    #endif
+    #ifdef PRAGMA_PACK
+        #pragma pack(push,PRAGMA_PACK)
+        #undef PRAGMA_PACK
+        #define _PRAGMA_PACK
     #endif
 #endif
 
@@ -85,15 +86,15 @@
     #ifdef PRAGMA_ATEXIT
         #pragma exit PRAGMA_ATEXIT
     #endif
-    #ifdef PRAGMA_PACK
-        #pragma pack(push,PRAGMA_PACK)
-        #undef PRAGMA_PACK
-        #define _PRAGMA_PACK
-    #endif
     #ifdef _PRAGMA_PACK
         ;
         #pragma pack(pop)
         #undef _PRAGMA_PACK
+    #endif
+    #ifdef PRAGMA_PACK
+        #pragma pack(push,PRAGMA_PACK)
+        #undef PRAGMA_PACK
+        #define _PRAGMA_PACK
     #endif
 #endif
 
@@ -105,15 +106,15 @@
     #ifdef PRAGMA_ATEXIT
         __asm__ (".section .fini \n call " M_STRING(PRAGMA_ATEXIT) " \n .section .text\n");
     #endif
-    #ifdef PRAGMA_PACK
-        #pragma pack(push,PRAGMA_PACK)
-        #undef PRAGMA_PACK
-        #define _PRAGMA_PACK
-    #endif
     #ifdef _PRAGMA_PACK
         ;
         #pragma pack(pop)
         #undef _PRAGMA_PACK
+    #endif
+    #ifdef PRAGMA_PACK
+        #pragma pack(push,PRAGMA_PACK)
+        #undef PRAGMA_PACK
+        #define _PRAGMA_PACK
     #endif
 #endif
 
