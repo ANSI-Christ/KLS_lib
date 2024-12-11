@@ -31,8 +31,15 @@
     #ifdef PRAGMA_ATEXIT
         __attribute__((__destructor__)) static void M_JOIN(_f_PRAGMA_ATEXIT,PRAGMA_ATEXIT) (void) {PRAGMA_ATEXIT();}
     #endif
+    #ifdef PRAGMA_PACK
+        #ifndef _PRAGMA_PACK
+            #define _PRAGMA_PACK
+        #endif
+    #endif
     #ifdef _PRAGMA_PACK
         __attribute__((packed,aligned(PRAGMA_PACK)));
+        #undef PRAGMA_PACK
+        #undef _PRAGMA_PACK
     #endif
 #endif
 
@@ -60,9 +67,13 @@
     #endif
     #ifdef PRAGMA_PACK
         #pragma pack(push,PRAGMA_PACK)
+        #undef PRAGMA_PACK
+        #define _PRAGMA_PACK
     #endif
     #ifdef _PRAGMA_PACK
-        ;#pragma pop()
+        ;
+        #pragma pack(pop)
+        #undef _PRAGMA_PACK
     #endif
 #endif
 
@@ -76,9 +87,13 @@
     #endif
     #ifdef PRAGMA_PACK
         #pragma pack(push,PRAGMA_PACK)
+        #undef PRAGMA_PACK
+        #define _PRAGMA_PACK
     #endif
     #ifdef _PRAGMA_PACK
-        ;#pragma pop()
+        ;
+        #pragma pack(pop)
+        #undef _PRAGMA_PACK
     #endif
 #endif
 
@@ -92,9 +107,13 @@
     #endif
     #ifdef PRAGMA_PACK
         #pragma pack(push,PRAGMA_PACK)
+        #undef PRAGMA_PACK
+        #define _PRAGMA_PACK
     #endif
     #ifdef _PRAGMA_PACK
-        ;#pragma pop()
+        ;
+        #pragma pack(pop)
+        #undef _PRAGMA_PACK
     #endif
 #endif
 
@@ -110,16 +129,4 @@
     typedef struct{char _;} M_JOIN(_t_PRAGMA_ONCE_ATEXIT,PRAGMA_ATEXIT);
     #undef PRAGMA_ATEXIT
 #endif
-
-#ifdef _PRAGMA_PACK
-    #undef _PRAGMA_PACK
-    #undef PRAGMA_PACK
-#endif
-
-#ifdef PRAGMA_PACK
-    #ifndef _PRAGMA_PACK
-        #define _PRAGMA_PACK
-    #endif
-#endif
-
 
