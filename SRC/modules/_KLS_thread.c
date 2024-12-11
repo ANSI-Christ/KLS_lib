@@ -33,17 +33,15 @@ static void _KLS_threadPoolPush(_KLS_t_THREAD_POOL p,_KLS_t_THREAD_TASK * const 
 static void *_KLS_threadPoolPop(_KLS_t_THREAD_POOL p){
     _KLS_t_THREAD_QUEUE * const q=p->queue+p->peak;
     _KLS_t_THREAD_TASK * const t=q->first;
-    if(t){
-        --p->size;
-        if( !(q->first=t->next) ){
-            q->last=NULL;
-            while(p->peak && !p->queue[--p->peak].first);
-        }
+    if(t && !(q->first=t->next)){
+        q->last=NULL;
+        while(p->peak && !p->queue[--p->peak].first);
     } return t;
 }
 
 static void _KLS_threadPoolClear(_KLS_t_THREAD_POOL p){
     void *t; while( (t=_KLS_threadPoolPop(p)) ) KLS_free(t);
+    p->size=0;
 }
 
 
@@ -57,7 +55,7 @@ static unsigned int _KLS_threadIndex(const _KLS_t_THREAD_POOL p){
 
 static void *_KLS_threadWorker(_KLS_t_THREAD_POOL p){
     const unsigned int index=_KLS_threadIndex(p);
-    unsigned char sleep=0, busy=1, i, c;
+    unsigned char i, sleep=0, busy=1;
     _KLS_t_THREAD_TASK *t, *a[3];
 
     while('0'){
@@ -66,16 +64,18 @@ _mark:
         if(p->die==1)
             break;
         if( (t=_KLS_threadPoolPop(p)) ){
-            const unsigned int _c=p->size/p->count;
-            for(i=0, c=(_c>KLS_ARRAY_LEN(a)?KLS_ARRAY_LEN(a):_c); i<c && (a[i]=_KLS_threadPoolPop(p)); ++i);
+            const unsigned int _c=(--p->size)/p->count;
+            const unsigned char c=(_c>KLS_ARRAY_LEN(a)?KLS_ARRAY_LEN(a):_c);
+            for(i=0,p->size-=c;i<c;++i)
+                a[i]=_KLS_threadPoolPop(p);
             if(busy&1){busy<<=1; ++p->busy;}
             pthread_mutex_unlock(p->mtx);
 
             t->f(t+1,index,p);
             KLS_free(t);
-            for(c=0;c<i;++c){
-                a[c]->f(a[c]+1,index,p);
-                KLS_free(a[c]);
+            for(i=0;i<c;++i){
+                a[i]->f(a[i]+1,index,p);
+                KLS_free(a[i]);
             }
             sleep|=64;
             continue;
