@@ -7,7 +7,7 @@
 // compile with:
 //     -Wfloat-equal    ( warnings: float a=2.2,b=2.2; a==b; instead of fabs(a-b) )
 //     -O               ( optimization [O,O2,O3] ) )
-//     -D               ( [ _KLS_MALLOC_HEAP=xxxx, _KLS_UNIT_TESTS, _KLS_MEMORY_DEBUG ] ; see also KLS_sysDefs.h )
+//     -D               ( [ _KLS_MALLOC_HEAP=xxxx, _KLS_MEMORY_DEBUG ] ; see also KLS_sysDefs.h )
 // link with:
 //     windows: -lm -lc -lpthread -lrt -lgdi32 -lws2_32
 //     solaris: -lm -lc -lpthread -lrt -lX11 -lsocket
@@ -116,11 +116,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 // TEMPLATES SECTION
 
-#define KLS_UNIT_TEST _KLS_UNIT_TEST
-
 #define KLS_TYPEOF __typeof__
-
-#define KLS_ATTR(_attr_,...) __attribute__(( __##_attr_##__ __VA_ARGS__ ))
 
 #define KLS_MVN(_name_) M_JOIN(M_JOIN(_,M_LINE()),M_JOIN(__,_name_)) 
 
@@ -249,7 +245,7 @@ void *KLS_heapInit(void *heap,KLS_size size,pthread_mutex_t *mtx);
 
 
 // SYSTEM SECTION
-int KLS_sysCmd(char **output,const char *cmdFormat, ...); // KLS_ATTR(format,(__printf__,2,3));
+int KLS_sysCmd(char **output,const char *cmdFormat, ...);
 
 KLS_byte KLS_sysInfoRam(KLS_size *left,KLS_size *all);
 KLS_byte KLS_sysInfoHdd(const char *folder,KLS_size *left,KLS_size *all);
@@ -351,8 +347,8 @@ unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
 
 const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool);
 
-#define KLS_threadPoolTask(_1_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),0,(_3_),__VA_ARGS__)
-#define KLS_threadPoolTaskPrio(_1_,_2_,_3_,...) _KLS_THREAD_CALL(_KLS_threadPoolTask,(_1_),(_2_),(_3_),__VA_ARGS__)
+#define KLS_threadPoolTask(_1_,_3_,...) _KLS_THREAD_CALL((_1_),0,(_3_),__VA_ARGS__)
+#define KLS_threadPoolTaskPrio(_1_,_2_,_3_,...) _KLS_THREAD_CALL((_1_),(_2_),(_3_),__VA_ARGS__)
 
 
 
@@ -424,7 +420,7 @@ int KLS_stringLen(const char *format,...);
 void KLS_stringRect(const char *string,const KLS_t_FONT *font,int *width,int *height);
 
 char *KLS_stringReadFile(const char *filePath);
-char *KLS_string(char **variable,const char *format, ...);// KLS_ATTR(format,(__printf__, 2, 3));
+char *KLS_string(char **variable,const char *format, ...);
 char *KLS_stringReplace(const char *string, const char *from, const char *to);
 
 char *KLS_stringv(const char *format);
@@ -1231,13 +1227,6 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 #endif
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-#ifdef _KLS_UNIT_TESTS
-    #define _KLS_UNIT_TEST(...) KLS_ATTR(constructor) static void KLS_MVN(unit_test)(void){KLS_libInit();{__VA_ARGS__}}
-#else
-    #define _KLS_UNIT_TEST(...)
-#endif
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
 #define _KLS_MAIN0()
 #define _KLS_MAIN1(...) argc
 #define _KLS_MAIN2(...) argc,argv
@@ -1324,10 +1313,10 @@ void *_KLS_threadPoolTask(void *pool,const void *task,const unsigned int size,un
 #define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
 #define _KLS_THREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char size;}
 #define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
-#define _KLS_THREAD_CALL(_ttf_,_id_,_pr_,_f_,...) ({\
+#define _KLS_THREAD_CALL(_id_,_pr_,_f_,...) ({\
     const _KLS_THREAD_STRUCT(__VA_ARGS__) KLS_MVN(_thr1)={NULL,(_f_),__VA_ARGS__};\
     M_ASSERT( sizeof(struct{void *p[2];}) + KLS_OFFSET(struct{M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char size;},size) == KLS_OFFSET(KLS_MVN(_thr1),size), ThreadTask_bad_align_of_arguments);\
-    _ttf_(_id_,&KLS_MVN(_thr1),KLS_OFFSET(KLS_MVN(_thr1),size),(_pr_));\
+    _KLS_threadPoolTask(_id_,&KLS_MVN(_thr1),KLS_OFFSET(KLS_MVN(_thr1),size),(_pr_));\
 })
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
