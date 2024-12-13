@@ -23,10 +23,11 @@ typedef struct _KLS_t_THREAD_POOL{
 
 
 static void _KLS_threadPoolPush(_KLS_t_THREAD_POOL p,_KLS_t_THREAD_TASK * const t,unsigned char prio){
-    _KLS_t_THREAD_QUEUE * const q=p->queue + (prio>p->peak ? p->peak : prio);
+    if(prio>p->peak) p->peak=prio;
+    {_KLS_t_THREAD_QUEUE * const q=p->queue + prio;
     if(q->last) q->last->next=t;
     else q->first=t;
-    q->last=t;
+    q->last=t;}
     ++p->size;
 }
 
