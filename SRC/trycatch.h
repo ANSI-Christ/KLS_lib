@@ -34,7 +34,7 @@ struct _TRYCATCH *_TryCatch(void);
 #define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(EXCEPTION->data); _CATCH
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
-    struct _TRYCATCH *_1_=_TryCatch();\
+    struct _TRYCATCH * const _1_=_TryCatch();\
     if(_1_){\
         if(_1_->e->type){\
             if(_1_->jmp) longjmp(*_1_->jmp,1);\
@@ -44,7 +44,7 @@ struct _TRYCATCH *_TryCatch(void);
     TryCatchTerminate();\
 })
 #define _THROW1(_type_,...) ({\
-    struct _TRYCATCH *_1_=_TryCatch();\
+    struct _TRYCATCH * const _1_=_TryCatch();\
     if(_1_ && _1_->jmp){\
         _1_->e->type=M_STRING(_type_); _1_->e->where=_THROW_INFO;\
         if(_1_->e->data!=_1_->buffer){free(_1_->e->data); _1_->e->data=_1_->buffer;}\
@@ -62,7 +62,7 @@ struct _TRYCATCH *_TryCatch(void);
 })
 #define _TRY(...) ({\
     jmp_buf _1tc_;\
-    struct _TRYCATCH *_2tc_=_TryCatch();\
+    struct _TRYCATCH * const _2tc_=_TryCatch();\
     void *_3tc_; char _4tc_;\
     if(!_2tc_){puts("\n\nTRY FAULT at [" _THROW_INFO "]\n");TryCatchTerminate();}\
     _3tc_=_2tc_->jmp;\
