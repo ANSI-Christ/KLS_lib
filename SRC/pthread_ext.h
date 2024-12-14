@@ -23,7 +23,7 @@ const char *pthread_policy_name(int policy);
 unsigned char pthread_policy_set(pthread_t tid,int policy,int priority);
 unsigned char pthread_policy_get(pthread_t tid,int *policy,int *priority);
 
-unsigned int pthread_stacktrace(void **array,unsigned int count);
+unsigned int pthread_backtrace(void **array,unsigned int count);
 
 
 
@@ -396,7 +396,7 @@ void pthread_signal_setmode(int sig,int mode){
     return; (void)sig;(void)mode;
 }
 
-unsigned int pthread_stacktrace(void **array,unsigned int count){
+unsigned int pthread_backtrace(void **array,unsigned int count){
     const int c=CaptureStackBackTrace(0,count,array,NULL);
     return c>0?c:0;
 }
@@ -426,7 +426,7 @@ void pthread_signal_setmode(int sig,int mode){
     return;
 }
 
-unsigned int pthread_stacktrace(void **array,unsigned int count){
+unsigned int pthread_backtrace(void **array,unsigned int count){
     const int c=backtrace(array,count);
     return c>0?c:0;
 }
