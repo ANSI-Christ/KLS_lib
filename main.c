@@ -24,7 +24,7 @@ void serverTcp(NET_t_UNIT u,KLS_byte e){
 
 static void **gmanager;
 void sigInterp(int s){
-    KLS_signalSetHandler(s,sigInterp);
+    pthread_signal_handler(s,sigInterp);
     KLS_execKill();
     NET_interrupt(*gmanager);
     printf("\n\ninterrp\n\n");
@@ -35,8 +35,8 @@ int main(int argc,char **argv){
     NET_t_UNIT u;
     gmanager=&m;
 
-    KLS_signalSetMode(SIGINT,KLS_SIGNAL_UNBLOCK);
-    KLS_signalSetHandler(SIGINT,sigInterp);
+    pthread_signal_setmode(SIGINT,KLS_SIGNAL_UNBLOCK);
+    pthread_signal_handler(SIGINT,sigInterp);
 
     if((u=NET_unit(m,NET_TCP)) && NET_listen(u,NET_address(NET_HOST_ANY4,12345),4)){
         u->timeout=5;
