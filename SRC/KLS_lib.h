@@ -34,6 +34,7 @@
 #include "macro.h"
 #include "class.h"
 #include "trycatch.h"
+#include "pthread_ext.h"
 
 #include "KLS_0b.h"
 
@@ -187,7 +188,6 @@ extern KLS_byte KLS_COLOR_BITS;
 // COMMON SECTION
 int KLS_utos(size_t n,char *s);
 int KLS_itos(ptrdiff_t n,char *s);
-int KLS_backTrace(void *address[],int count);
 
 void KLS_execKill(void);
 void KLS_pausef(double sec);
@@ -287,71 +287,6 @@ KLS_byte KLS_timerContinue(KLS_t_TIMER timer);
 KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval),void *arg);
 
 KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg);
-
-
-
-
-
-// THREAD SECTION
-
-extern int KLS_thread_sigresume;
-extern int KLS_thread_sigpause;
-
-#define KLS_THREAD_ARGS(...) M_IF(M_COUNT(__VA_ARGS__))(M_EXTRACT(struct{M_FOREACH(_KLS_THREAD_ARGS,-,__VA_ARGS__)}*), void*)
-
-#define KLS_t_THREAD             KLS_t_THREAD_POOL
-#define KLS_threadClear          KLS_threadPoolClear
-#define KLS_threadTask           KLS_threadPoolTask
-#define KLS_threadWait           KLS_threadPoolWait
-#define KLS_threadWaitTime       KLS_threadPoolWaitTime
-#define KLS_threadTaskPrio       KLS_threadPoolTaskPrio
-#define KLS_threadDestroy        KLS_threadPoolDestroy
-#define KLS_threadDestroyLater   KLS_threadPoolDestroyLater
-#define KLS_threadPosix          KLS_threadPoolPosix
-#define KLS_threadCreate(...)    KLS_threadPoolCreate(1,__VA_ARGS__)
-
-void KLS_threadPause(pthread_t tid);
-void KLS_threadResume(pthread_t tid);
-void KLS_threadPausable(KLS_byte pausable);
-
-#define KLS_THREAD_POLICY_OTHER  SCHED_OTHER
-#define KLS_THREAD_POLICY_FIFO   SCHED_FIFO
-#define KLS_THREAD_POLICY_RR     SCHED_RR
-
-KLS_byte KLS_threadPolicySet(pthread_t tid,int policy,int priority);
-KLS_byte KLS_threadPolicyGet(pthread_t tid,int *policy,int *priority);
-
-const char *KLS_threadPolicyName(int policy);
-
-
-
-
-
-// THREAD POOL SECTION
-
-typedef struct _KLS_t_THREAD_POOL*  KLS_t_THREAD_POOL;
-
-KLS_t_THREAD_POOL KLS_threadPoolCreate(unsigned int count,unsigned char prio,size_t stackSize_kb);
-
-void KLS_threadPoolWait(KLS_t_THREAD_POOL pool);
-void KLS_threadPoolClear(KLS_t_THREAD_POOL pool);
-void KLS_threadPoolDestroy(KLS_t_THREAD_POOL *pool);
-void KLS_threadPoolDestroyLater(KLS_t_THREAD_POOL *pool);
-
-void *KLS_threadPoolTask(KLS_t_THREAD_POOL pool,void(*task)(void *args,unsigned int index,KLS_t_THREAD_POOL pool),...);
-void *KLS_threadPoolTaskPrio(KLS_t_THREAD_POOL pool,unsigned char prio,void(*task)(void *args,unsigned int index,KLS_t_THREAD_POOL pool),...);
-
-KLS_byte KLS_threadPoolWaitTime(KLS_t_THREAD_POOL pool,unsigned int msec);
-
-unsigned int KLS_threadPoolCount(const KLS_t_THREAD_POOL pool);
-
-const pthread_t *KLS_threadPoolPosix(KLS_t_THREAD_POOL pool);
-
-#define KLS_threadPoolTask(_1_,_3_,...) _KLS_THREAD_CALL((_1_),0,(_3_),__VA_ARGS__)
-#define KLS_threadPoolTaskPrio(_1_,_2_,_3_,...) _KLS_THREAD_CALL((_1_),(_2_),(_3_),__VA_ARGS__)
-
-
-
 
 
 
@@ -728,25 +663,6 @@ KLS_t_CANVAS KLS_canvasSub(const KLS_t_CANVAS *canvas,double left,double up,doub
 KLS_t_CANVAS KLS_canvasSubExt(const KLS_t_CANVAS *canvas,int pixelX, int pixelY,unsigned int pixWidth,unsigned int pixHeight,double left,double up,double right,double down);
 
 void *KLS_canvasAtPix(const KLS_t_CANVAS *canvas,int pixelX,int pixelY,KLS_t_POINT *point);
-
-
-
-
-// SIGNAL SECTION
-
-#define KLS_SIGNAL_BLOCKED     SIG_BLOCK
-#define KLS_SIGNAL_UNBLOCKED   SIG_UNBLOCK
-
-int KLS_signalGetMode(int sigNum);
-
-void KLS_signalSetMode(int sigNum,int mode);
-
-void *KLS_signalSetHandler(int sigNum,void(*handler)(int sigNum));
-
-KLS_byte KLS_signalSend(pthread_t tid,int sigNum);
-
-const char *KLS_signalGetString(int sigNum);
-
 
 
 

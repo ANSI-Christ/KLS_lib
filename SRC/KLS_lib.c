@@ -1,10 +1,12 @@
-#define _KLS_GLOBVAR
-#define TRY_CATCH_IMPL
-#include "KLS_lib.h"
 #include <dirent.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#define _KLS_GLOBVAR
+#define TRY_CATCH_IMPL
+#define PTHREAD_EXT_IMPL
+#include "KLS_lib.h"
 
 
 #define _KLS_tm1sec 1000000000
@@ -26,7 +28,6 @@ extern void _KLS_rgbGetInfo(int bits);
 #include "./modules/_KLS_bitmap.c"
 #include "./modules/_KLS_string.c"
 #include "./modules/_KLS_array.c"
-#include "./modules/_KLS_thread.c"
 #include "./modules/_KLS_geometry.c"
 #include "./modules/_KLS_fs.c"
 #include "./modules/_KLS_heap.c"
@@ -35,7 +36,6 @@ extern void _KLS_rgbGetInfo(int bits);
 #include "./modules/_KLS_queue.c"
 #include "./modules/_KLS_matrix.c"
 #include "./modules/_KLS_canvas.c"
-#include "./modules/_KLS_signal.c"
 #include "./modules/_KLS_timer.c"
 #include "./modules/_KLS_regex.c"
 #include "./modules/_KLS_net.c"
@@ -48,13 +48,6 @@ KLS_byte KLS_execLive(void)  { return _KLS_exec; }
 const KLS_byte *KLS_exec(void){ return &_KLS_exec; }
 
 void KLS_execNameSet(const char *name){ _KLS_execName=name; }
-
-
-int KLS_backTrace(void *address[],int count){
-    if( (count=backtrace(address,count)) )
-        address[0]=(void*)1;
-    return count;
-}
 
 const char *_KLS_addr2lineOpt(void){
     static const char *s=(void*)0x1;
