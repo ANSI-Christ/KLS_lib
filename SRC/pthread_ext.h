@@ -59,10 +59,10 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 #define _PTHREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;}
 #define __PTHREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __typeof__(__VA_ARGS__) M_JOIN(_,_index_); )
 #define _PTHREAD_TASK(_id_,_pr_,_f_,...) ({\
-    const _PTHREAD_STRUCT(__VA_ARGS__) _1_={NULL,(_f_),__VA_ARGS__};\
-    M_ASSERT( sizeof(struct{void *p[2];}) + _PTHREAD_OFFSET(struct{M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;},size) == _PTHREAD_OFFSET(_1_,size), pthread_pool_task_bad_align_of_arguments);\
+    const _PTHREAD_STRUCT(__VA_ARGS__) M_JOIN(_pt_,M_LINE())={NULL,(_f_),__VA_ARGS__};\
+    M_ASSERT( sizeof(struct{void *p[2];}) + _PTHREAD_OFFSET(struct{M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;},size) == _PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()),size), pthread_pool_task_bad_align_of_arguments);\
     extern void *_pthread_pool_task(void *pool,const void *task,const unsigned int size,unsigned char prio);\
-    _pthread_pool_task(_id_,&_1_,_PTHREAD_OFFSET(_1_,size),(_pr_));\
+    _pthread_pool_task(_id_,&M_JOIN(_pt_,M_LINE()),_PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()),size),(_pr_));\
 })
 
 
