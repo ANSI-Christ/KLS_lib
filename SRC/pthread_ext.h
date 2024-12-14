@@ -68,6 +68,8 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
 #ifdef PTHREAD_EXT_IMPL
 
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #define _PTHREAD_MKSLEEP(_mk_) {const struct timespec t={_mk_/1000000,(_mk_%1000000)*1000};nanosleep(&t,NULL);}
@@ -401,7 +403,7 @@ unsigned int pthread_stacktrace(void **array,unsigned int count){
 
 #define _PTHREAD_CONT SIGBREAK
 
-#else /*__WIN32*/
+#else /* end __WIN32 */
 
 extern int backtrace(void**,int);
 
@@ -431,7 +433,7 @@ unsigned int pthread_stacktrace(void **array,unsigned int count){
 
 #define _PTHREAD_CONT SIGCONT
 
-#endif
+#endif /* end not __WIN32 */
 
 int pthread_signal_resume=_PTHREAD_CONT;
 int pthread_signal_pause=SIGINT;
