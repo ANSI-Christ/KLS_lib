@@ -23,6 +23,7 @@ const char *pthread_policy_name(int policy);
 unsigned char pthread_policy_set(pthread_t tid,int policy,int priority);
 unsigned char pthread_policy_get(pthread_t tid,int *policy,int *priority);
 
+unsigned int pthread_cores(void);
 unsigned int pthread_backtrace(void **array,unsigned int count);
 
 
@@ -70,6 +71,7 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <time.h>
 
 #define _PTHREAD_MKSLEEP(_mk_) {const struct timespec t={_mk_/1000000,(_mk_%1000000)*1000};nanosleep(&t,NULL);}
@@ -191,7 +193,7 @@ static char _pthread_attr_init(void *a,size_t s){
 
 pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio,size_t stackSize_kb){
     pthread_attr_t attr[1];
-    if(count && _pthread_attr_init(attr,stackSize_kb) ){
+    if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) ){
         const unsigned int queueSize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio);
         pthread_pool_t p=malloc( _PTHREAD_OFFSET(*p,queue) + queueSize + sizeof(pthread_t)*count);
         while(p){
@@ -401,6 +403,11 @@ unsigned int pthread_backtrace(void **array,unsigned int count){
     return c>0?c:0;
 }
 
+unsigned int pthread_cores(void){
+    SYSTEM_INFO sys; GetSystemInfo(&sys);
+    return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
+}
+
 #define _PTHREAD_CONT SIGBREAK
 
 #else /* end __WIN32 */
@@ -431,9 +438,15 @@ unsigned int pthread_backtrace(void **array,unsigned int count){
     return c>0?c:0;
 }
 
+unsigned int pthread_cores(void){
+    const long int c=sysconf(_SC_NPROCESSORS_CONF);
+    return c>1?c:1;
+}
+
 #define _PTHREAD_CONT SIGCONT
 
 #endif /* end not __WIN32 */
+
 
 int pthread_signal_resume=_PTHREAD_CONT;
 int pthread_signal_pause=SIGINT;
