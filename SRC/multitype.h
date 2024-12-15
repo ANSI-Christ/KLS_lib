@@ -22,6 +22,8 @@ typedef unsigned char multitype;
     for(pthread_once(&_MT_once,_MT_init), ({ void *_1_[M_COUNT(__VA_ARGS__)+2]={pthread_getspecific(_MT_key),M_FOREACH(_MT_PACK,-,__VA_ARGS__)}; pthread_setspecific(_MT_key,_1_); }); ; ({goto M_JOIN(_mark,M_LINE());}) )\
         if(0){M_JOIN(_mark,M_LINE()): pthread_setspecific(_MT_key,*(void**)pthread_getspecific(_MT_key)); break;}else*({char _2_;&_2_;})
 
+#endif /* MULTITYPE_H */
+
 
 #ifdef MULTITYPE_IMPL
 
@@ -38,5 +40,3 @@ extern pthread_key_t _MT_key;
 extern pthread_once_t _MT_once;
 
 #endif
-
-#endif // MULTITYPE_H
