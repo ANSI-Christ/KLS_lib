@@ -16,3 +16,5 @@ Some stuff:
   - gui / widgets (unfinished, but it works)
   - regex (done only compilation of pattern)
   - some geometry tasks
+
+Look for usage examples in main.c
