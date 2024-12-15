@@ -128,29 +128,27 @@ static unsigned int _pthread_pool_index(const _pthread_pool_t p){
 }
 
 static void *_pthread_pool_worker(_pthread_pool_t p){
-    #define LOCAL_QUEUE_SIZE 3
     const unsigned int index=_pthread_pool_index(p);
     unsigned char i, sleep=0, busy=1;
-    _pthread_pool_task_t *t, *a[LOCAL_QUEUE_SIZE];
+    _pthread_pool_task_t *t[4];
 
     while('0'){
         pthread_mutex_lock(p->mtx);
 _mark:
         if(p->die==1)
             break;
-        if( (t=_pthread_pool_pop(p)) ){
-            const unsigned int _c=(--p->size)/p->count;
-            const unsigned char c=(_c>LOCAL_QUEUE_SIZE?LOCAL_QUEUE_SIZE:_c);
-            for(i=0,p->size-=c;i<c;++i)
-                a[i]=_pthread_pool_pop(p);
+        if( (t[0]=_pthread_pool_pop(p)) ){
+            const unsigned int s=(--p->size)/p->count;
+            const unsigned char c=(s>3?3:s);
+            for(i=0,p->size-=c; i<c;)
+                t[++i]=_pthread_pool_pop(p);
             if(busy&1){busy<<=1; ++p->busy;}
+
             pthread_mutex_unlock(p->mtx);
 
-            t->f(t+1,index,p);
-            free(t);
-            for(i=0;i<c;++i){
-                a[i]->f(a[i]+1,index,p);
-                free(a[i]);
+            for(i=0;i<=c;++i){
+                t[i]->f(t[i]+1,index,p);
+                free(t[i]);
             }
             sleep|=64;
             continue;
@@ -174,7 +172,6 @@ _mark:
     }
     pthread_mutex_unlock(p->mtx);
     return NULL;
-    #undef LOCAL_QUEUE_SIZE
 }
 
 static char _pthread_attr_init(void *a,size_t s){
