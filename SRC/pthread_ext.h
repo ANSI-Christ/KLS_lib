@@ -46,11 +46,6 @@ unsigned char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec);
 
 const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
-#define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
-#define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
-
-
-
 
 
 
@@ -65,6 +60,13 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
     extern void *_pthread_pool_task(void *pool,const void *task,const unsigned int size,unsigned char prio);\
     _pthread_pool_task(_id_,&M_JOIN(_pt_,M_LINE()),_PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()),size),(_pr_));\
 })
+#define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
+#define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
+
+#endif /* PTHREAD_EXT_H */
+
+
+
 
 
 #ifdef PTHREAD_EXT_IMPL
@@ -655,5 +657,3 @@ const char *pthread_signal_name(int sig){
 #undef _PTHREAD_MKSLEEP
 
 #endif /*PTHREAD_EXT_IMPL*/
-
-#endif /* PTHREAD_EXT_H */
