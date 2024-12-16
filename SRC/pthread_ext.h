@@ -519,7 +519,7 @@ void pthread_resume(pthread_t tid){
 
 static int _pthread_policy_checked(const int pol,const int pri){
 #ifdef _POSIX_PRIORITY_SCHEDULING
-    const int min=sched_get_priority_min(pol), max=sched_get_priority_min(pol);
+    const int min=sched_get_priority_min(pol), max=sched_get_priority_max(pol);
     if(pri>max) return max;
     if(pri<min) return min;
 #endif
