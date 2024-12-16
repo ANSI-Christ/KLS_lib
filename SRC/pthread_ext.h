@@ -6,22 +6,33 @@
 #include <signal.h>
 #include "macro.h"
 
+
+
 extern int pthread_signal_resume;
 extern int pthread_signal_pause;
 
 int pthread_signal_getmode(int sig);
+
 void pthread_signal_setmode(int sig,int mode);
 void pthread_signal_send(pthread_t tid,int sig);
+
 void *pthread_signal_handler(int sig,void(*handler)(int sig));
+
 const char *pthread_signal_name(int sig);
+
+
 
 void pthread_pause(pthread_t tid);
 void pthread_resume(pthread_t tid);
 void pthread_pausable(unsigned char pausable);
 
+
+
 const char *pthread_policy_name(int policy);
 unsigned char pthread_policy_set(pthread_t tid,int policy,int priority);
 unsigned char pthread_policy_get(pthread_t tid,int *policy,int *priority);
+
+
 
 unsigned int pthread_cores(void);
 unsigned int pthread_backtrace(void **array,unsigned int count);
@@ -40,9 +51,9 @@ void pthread_pool_destroy_later(pthread_pool_t *pool);
 void *pthread_pool_task(pthread_pool_t pool,void(*task)(void *args,unsigned int index,pthread_pool_t pool),...);
 void *pthread_pool_task_prio(pthread_pool_t pool,unsigned char prio,void(*task)(void *args,unsigned int index,pthread_pool_t pool),...);
 
-unsigned int pthread_pool_count(const pthread_pool_t pool);
+signed char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec);
 
-unsigned char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec);
+unsigned int pthread_pool_count(const pthread_pool_t pool);
 
 const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
@@ -73,7 +84,7 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <errno.h>
 #include <time.h>
 
 #define _PTHREAD_MKSLEEP(_mk_) {const struct timespec t={_mk_/1000000,(_mk_%1000000)*1000};nanosleep(&t,NULL);}
@@ -92,8 +103,7 @@ typedef struct _pthread_pool_t{
     pthread_cond_t cond[2];
     pthread_t *tid;
     unsigned int count, busy, size;
-    unsigned char die, wait;
-    unsigned char peak, max;
+    unsigned char die, peak, max;
     _pthread_pool_queue_t queue[1];
 } * const _pthread_pool_t;
 
@@ -160,7 +170,7 @@ _mark:
         if(busy&2){
             busy>>=1; --p->busy;
         }
-        if(p->wait && !p->busy)
+        if(!p->busy)
             pthread_cond_broadcast(p->cond+1);
         if(!sleep){
             pthread_cond_wait(p->cond,p->mtx);
@@ -213,7 +223,7 @@ pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio,size_t 
             }
 
             p->max=prio;
-            p->die=p->wait=p->peak=0;
+            p->die=p->peak=0;
             p->count=p->size=p->busy=0;
             memset(p->queue,0,queueSize);
             p->tid=(void*)(p->queue+1+prio);
@@ -254,16 +264,14 @@ void pthread_pool_destroy_later(pthread_pool_t *pool){_pthread_pool_destroy(pool
 void pthread_pool_wait(pthread_pool_t pool){
     if(!pool) return;
     pthread_mutex_lock(pool->mtx);
-    pool->wait=1;
     pthread_cond_signal(pool->cond);
     while(pthread_cond_wait(pool->cond+1,pool->mtx));
-    pool->wait=0;
     pthread_mutex_unlock(pool->mtx);
 }
 
-unsigned char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec){
+signed char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec){
     if(pool){
-        unsigned char ret;
+        signed char ret=0;
         struct timespec t;
         clock_gettime(CLOCK_REALTIME,&t);
         t.tv_sec+=msec/1000;
@@ -272,12 +280,15 @@ unsigned char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec){
         t.tv_nsec%=1000000000;
 
         pthread_mutex_lock(pool->mtx);
-        pool->wait=1;
         pthread_cond_signal(pool->cond);
-        ret=!pthread_cond_timedwait(pool->cond+1,pool->mtx,&t);
-        pool->wait=0;
+_mark:
+        switch(pthread_cond_timedwait(pool->cond+1,pool->mtx,&t)){
+            case -1: if(errno!=ETIMEDOUT) goto _mark; break;
+            case 0: ret=1; break;
+            case ETIMEDOUT: break;
+            default: goto _mark;
+        }
         pthread_mutex_unlock(pool->mtx);
-
         return ret;
     } return -1;
 }
@@ -410,6 +421,8 @@ unsigned int pthread_cores(void){
 #define _PTHREAD_CONT SIGBREAK
 
 #else /* end __WIN32 */
+
+#include <unistd.h>
 
 extern int backtrace(void**,int);
 
