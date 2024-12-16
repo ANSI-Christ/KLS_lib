@@ -517,8 +517,17 @@ void pthread_resume(pthread_t tid){
         pthread_signal_send(tid,pthread_signal_resume);
 }
 
+static int _pthread_policy_checked(const int pol,const int pri){
+#ifdef _POSIX_PRIORITY_SCHEDULING
+    const int min=sched_get_priority_min(pol), max=sched_get_priority_min(pol);
+    if(pri>max) return max;
+    if(pri<min) return min;
+#endif
+    return pri;
+}
+
 unsigned char pthread_policy_set(pthread_t tid,int policy,int priority){
-    struct sched_param s[1]; s->sched_priority=priority;
+    struct sched_param s[1]; s->sched_priority=_pthread_policy_checked(policy,priority);
     return !pthread_setschedparam(tid,policy,s);
 }
 
@@ -528,10 +537,27 @@ unsigned char pthread_policy_get(pthread_t tid,int *policy,int *priority){
 }
 
 const char *pthread_policy_name(int policy){
-    #define _THRPLC(_1_) case SCHED_ ## _1_: return #_1_;
-    switch(policy){ _THRPLC(OTHER) _THRPLC(FIFO) _THRPLC(RR) }
+    switch(policy){
+        #ifdef SCHED_RR
+            case SCHED_RR: return "SCHED_RR";
+        #endif
+        #ifdef SCHED_FIFO
+            case SCHED_FIFO: return "SCHED_FIFO";
+        #endif
+        #ifdef SCHED_IDLE
+            case SCHED_IDLE: return "SCHED_IDLE";
+        #endif
+        #ifdef SCHED_OTHER
+            case SCHED_OTHER: return "SCHED_OTHER";
+        #endif
+        #ifdef SCHED_BATCH
+            case SCHED_BATCH: return "SCHED_BATCH";
+        #endif
+        #ifdef SCHED_DEADLINE
+            case SCHED_DEADLINE: return "SCHED_DEADLINE";
+        #endif
+    }
     return "unknown";
-    #undef _THRPLC
 }
 
 void *pthread_signal_handler(int sig,void(*handler)(int sig)){

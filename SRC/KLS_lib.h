@@ -284,9 +284,9 @@ void KLS_timerStop(KLS_t_TIMER timer);
 void KLS_timerDestroy(KLS_t_TIMER *timer);
 
 KLS_byte KLS_timerContinue(KLS_t_TIMER timer);
-KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval),void *arg);
+KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval,pthread_t tid),void *arg);
 
-KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg);
+KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval,pthread_t tid),void *arg);
 
 
 

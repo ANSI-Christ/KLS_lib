@@ -3,9 +3,10 @@
 #define _KLS_timerLess(_1_,_2_) (_1_.tv_sec<_2_.tv_sec || (_1_.tv_sec==_2_.tv_sec && _1_.tv_nsec<_2_.tv_nsec))
 
 struct _KLS_t_TIMER{
-    void(*f)(void *arg,unsigned int *interval);
+    void(*f)(void *arg,unsigned int *interval,pthread_t tid);
     void *arg;
     struct timespec t;
+    pthread_t tid;
     unsigned int msInterval;
     char run, _size;
 };
@@ -62,7 +63,7 @@ _mark:
             tmp=timer->t;
             KLS_timespecSub(&tmp,t.tv_sec,t.tv_nsec);
             if( !(tmp.tv_sec|tmp.tv_nsec) ){
-                timer->f(timer->arg,&timer->msInterval);
+                timer->f(timer->arg,&timer->msInterval,timer->tid);
                 if(!timer->msInterval){
                     KLS_t_TIMER next=KLS_listNext(timer);
                     timer->run=0; KLS_listMoveAfter(g->list,timer,g->list->last);
@@ -104,7 +105,7 @@ static char _KLS_timerInit(void){
     } return g->list->sizeElement>0;
 }
 
-KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),void *arg){
+KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval,pthread_t tid),void *arg){
     KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
     KLS_t_TIMER t=NULL;
     pthread_mutex_lock(g->mtx);
@@ -116,8 +117,9 @@ KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval),
     return t;
 }
 
-KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval),void *arg){
+KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval,pthread_t tid),void *arg){
     if(timer && (msDelay|msInterval) && (callback || timer->f)){
+        const pthread_t tid=pthread_self();
         KLS_TYPEOF(_KLS_timerGlob) * const g=&_KLS_timerGlob;
         pthread_mutex_lock(g->mtx);
         if(arg) timer->arg=arg;
@@ -126,6 +128,7 @@ KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msIn
             timer->run=1;
             KLS_listMoveBefore(g->list,timer,g->list->first);
         }
+        timer->tid=tid;
         timer->msInterval=msInterval;
         clock_gettime(KLS_TIMER_CLOCKID,&timer->t);
         KLS_timespecAdd(&timer->t,msDelay/1000,(msDelay%1000)*1000000);
