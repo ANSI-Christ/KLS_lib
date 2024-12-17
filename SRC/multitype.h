@@ -17,7 +17,7 @@ typedef unsigned char multitype;
 #define _MT_TYPEOF(...) __typeof__(__VA_ARGS__)
 #define _MT_UNPACK(_0_,_1_,_val_) if(*_1_>(void*)1){*(_MT_TYPEOF(_val_)*)(*_1_)=(_val_);++_1_;}else if(*_1_==(void*)1){++_1_;}
 #define _MT_PACK(_index_,_arg_,_var_) M_IF(M_IS_ARG(_var_))(&_var_,(void*)1),
-#define _MT_RETURN(...) { void **_1_=pthread_getspecific(_MT_key);if(_1_){++_1_;M_FOREACH(_MT_UNPACK,_1_,__VA_ARGS__)}}return 0;
+#define _MT_RETURN(...) { void **_1_=(void**)pthread_getspecific(_MT_key);if(_1_){++_1_;M_FOREACH(_MT_UNPACK,_1_,__VA_ARGS__)}}return 0;
 #define _MT_LET(...) \
     for(pthread_once(&_MT_once,_MT_init), ({ void *_1_[M_COUNT(__VA_ARGS__)+2]={pthread_getspecific(_MT_key),M_FOREACH(_MT_PACK,-,__VA_ARGS__)}; pthread_setspecific(_MT_key,_1_); }); ; ({goto M_JOIN(_mark,M_LINE());}) )\
         if(0){M_JOIN(_mark,M_LINE()): pthread_setspecific(_MT_key,*(void**)pthread_getspecific(_MT_key)); break;}else*({char _2_;&_2_;})
