@@ -63,16 +63,16 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
 
 #define _PTHREAD_OFFSET(_s_,_f_) (size_t)(&((__typeof__(_s_)*)0)->_f_)
-#define _PTHREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;}
+#define _PTHREAD_STRUCT(...) const union{ const struct{void *p; void *f; M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;}S; const struct{M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;}_; }
 #define __PTHREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __typeof__(__VA_ARGS__) M_JOIN(_,_index_); )
 #define _PTHREAD_TASK(_id_,_pr_,_f_,...) ({\
-    const _PTHREAD_STRUCT(__VA_ARGS__) M_JOIN(_pt_,M_LINE())={NULL,(void*)(_f_),__VA_ARGS__};\
-    M_ASSERT( sizeof(struct{void *p[2];}) + _PTHREAD_OFFSET(struct{M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;},size) == _PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()),size), pthread_pool_task_bad_align_of_arguments);\
-    extern void *_pthread_pool_task(void * const pool,const void * const task,const unsigned int size,unsigned char prio);\
-    _pthread_pool_task(_id_,&M_JOIN(_pt_,M_LINE()),_PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()),size),(_pr_));\
+    _PTHREAD_STRUCT(__VA_ARGS__) M_JOIN(_pt_,M_LINE())={{NULL,(void*)(_f_),__VA_ARGS__}};\
+    M_ASSERT( sizeof(void*[2]) + _PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE())._,size) == _PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()).S,size), pthread_pool_task_bad_align_of_arguments);\
+    _pthread_pool_task(_id_,&M_JOIN(_pt_,M_LINE()).S,_PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()).S,size),(_pr_));\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
+void *_pthread_pool_task(void *pool,const void * const task,const unsigned int size,unsigned char prio);
 
 #endif /* PTHREAD_EXT_H */
 
@@ -83,6 +83,7 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 #ifdef PTHREAD_EXT_IMPL
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <time.h>
@@ -293,19 +294,16 @@ _mark:
     } return -1;
 }
 
-void *_pthread_pool_task(void * const pool,const void * const task,const unsigned int size,unsigned char prio){
-    _pthread_pool_t p=(pthread_pool_t)pool;
-    if(p && !p->die && ((void**)task)[1]){
-        void *t=malloc(size);
-        if(t){
-            memcpy(t,task,size);
-            if(prio>p->max) prio=p->max;
-            pthread_mutex_lock(p->mtx);
-            _pthread_pool_push(p,(_pthread_pool_task_t*)t,prio);
-            pthread_cond_signal(p->cond);
-            pthread_mutex_unlock(p->mtx);
-            return t;
-        }
+void *_pthread_pool_task(void *t,const void * const task,const unsigned int size,unsigned char prio){
+    _pthread_pool_t p=(pthread_pool_t)t;
+    if( p && !p->die && ((void**)task)[1] && (t=malloc(size)) ){
+        memcpy(t,task,size);
+        if(prio>p->max) prio=p->max;
+        pthread_mutex_lock(p->mtx);
+        _pthread_pool_push(p,(_pthread_pool_task_t*)t,prio);
+        pthread_cond_signal(p->cond);
+        pthread_mutex_unlock(p->mtx);
+        return t;
     } return NULL;
 }
 
@@ -421,11 +419,9 @@ unsigned int pthread_cores(void){
     return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
 }
 
-#define _PTHREAD_CONT SIGBREAK
+int pthread_signal_resume=SIGBREAK;
 
 #else /* end __WIN32 */
-
-#include <unistd.h>
 
 extern int backtrace(void**,int);
 
@@ -458,12 +454,10 @@ unsigned int pthread_cores(void){
     return c>1?c:1;
 }
 
-#define _PTHREAD_CONT SIGCONT
+int pthread_signal_resume=SIGCONT;
 
 #endif /* end not __WIN32 */
 
-
-int pthread_signal_resume=_PTHREAD_CONT;
 int pthread_signal_pause=SIGINT;
 
 static pthread_key_t _pthreadKey;
@@ -695,7 +689,6 @@ const char *pthread_signal_name(int sig){
     #undef PSIG_CASE
 }
 
-#undef _PTHREAD_CONT
 #undef _PTHREAD_MKSLEEP
 
 #endif /*PTHREAD_EXT_IMPL*/

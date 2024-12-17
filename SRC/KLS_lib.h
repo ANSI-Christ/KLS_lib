@@ -1225,17 +1225,6 @@ struct _KLS_t_HEAP_NODE{
     }}
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-void *_KLS_threadPoolTask(void *pool,const void *task,const unsigned int size,unsigned char prio);
-#define _KLS_THREAD_ARGS(_0_,_1_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __VA_ARGS__; )
-#define _KLS_THREAD_STRUCT(...) struct{void *p; void *f; M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char size;}
-#define __KLS_THREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( KLS_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
-#define _KLS_THREAD_CALL(_id_,_pr_,_f_,...) ({\
-    const _KLS_THREAD_STRUCT(__VA_ARGS__) KLS_MVN(_thr1)={NULL,(_f_),__VA_ARGS__};\
-    M_ASSERT( sizeof(struct{void *p[2];}) + KLS_OFFSET(struct{M_FOREACH(__KLS_THREAD_STRUCT,-,__VA_ARGS__) char size;},size) == KLS_OFFSET(KLS_MVN(_thr1),size), ThreadTask_bad_align_of_arguments);\
-    _KLS_threadPoolTask(_id_,&KLS_MVN(_thr1),KLS_OFFSET(KLS_MVN(_thr1),size),(_pr_));\
-})
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
 
 #undef _KLS_GLOBVAR
 

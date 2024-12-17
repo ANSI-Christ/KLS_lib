@@ -12,7 +12,7 @@
 #define _KLS_tm1sec 1000000000
 
 static const char *_KLS_execName=NULL;
-static char _KLS_exec=1;
+static KLS_byte _KLS_exec=1;
 KLS_byte KLS_COLOR_BITS=32;
 
 extern int close(int fd);
