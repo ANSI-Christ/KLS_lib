@@ -32,7 +32,7 @@ static void _KLS_timerClose(void){
 static void _KLS_timerPolicy(void){
     pthread_t tid=pthread_self();
     int pol=0, pri=0;
-    if(pthread_policy_get(tid,&pol,&pri) && pol!=0)
+    if(!pthread_policy_get(tid,&pol,&pri))
         pthread_policy_set(tid,pol,99);
 }
 

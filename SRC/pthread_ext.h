@@ -28,9 +28,9 @@ void pthread_pausable(unsigned char pausable);
 
 
 
+int pthread_policy_set(pthread_t tid,int policy,int priority);
+int pthread_policy_get(pthread_t tid,int *policy,int *priority);
 const char *pthread_policy_name(int policy);
-unsigned char pthread_policy_set(pthread_t tid,int policy,int priority);
-unsigned char pthread_policy_get(pthread_t tid,int *policy,int *priority);
 
 
 
@@ -43,6 +43,8 @@ typedef struct __pthread_pool_t* pthread_pool_t;
 
 pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio,size_t stackSize_kb);
 
+int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *t,int flags); /* flags{abstime=0, reltime=1} */
+
 void pthread_pool_wait(pthread_pool_t pool);
 void pthread_pool_clear(pthread_pool_t pool);
 void pthread_pool_destroy(pthread_pool_t *pool);
@@ -50,8 +52,6 @@ void pthread_pool_destroy_later(pthread_pool_t *pool);
 
 void *pthread_pool_task(pthread_pool_t pool,void(*task)(void *args,unsigned int index,pthread_pool_t pool),...);
 void *pthread_pool_task_prio(pthread_pool_t pool,unsigned char prio,void(*task)(void *args,unsigned int index,pthread_pool_t pool),...);
-
-signed char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec);
 
 unsigned int pthread_pool_count(const pthread_pool_t pool);
 
@@ -270,28 +270,30 @@ void pthread_pool_wait(pthread_pool_t pool){
     pthread_mutex_unlock(pool->mtx);
 }
 
-signed char pthread_pool_timedwait(pthread_pool_t pool,unsigned int msec){
+int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *t,int flags){
     if(pool){
-        signed char ret=0;
-        struct timespec t;
-        clock_gettime(CLOCK_REALTIME,&t);
-        t.tv_sec+=msec/1000;
-        t.tv_nsec+=(msec%1000)*1000000;
-        t.tv_sec+=(t.tv_nsec/1000000000);
-        t.tv_nsec%=1000000000;
-
+        struct timespec _t;
+        int err=ETIMEDOUT;
+        if(flags & 1){
+            clock_gettime(CLOCK_REALTIME,&_t);
+            _t.tv_sec+=t->tv_sec;
+            _t.tv_nsec+=t->tv_nsec;
+            _t.tv_sec+=(_t.tv_nsec/1000000000);
+            _t.tv_nsec%=1000000000;
+            t=&_t;
+        }
         pthread_mutex_lock(pool->mtx);
         pthread_cond_signal(pool->cond);
 _mark:
-        switch(pthread_cond_timedwait(pool->cond+1,pool->mtx,&t)){
+        switch(pthread_cond_timedwait(pool->cond+1,pool->mtx,t)){
             case -1: if(errno!=ETIMEDOUT) goto _mark; break;
-            case 0: ret=1; break;
+            case 0: err=0; break;
             case ETIMEDOUT: break;
             default: goto _mark;
         }
         pthread_mutex_unlock(pool->mtx);
-        return ret;
-    } return -1;
+        return err;
+    } return EINVAL;
 }
 
 void *_pthread_pool_task(void *t,const void * const task,const unsigned int size,unsigned char prio){
@@ -523,14 +525,15 @@ static int _pthread_policy_checked(const int pol,const int pri){
     return pri;
 }
 
-unsigned char pthread_policy_set(pthread_t tid,int policy,int priority){
-    struct sched_param s[1]; s->sched_priority=_pthread_policy_checked(policy,priority);
-    return !pthread_setschedparam(tid,policy,s);
+int pthread_policy_set(pthread_t tid,int policy,int priority){
+    struct sched_param s[1]={{0}}; s->sched_priority=_pthread_policy_checked(policy,priority);
+    return pthread_setschedparam(tid,policy,s);
 }
 
-unsigned char pthread_policy_get(pthread_t tid,int *policy,int *priority){
-    struct sched_param s[1];
-    return !pthread_getschedparam(tid,policy,s) && ((*priority=s->sched_priority) || 1);
+int pthread_policy_get(pthread_t tid,int *policy,int *priority){
+    struct sched_param s[1]={{0}};
+    const int err=pthread_getschedparam(tid,policy,s); *priority=s->sched_priority;
+    return err;
 }
 
 const char *pthread_policy_name(int policy){
