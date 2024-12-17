@@ -61,16 +61,16 @@ struct _TRYCATCH *_TryCatch(void);
     TryCatchTerminate();\
 })
 #define _TRY(...) ({\
-    jmp_buf _1tc_;\
-    struct _TRYCATCH * const _2tc_=_TryCatch();\
-    void *_3tc_; char _4tc_;\
-    if(!_2tc_){puts("\n\nTRY FAULT at [" _THROW_INFO "]\n");TryCatchTerminate();}\
-    _3tc_=_2tc_->jmp;\
-    _2tc_->jmp=&_1tc_;\
+    jmp_buf _1tc_, *_2tc_;\
+    struct _TRYCATCH * const _3tc_=_TryCatch();\
+    char _4tc_;\
+    if(!_3tc_){puts("\n\nTRY FAULT at [" _THROW_INFO "]\n");TryCatchTerminate();}\
+    _2tc_=_3tc_->jmp;\
+    _3tc_->jmp=&_1tc_;\
     _4tc_=!setjmp(_1tc_);\
     if(_4tc_) do{__VA_ARGS__}while(!5);\
-    _2tc_->jmp=_3tc_;\
-    _2tc_->final=!_4tc_;\
+    _3tc_->jmp=_2tc_;\
+    _3tc_->final=!_4tc_;\
     _4tc_;\
 })
 
@@ -80,7 +80,6 @@ struct _TRYCATCH *_TryCatch(void);
 
 #ifdef TRY_CATCH_IMPL
 
-extern int atexit(void(*)(void));
 static pthread_key_t _TryCatchKey;
 static unsigned char _TryCatchInit;
 
@@ -93,19 +92,20 @@ static void _TryCatchDeleter(struct _TRYCATCH *s){
 }
 
 static void _TryCatchExit(void){
-    _TryCatchDeleter(pthread_getspecific(_TryCatchKey));
+    _TryCatchDeleter((struct _TRYCATCH*)pthread_getspecific(_TryCatchKey));
     pthread_key_delete(_TryCatchKey);
 }
 
 static void _TryCatchOnce(void){
-    if( (_TryCatchInit=!pthread_key_create(&_TryCatchKey,(void*)_TryCatchDeleter)) )
+    extern int atexit(void(*)(void));
+    if( (_TryCatchInit=!pthread_key_create(&_TryCatchKey,(void(*)(void*))_TryCatchDeleter)) )
         atexit(_TryCatchExit);
 }
 
 struct _TRYCATCH *_TryCatch(void){
     static pthread_once_t once=PTHREAD_ONCE_INIT;
     struct _TRYCATCH *s=NULL;
-    if((_TryCatchInit || (!pthread_once(&once,_TryCatchOnce) && _TryCatchInit)) && !(s=pthread_getspecific(_TryCatchKey)) && (s=malloc(sizeof(*s))) ){
+    if((_TryCatchInit || (!pthread_once(&once,_TryCatchOnce) && _TryCatchInit)) && !(s=(struct _TRYCATCH*)pthread_getspecific(_TryCatchKey)) && (s=(struct _TRYCATCH*)malloc(sizeof(*s))) ){
         if(pthread_setspecific(_TryCatchKey,s)){
             free(s); s=NULL;
         }else{
