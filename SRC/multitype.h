@@ -27,6 +27,8 @@ typedef unsigned char multitype;
 
 #ifdef MULTITYPE_IMPL
 
+#include <stdlib.h>
+
 extern int atexit(void(*)(void));
 pthread_key_t _MT_key;
 pthread_once_t _MT_once=PTHREAD_ONCE_INIT;
