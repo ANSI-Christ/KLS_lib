@@ -60,6 +60,17 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
 
 
+typedef struct{ union{void *p; int i;} r[1], w[1]; }pthread_channel_t;
+
+pthread_channel_t pthread_channel_init(void);
+
+void pthread_channel_close(pthread_channel_t *channel);
+
+int pthread_channel_pop(pthread_channel_t *channel,void *data,int size);
+int pthread_channel_push(pthread_channel_t *channel,const void *data,int size);
+
+
+
 
 
 #define _PTHREAD_OFFSET(_s_,_f_) (size_t)(&((__typeof__(_s_)*)0)->_f_)
@@ -331,16 +342,50 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool){
 #define NOMINMAX
 #include <windows.h>
 
-#define _pthread_kill(_1_,_2_,_sig_) static void _pthread_kill_##_sig_(void){raise(_sig_);}
-M_FOREACH(_pthread_kill,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
-#undef _pthread_kill
+pthread_channel_t pthread_channel_init(void){
+    pthread_channel_t channel={{NULL},{NULL}};
+    Createchannel(channel.r,channel.p,NULL,0);
+    return channel;
+}
 
-static void *_pthread_killFunc(int sig){
-#define _pthread_kill(_1_,_2_,_sig_) case _sig_:return _pthread_kill_##_sig_;
+void pthread_channel_close(pthread_channel_t *channel){
+    if(!channel || !channel->r->p) return;
+    CloseHandle(channel->w->p);
+    CloseHandle(channel->r->p);
+    channel->r->p=NULL;
+}
+
+int pthread_channel_push(pthread_channel_t *channel,const void *data,int size){
+    if(!channel || !channel->r->p || !data || size<1) return -1;
+    if(WriteFile(channel->w->p,data,size,&size,NULL)) return size;
+    return -1;
+}
+
+int pthread_channel_pop(pthread_channel_t *channel,void *data,int size){
+    if(channel && channel->r->p && data){
+        char *p=(char*)data;
+        while(size>0){
+            int bytes;
+            ReadFile(channel->r->p,p,size,&bytes,NULL);
+            if(bytes>0){
+                size-=bytes;
+                p+=bytes;
+            }
+        } return 0;
+    } return -1;
+}
+
+
+#define _pthread_iter(_1_,_2_,_sig_) static void _pthread_raise_##_sig_(void){raise(_sig_);}
+M_FOREACH(_pthread_iter,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+#undef _pthread_iter
+
+static void *_pthread_raise_func(int sig){
+#define _pthread_iter(_1_,_2_,_sig_) case _sig_:return _pthread_raise_##_sig_;
     switch(sig){
-        M_FOREACH(_pthread_kill,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+        M_FOREACH(_pthread_iter,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
     } return NULL;
-#undef _pthread_kill
+#undef _pthread_iter
 }
 
 #if defined(_M_IX86) || (defined(_X86_) && !defined(__amd64__))
@@ -389,7 +434,7 @@ static void *_CtxCtrlRegf(CONTEXT *c){
 #endif
 
 void pthread_signal_send(pthread_t tid,int sig){
-    void *f=_pthread_killFunc(sig);
+    void *f=_pthread_raise_func(sig);
     if(f){
         CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
         void **x=(void*)_CtxCtrlReg(c), *p=pthread_gethandle(tid);
@@ -425,7 +470,54 @@ int pthread_signal_resume=SIGBREAK;
 
 #else /* end __WIN32 */
 
-extern int backtrace(void**,int);
+static int _pthread_pipe(int fd[2]){
+    struct _pipe_t{long fd[2];} s={-1,-1};
+    struct _pipe_t(*f)(int fd[2])=(struct _pipe_t(*)(int fd[2]))pipe;
+    fd[0]=fd[1]=-1; s=f(fd);
+    if(s.fd[0]==-1) return -1;
+    if(fd[0]==-1){
+        fd[0]=s.fd[0];
+        fd[1]=s.fd[1];
+    }
+    return fd[0]==-1;
+}
+
+pthread_channel_t pthread_channel_init(void){
+    pthread_channel_t channel;
+    int fd[2];
+    if(_pthread_pipe(fd))
+        channel.r->i=channel.w->i=-1;
+    else{
+        channel.r->i=fd[0];
+        channel.w->i=fd[1];
+    } return channel;
+}
+
+void pthread_channel_close(pthread_channel_t *channel){
+    if(!channel || channel->r->i==-1) return;
+    close(channel->w->i);
+    close(channel->r->i);
+    channel->r->i=-1;
+}
+
+int pthread_channel_push(pthread_channel_t *channel,const void *data,int size){
+    if(!channel || channel->r->i==-1 || !data || size<1) return -1;
+    return write(channel->w->i,data,size);
+}
+
+int pthread_channel_pop(pthread_channel_t *channel,void *data,int size){
+    if(channel && channel->r->i!=-1 && data){
+        char *p=(char*)data;
+        while(size>0){
+            const int bytes=read(channel->r->i,p,size);
+            if(bytes>0){
+                size-=bytes;
+                p+=bytes;
+            }
+        } return 0;
+    } return -1;
+}
+
 
 void pthread_signal_send(pthread_t tid,int sig){
     pthread_kill(tid,sig);
@@ -445,6 +537,8 @@ void pthread_signal_setmode(int sig,int mode){
     pthread_sigmask(mode,s,NULL);
     return;
 }
+
+extern int backtrace(void**,int);
 
 unsigned int pthread_backtrace(void **array,unsigned int count){
     const int c=backtrace(array,count);
