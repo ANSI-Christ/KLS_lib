@@ -60,14 +60,15 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool);
 
 
 
-typedef struct{ union{void *p; int i;} r[1], w[1]; }pthread_channel_t;
+typedef struct{ union{void *p; int i;} r[1], w[1]; } pthread_channel_t;
 
-pthread_channel_t pthread_channel_init(void);
+int pthread_channel_open(pthread_channel_t *channel);
+int pthread_channel_pop(pthread_channel_t *channel,void *data,int size);
+int pthread_channel_push(pthread_channel_t *channel,const void *data,int size);
 
 void pthread_channel_close(pthread_channel_t *channel);
 
-int pthread_channel_pop(pthread_channel_t *channel,void *data,int size);
-int pthread_channel_push(pthread_channel_t *channel,const void *data,int size);
+
 
 
 
@@ -342,26 +343,25 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool){
 #define NOMINMAX
 #include <windows.h>
 
-pthread_channel_t pthread_channel_init(void){
-    pthread_channel_t channel={{NULL},{NULL}};
-    Createchannel(channel.r,channel.p,NULL,0);
-    return channel;
-}
-
-void pthread_channel_close(pthread_channel_t *channel){
-    if(!channel || !channel->r->p) return;
-    CloseHandle(channel->w->p);
-    CloseHandle(channel->r->p);
-    channel->r->p=NULL;
-}
-
-int pthread_channel_push(pthread_channel_t *channel,const void *data,int size){
-    if(!channel || !channel->r->p || !data || size<1) return -1;
-    if(WriteFile(channel->w->p,data,size,&size,NULL)) return size;
+int pthread_channel_open(pthread_channel_t * const channel){
+    if(channel) return CreatePipe(channel->r,channel->p,NULL,0)-1;
     return -1;
 }
 
-int pthread_channel_pop(pthread_channel_t *channel,void *data,int size){
+void pthread_channel_close(pthread_channel_t * const channel){
+    if(channel && channel->r->p){
+        CloseHandle(channel->w->p);
+        CloseHandle(channel->r->p);
+        channel->r->p=NULL;
+    }
+}
+
+int pthread_channel_push(pthread_channel_t * const channel,const void *data,int size){
+    if(channel && channel->r->p && data && size>0 && WriteFile(channel->w->p,data,size,&size,NULL)) return size;
+    return -1;
+}
+
+int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
     if(channel && channel->r->p && data){
         char *p=(char*)data;
         while(size>0){
@@ -482,30 +482,34 @@ static int _pthread_pipe(int fd[2]){
     return fd[0]==-1;
 }
 
-pthread_channel_t pthread_channel_init(void){
-    pthread_channel_t channel;
-    int fd[2];
-    if(_pthread_pipe(fd))
-        channel.r->i=channel.w->i=-1;
-    else{
-        channel.r->i=fd[0];
-        channel.w->i=fd[1];
-    } return channel;
+int pthread_channel_open(pthread_channel_t * const channel){
+    if(channel){
+        int fd[2];
+        if(_pthread_pipe(fd)){
+            channel->r->i=channel->w->i=-1;
+            return -1;
+        }
+        channel->r->i=fd[0];
+        channel->w->i=fd[1];
+        return 0;
+    }
+    return -1;
 }
 
-void pthread_channel_close(pthread_channel_t *channel){
-    if(!channel || channel->r->i==-1) return;
-    close(channel->w->i);
-    close(channel->r->i);
-    channel->r->i=-1;
+void pthread_channel_close(pthread_channel_t * const channel){
+    if(channel && channel->r->i!=-1){
+        close(channel->w->i);
+        close(channel->r->i);
+        channel->r->i=-1;
+    }
 }
 
-int pthread_channel_push(pthread_channel_t *channel,const void *data,int size){
-    if(!channel || channel->r->i==-1 || !data || size<1) return -1;
-    return write(channel->w->i,data,size);
+int pthread_channel_push(pthread_channel_t * const channel,const void *data,int size){
+    if(channel && channel->r->i!=-1 && data && size>0) return write(channel->w->i,data,size);
+    return -1;
 }
 
-int pthread_channel_pop(pthread_channel_t *channel,void *data,int size){
+int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
     if(channel && channel->r->i!=-1 && data){
         char *p=(char*)data;
         while(size>0){
