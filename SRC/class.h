@@ -1,3 +1,8 @@
+/* * * * * * * * * * * * * * * * * */
+/* MIT License                     */
+/* Copyright (c) 2024 ANSI-Christ  */
+/* * * * * * * * * * * * * * * * * */
+
 #ifndef CLASS_H
 #define CLASS_H
 

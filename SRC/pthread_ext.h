@@ -1,3 +1,8 @@
+/* * * * * * * * * * * * * * * * * */
+/* MIT License                     */
+/* Copyright (c) 2024 ANSI-Christ  */
+/* * * * * * * * * * * * * * * * * */
+
 #ifndef PTHREAD_EXT_H
 #define PTHREAD_EXT_H
 

@@ -1,3 +1,8 @@
+/* * * * * * * * * * * * * * * * * */
+/* MIT License                     */
+/* Copyright (c) 2024 ANSI-Christ  */
+/* * * * * * * * * * * * * * * * * */
+
 #ifndef MACRO_H
 #define MACRO_H
 

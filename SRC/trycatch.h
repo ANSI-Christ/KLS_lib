@@ -1,3 +1,8 @@
+/* * * * * * * * * * * * * * * * * */
+/* MIT License                     */
+/* Copyright (c) 2024 ANSI-Christ  */
+/* * * * * * * * * * * * * * * * * */
+
 #ifndef TRY_CATCH_H
 #define TRY_CATCH_H
 
