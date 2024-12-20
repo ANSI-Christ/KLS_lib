@@ -41,7 +41,8 @@ unsigned int pthread_backtrace(void **array,unsigned int count);
 
 typedef struct __pthread_pool_t* pthread_pool_t;
 
-pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio,size_t stackSize_kb);
+pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio);
+pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size_t stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*));
 
 int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *t,int flags); /* flags{abstime=0, reltime=1} */
 
@@ -114,6 +115,8 @@ typedef struct{
 typedef struct __pthread_pool_t{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[2];
+    void*(*allocator)(size_t);
+    void(*deallocator)(void*);
     pthread_t *tid;
     unsigned int count, busy, size;
     unsigned char die, peak, max;
@@ -141,7 +144,8 @@ static _pthread_pool_task_t *_pthread_pool_pop(_pthread_pool_t p){
 }
 
 static void _pthread_pool_clear(_pthread_pool_t p){
-    _pthread_pool_task_t *t; while( (t=_pthread_pool_pop(p)) ) free(t);
+    void(* const del)(void*)=p->deallocator;
+    _pthread_pool_task_t *t; while( (t=_pthread_pool_pop(p)) ) del(t);
     p->size=0;
 }
 
@@ -155,6 +159,7 @@ static unsigned int _pthread_pool_index(const _pthread_pool_t p){
 static void *_pthread_pool_worker(_pthread_pool_t p){
     const unsigned int index=_pthread_pool_index(p);
     unsigned char i, sleep=0, busy=1;
+    void(* const del)(void*)=p->deallocator;
     _pthread_pool_task_t *t[4];
 
     while('0'){
@@ -173,7 +178,7 @@ _mark:
 
             for(i=0;i<=c;++i){
                 t[i]->f(t[i]+1,index,p);
-                free(t[i]);
+                del(t[i]);
             }
             sleep|=64;
             continue;
@@ -213,33 +218,39 @@ static char _pthread_attr_init(pthread_attr_t *a,size_t s){
     return 0;
 }
 
-pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio,size_t stackSize_kb){
+pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio){
+    return pthread_pool_create_ex(count,prio,0,(void*(*)(size_t))0,(void(*)(void*))0);
+}
+
+pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size_t stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
     pthread_attr_t attr[1];
-    if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) ){
+    if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) && (allocator || (allocator=malloc)) && (deallocator || (deallocator=free)) ){
         const unsigned int queueSize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio);
-        pthread_pool_t p=(pthread_pool_t)malloc( _PTHREAD_OFFSET(*p,queue) + queueSize + sizeof(pthread_t)*count);
+        pthread_pool_t p=(pthread_pool_t)allocator( _PTHREAD_OFFSET(*p,queue) + queueSize + sizeof(pthread_t)*count);
         while(p){
             if(pthread_mutex_init(p->mtx,NULL)){
-                free(p); p=NULL;
+                deallocator(p); p=NULL;
                 break;
             }
             if(pthread_cond_init(p->cond,NULL)){
                 pthread_mutex_destroy(p->mtx);
-                free(p); p=NULL;
+                deallocator(p); p=NULL;
                 break;
             }
             if(pthread_cond_init(p->cond+1,NULL)){
                 pthread_mutex_destroy(p->mtx);
                 pthread_cond_destroy(p->cond);
-                free(p); p=NULL;
+                deallocator(p); p=NULL;
                 break;
             }
 
             p->max=prio;
             p->die=p->peak=0;
             p->count=p->size=p->busy=0;
-            memset(p->queue,0,queueSize);
+            p->allocator=allocator;
+            p->deallocator=deallocator;
             p->tid=(pthread_t*)(p->queue+1+prio);
+            memset(p->queue,0,queueSize);
 
             while(p->count<count)
                 if(pthread_create(p->tid+p->count++,attr,(void*(*)(void*))_pthread_pool_worker,p)){
@@ -267,7 +278,7 @@ static void _pthread_pool_destroy(pthread_pool_t *pool,char die){
         pthread_cond_destroy(p->cond);
         pthread_cond_destroy(p->cond+1);
         _pthread_pool_clear(p);
-        free(*pool); *pool=NULL;
+        p->deallocator(*pool); *pool=NULL;
     }
 }
 
@@ -310,7 +321,7 @@ _mark:
 
 void *_pthread_pool_task(void *t,const void * const task,const unsigned int size,unsigned char prio){
     _pthread_pool_t p=(pthread_pool_t)t;
-    if( p && !p->die && ((void**)task)[1] && (t=malloc(size)) ){
+    if( p && !p->die && ((void**)task)[1] && (t=p->allocator(size)) ){
         memcpy(t,task,size);
         if(prio>p->max) prio=p->max;
         pthread_mutex_lock(p->mtx);
