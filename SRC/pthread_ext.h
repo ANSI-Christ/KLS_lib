@@ -91,6 +91,7 @@ void pthread_channel_close(pthread_channel_t *channel);
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
 void *_pthread_pool_task(void *pool,const void * const task,const unsigned int size,unsigned char prio);
+extern int nanosleep(const struct timespec*,struct timespec*);
 
 #endif /* PTHREAD_EXT_H */
 
@@ -106,7 +107,6 @@ void *_pthread_pool_task(void *pool,const void * const task,const unsigned int s
 #include <errno.h>
 #include <time.h>
 
-#define _PTHREAD_MKSLEEP(_mk_) {const struct timespec t={_mk_/1000000,(_mk_%1000000)*1000};nanosleep(&t,NULL);}
 
 typedef struct __pthread_pool_task_t{
     struct __pthread_pool_task_t *next;
@@ -157,15 +157,16 @@ static void _pthread_pool_clear(_pthread_pool_t p){
 static unsigned int _pthread_pool_index(const _pthread_pool_t p){
     unsigned int i=p->count-1;
     const pthread_t tid=pthread_self(), * const tids=p->tid;
-    while(!pthread_equal(tid,tids[i])) --i;
+    while(i && !pthread_equal(tid,tids[i])) --i;
     return i;
 }
 
 static void *_pthread_pool_worker(_pthread_pool_t p){
-    const unsigned int index=_pthread_pool_index(p);
-    unsigned char i, sleep=0, busy=1;
     void(* const del)(void*)=p->deallocator;
     _pthread_pool_task_t *t[4];
+    const struct timespec millisec[1]={{0,1000*1000}};
+    const unsigned int index=_pthread_pool_index(p);
+    unsigned char i, sleep=0, busy=1;
 
     while('0'){
         pthread_mutex_lock(p->mtx);
@@ -201,7 +202,7 @@ _mark:
         }
         pthread_mutex_unlock(p->mtx);
 
-        _PTHREAD_MKSLEEP(1000);
+        nanosleep(millisec,NULL);
         sleep>>=1;
 
     }
@@ -596,9 +597,10 @@ static void _pthread_holder(int sig){
     pthread_signal_handler(sig,_pthread_holder);
     pthread_signal_setmode(sig,SIG_UNBLOCK);
     if(sig==pthread_signal_pause){
+        static const struct timespec t[1]={{1}};
         const char * const p=(const char*)pthread_getspecific(_pthreadKey);
         pthread_setspecific(_pthreadKey,p+1);
-        if(!p) while(pthread_getspecific(_pthreadKey)) _PTHREAD_MKSLEEP(1000000);
+        if(!p) while(pthread_getspecific(_pthreadKey)) nanosleep(t,NULL);
         return;
     }
     pthread_setspecific(_pthreadKey, ((char*)pthread_getspecific(_pthreadKey))-1 );
@@ -805,7 +807,5 @@ const char *pthread_signal_name(int sig){
     return "???";
     #undef PSIG_CASE
 }
-
-#undef _PTHREAD_MKSLEEP
 
 #endif /*PTHREAD_EXT_IMPL*/
