@@ -154,19 +154,18 @@ static void _pthread_pool_clear(_pthread_pool_t p){
     p->size=0;
 }
 
-static unsigned int _pthread_pool_index(const _pthread_pool_t p){
-    unsigned int i=p->count-1;
+static unsigned int _pthread_pool_index(const _pthread_pool_t p,unsigned int i){
     const pthread_t tid=pthread_self(), * const tids=p->tid;
-    while(i && !pthread_equal(tid,tids[i])) --i;
-    return i;
+    while(i && !pthread_equal(tid,tids[--i])); return i;
 }
 
 static void *_pthread_pool_worker(_pthread_pool_t p){
+    const unsigned int _racecount=p->count;
+    unsigned char i, sleep=0, busy=1;
+    const struct timespec millisec[1]={{0,1000*1000}};
     void(* const del)(void*)=p->deallocator;
     _pthread_pool_task_t *t[4];
-    const struct timespec millisec[1]={{0,1000*1000}};
-    const unsigned int index=_pthread_pool_index(p);
-    unsigned char i, sleep=0, busy=1;
+    const unsigned int index=_pthread_pool_index(p,_racecount);
 
     while('0'){
         pthread_mutex_lock(p->mtx);
