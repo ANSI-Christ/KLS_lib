@@ -231,7 +231,7 @@ pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio){
 pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size_t stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
     pthread_attr_t attr[1];
     if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) && (allocator || (allocator=malloc)) && (deallocator || (deallocator=free)) ){
-        const unsigned int size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
+        const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
         pthread_pool_t p=(pthread_pool_t)allocator( _PTHREAD_OFFSET(*p,queue) + size);
         while(p){
             if(pthread_mutex_init(p->mtx,NULL)){
