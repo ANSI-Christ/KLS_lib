@@ -154,18 +154,19 @@ static void _pthread_pool_clear(_pthread_pool_t p){
     p->size=0;
 }
 
-static unsigned int _pthread_pool_index(const _pthread_pool_t p,unsigned int i){
+static unsigned int _pthread_pool_index(const _pthread_pool_t p){
+    unsigned int i=p->count;
     const pthread_t tid=pthread_self(), * const tids=p->tid;
-    while(i && !pthread_equal(tid,tids[--i])); return i;
+    while(i && !pthread_equal(tid,tids[--i]));
+    return i;
 }
 
 static void *_pthread_pool_worker(_pthread_pool_t p){
-    const unsigned int _racecount=p->count;
+    const unsigned int index=_pthread_pool_index(p);
     unsigned char i, sleep=0, busy=1;
     const struct timespec millisec[1]={{0,1000*1000}};
     void(* const del)(void*)=p->deallocator;
     _pthread_pool_task_t *t[4];
-    const unsigned int index=_pthread_pool_index(p,_racecount);
 
     while('0'){
         pthread_mutex_lock(p->mtx);
@@ -230,8 +231,8 @@ pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio){
 pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size_t stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
     pthread_attr_t attr[1];
     if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) && (allocator || (allocator=malloc)) && (deallocator || (deallocator=free)) ){
-        const unsigned int queueSize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio);
-        pthread_pool_t p=(pthread_pool_t)allocator( _PTHREAD_OFFSET(*p,queue) + queueSize + sizeof(pthread_t)*count);
+        const unsigned int size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
+        pthread_pool_t p=(pthread_pool_t)allocator( _PTHREAD_OFFSET(*p,queue) + size);
         while(p){
             if(pthread_mutex_init(p->mtx,NULL)){
                 deallocator(p); p=NULL;
@@ -255,7 +256,7 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size
             p->allocator=allocator;
             p->deallocator=deallocator;
             p->tid=(pthread_t*)(p->queue+1+prio);
-            memset(p->queue,0,queueSize);
+            memset(p->queue,0,size);
 
             while(p->count<count)
                 if(pthread_create(p->tid+p->count++,attr,(void*(*)(void*))_pthread_pool_worker,p)){
