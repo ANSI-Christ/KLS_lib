@@ -47,9 +47,9 @@ unsigned int pthread_backtrace(void **array,unsigned int count);
 typedef struct __pthread_pool_t* pthread_pool_t;
 
 pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio);
-pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size_t stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*));
+pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,unsigned int stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*));
 
-int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *t,int flags); /* flags{abstime=0, reltime=1} */
+int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *abstime);
 
 void pthread_pool_wait(pthread_pool_t pool);
 void pthread_pool_clear(pthread_pool_t pool);
@@ -228,7 +228,7 @@ pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio){
     return pthread_pool_create_ex(count,prio,0,(void*(*)(size_t))0,(void(*)(void*))0);
 }
 
-pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size_t stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
+pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,unsigned int stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
     pthread_attr_t attr[1];
     if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) && (allocator || (allocator=malloc)) && (deallocator || (deallocator=free)) ){
         const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
@@ -269,7 +269,7 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,size
     } return NULL;
 }
 
-static void _pthread_pool_destroy(pthread_pool_t *pool,char die){
+static void _pthread_pool_destroy(pthread_pool_t *pool,const char die){
     if(pool && *pool){
         _pthread_pool_t p=*pool;
         unsigned int i=p->count;
@@ -299,22 +299,13 @@ void pthread_pool_wait(pthread_pool_t pool){
     pthread_mutex_unlock(pool->mtx);
 }
 
-int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *t,int flags){
+int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *abstime){
     if(pool){
-        struct timespec _t;
         int err=ETIMEDOUT;
-        if(flags & 1){
-            clock_gettime(CLOCK_REALTIME,&_t);
-            _t.tv_sec+=t->tv_sec;
-            _t.tv_nsec+=t->tv_nsec;
-            _t.tv_sec+=(_t.tv_nsec/1000000000);
-            _t.tv_nsec%=1000000000;
-            t=&_t;
-        }
         pthread_mutex_lock(pool->mtx);
         pthread_cond_signal(pool->cond);
 _mark:
-        switch(pthread_cond_timedwait(pool->cond+1,pool->mtx,t)){
+        switch(pthread_cond_timedwait(pool->cond+1,pool->mtx,abstime)){
             case -1: if(errno!=ETIMEDOUT) goto _mark; break;
             case 0: err=0; break;
             case ETIMEDOUT: break;
