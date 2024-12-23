@@ -101,7 +101,7 @@ double timespec_nanoseconds(const struct timespec *t){
 
 typedef struct _timer_struct_t{
     struct _timer_struct_t *prev, *next;
-    void(*f)(const void*,unsigned int*,pthread_t);
+    void *f;
     const void *arg;
     struct timespec t;
     unsigned int i;
@@ -191,7 +191,7 @@ _mark:
         g->t.tv_sec=t.tv_sec+3600;
         while(timer && timer->run){
             if(timespec_cmp(&timer->t,&t)<1){
-                timer->f(timer->arg,&timer->i,timer->tid);
+                ((void(*)(const void*,unsigned int*,pthread_t))(timer->f))(timer->arg,&timer->i,timer->tid);
                 if(!timer->i){
                     _timer_cptr_t next=timer->next;
                     timer->run=0;
@@ -238,7 +238,7 @@ int _timer_init(void * const timer,void * const f,const void * const arg){
     _timer_cptr_t t=(_timer_cptr_t)timer;
     TIMER_GLOBAL_LINK(g);
     t->prev=t->next=(_timer_cptr_t)0;
-    t->f=(void(*)(const void*,unsigned int*,pthread_t))f;
+    t->f=f;
     t->arg=arg;
     t->run=t->init=0;
     pthread_mutex_lock(g->mtx);
@@ -257,7 +257,7 @@ int _timer_start(void * const timer,const unsigned int delay,const unsigned int 
         const pthread_t tid=pthread_self();
         pthread_mutex_lock(g->mtx);
         if(arg) t->arg=arg;
-        if(f) t->f=(void(*)(const void*,unsigned int*,pthread_t))f;
+        if(f) t->f=f;
         if(!t->run){
             t->run=1;
             _timer_link_beg(t);
