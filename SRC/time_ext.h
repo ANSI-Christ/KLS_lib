@@ -52,7 +52,7 @@ extern int nanosleep(const struct timespec*,struct timespec*);
 
 #ifdef TIME_EXT_IMPL
 
-#include <stdlib.h>
+#include <errno.h>
 
 void timespec_normalize(struct timespec * const t){
     t->tv_sec+=t->tv_nsec/1000000000;
