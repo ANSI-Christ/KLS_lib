@@ -44,6 +44,10 @@ extern int nanosleep(const struct timespec*,struct timespec*);
     timespec_current(_rt1); {__VA_ARGS__} timespec_current(_rt2);\
     timespec_change(_rt2,-_rt1->tv_sec,-_rt1->tv_nsec);\
 }while(0)
+#define timer_init(_t_,_f_,_a_) _timer_init((_t_),(void*)(_f_),(_a_))
+#define timer_start(_t_,_d_,_i_,_f_,_a_) _timer_start((_t_),(_d_),(_i_),(void*)(_f_),(_a_))
+extern int _timer_init(void*,void*,const void*);
+extern int _timer_start(void*,unsigned int,unsigned int,void*,const void*);
 
 #endif /* TIME_EXT_H */
 
@@ -69,7 +73,7 @@ void timespec_change(struct timespec * const t,const long sec,const long nanosec
 }
 
 int timespec_sign(const struct timespec * const t){
-    const union{float d;int u;}x={timespec_seconds(t)};
+    const union{float d;int u;}x={(float)timespec_seconds(t)};
     return x.u;
 }
 
@@ -95,26 +99,26 @@ double timespec_nanoseconds(const struct timespec *t){
 }
 
 
-typedef struct __timer_t{
-    struct __timer_t *prev, *next;
-    void(*f)(void*,unsigned int*,pthread_t);
-    void *arg;
+typedef struct _timer_struct_t{
+    struct _timer_struct_t *prev, *next;
+    void(*f)(const void*,unsigned int*,pthread_t);
+    const void *arg;
     struct timespec t;
     unsigned int i;
     char run,init;
     pthread_t tid;
-} * const _timer_t;
+} * const _timer_cptr_t;
 
 static struct _global_timer_t{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[1];
-    struct __timer_t *first, *last;
+    struct _timer_struct_t *first, *last;
     struct timespec t;
 }_timer_global={{PTHREAD_MUTEX_INITIALIZER}};
 
 #define TIMER_GLOBAL_LINK(_name_) struct _global_timer_t * const _name_=&_timer_global
 
-static void _timer_link(_timer_t t){
+static void _timer_link(_timer_cptr_t t){
     TIMER_GLOBAL_LINK(g);
     if(g->last){
         g->last->next=t;
@@ -123,7 +127,7 @@ static void _timer_link(_timer_t t){
     g->last=t;
 }
 
-static void _timer_unlink(_timer_t t){
+static void _timer_unlink(_timer_cptr_t t){
     TIMER_GLOBAL_LINK(g);
     if(t->prev) t->prev->next=t->next;
     else g->first=t->next;
@@ -131,25 +135,25 @@ static void _timer_unlink(_timer_t t){
     else g->last=t->prev;
 }
 
-static void _timer_link_end(_timer_t t){
+static void _timer_link_end(_timer_cptr_t t){
     TIMER_GLOBAL_LINK(g);
     if(t!=g->last){
         _timer_unlink(t);
         g->last->next=t;
         t->prev=g->last;
         g->last=t;
-        t->next=(_timer_t)0;
+        t->next=(_timer_cptr_t)0;
     }
 }
 
-static void _timer_link_beg(_timer_t t){
+static void _timer_link_beg(_timer_cptr_t t){
     TIMER_GLOBAL_LINK(g);
     if(t!=g->first){
         _timer_unlink(t);
         g->first->prev=t;
         t->next=g->first;
         g->first=t;
-        t->prev=(_timer_t)0;
+        t->prev=(_timer_cptr_t)0;
     }
 }
 
@@ -162,10 +166,10 @@ static void _timer_sched(void){
     }
 }
 
-static void *_timer_thread(void *arg){
+static void *_timer_thread_worker(void *arg){
     TIMER_GLOBAL_LINK(g);
     struct timespec t;
-    struct __timer_t *timer;
+    struct _timer_struct_t *timer;
     _timer_sched();
 
     while('0'){
@@ -189,7 +193,7 @@ _mark:
             if(timespec_cmp(&timer->t,&t)<1){
                 timer->f(timer->arg,&timer->i,timer->tid);
                 if(!timer->i){
-                    timer_t next=timer->next;
+                    _timer_cptr_t next=timer->next;
                     timer->run=0;
                     _timer_link_end(timer);
                     timer=next;
@@ -208,7 +212,7 @@ _mark:
     (void)arg;
 }
 
-static char _timer_init(void){
+static char _timer_thread_init(void){
     TIMER_GLOBAL_LINK(g);
     if(!g->t.tv_sec){
         pthread_attr_t a[1];
@@ -222,7 +226,7 @@ static char _timer_init(void){
             #ifdef PTHREAD_FPU_ENABLED
             if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
             #endif
-            if(!pthread_create(tid,a,_timer_thread,NULL))
+            if(!pthread_create(tid,a,_timer_thread_worker,NULL))
                 g->t.tv_sec=time(NULL)+3600;
         }while(0);
         pthread_attr_destroy(a);
@@ -230,15 +234,15 @@ static char _timer_init(void){
     } return g->t.tv_sec>0;
 }
 
-int timer_init(struct timer *timer,void(*callback)(void *arg,unsigned int *interval_ms,pthread_t tid),void *arg){
-    _timer_t t=(_timer_t)timer;
+int _timer_init(void * const timer,void * const f,const void * const arg){
+    _timer_cptr_t t=(_timer_cptr_t)timer;
     TIMER_GLOBAL_LINK(g);
-    t->prev=t->next=(_timer_t)0;
-    t->f=callback;
+    t->prev=t->next=(_timer_cptr_t)0;
+    t->f=(void(*)(const void*,unsigned int*,pthread_t))f;
     t->arg=arg;
     t->run=t->init=0;
     pthread_mutex_lock(g->mtx);
-    if(_timer_init()){
+    if(_timer_thread_init()){
         _timer_link(t);
         t->init=1;
     }
@@ -246,22 +250,22 @@ int timer_init(struct timer *timer,void(*callback)(void *arg,unsigned int *inter
     return t->init-1;
 }
 
-int timer_start(struct timer *timer,unsigned int delay_ms,unsigned int interval_ms,void(*callback)(void *arg,unsigned int *interval_ms,pthread_t tid),void *arg){
-    _timer_t t=(_timer_t)timer;
-    if(t->init && (delay_ms|interval_ms) && (callback || t->f)){
+int _timer_start(void * const timer,const unsigned int delay,const unsigned int interval,void *f,const void * const arg){
+    _timer_cptr_t t=(_timer_cptr_t)timer;
+    if(t->init && (delay|interval) && (f || t->f)){
         TIMER_GLOBAL_LINK(g);
         const pthread_t tid=pthread_self();
         pthread_mutex_lock(g->mtx);
         if(arg) t->arg=arg;
-        if(callback) t->f=(void*)callback;
+        if(f) t->f=(void(*)(const void*,unsigned int*,pthread_t))f;
         if(!t->run){
             t->run=1;
             _timer_link_beg(t);
         }
         t->tid=tid;
-        t->i=interval_ms;
+        t->i=interval;
         timespec_current(&t->t);
-        timespec_change(&t->t,delay_ms/1000,(delay_ms%1000)*1000000);
+        timespec_change(&t->t,delay/1000,(delay%1000)*1000000);
         if(timespec_cmp(&t->t,&g->t)<0){
             g->t=t->t;
             pthread_cond_signal(g->cond);
@@ -272,7 +276,7 @@ int timer_start(struct timer *timer,unsigned int delay_ms,unsigned int interval_
 }
 
 void timer_stop(struct timer *timer){
-    _timer_t t=(_timer_t)timer;
+    _timer_cptr_t t=(_timer_cptr_t)timer;
     if(t->init && t->run){
         TIMER_GLOBAL_LINK(g);
         pthread_mutex_lock(g->mtx);
@@ -284,7 +288,7 @@ void timer_stop(struct timer *timer){
 
 
 int timer_continue(struct timer *timer){
-    _timer_t t=(_timer_t)timer;
+    _timer_cptr_t t=(_timer_cptr_t)timer;
     if(t->init && !t->run && t->f){
         TIMER_GLOBAL_LINK(g);
         pthread_mutex_lock(g->mtx);
@@ -300,10 +304,10 @@ int timer_continue(struct timer *timer){
 }
 
 void timer_close(struct timer *timer){
-    _timer_t t=(_timer_t)timer;
+    _timer_cptr_t t=(_timer_cptr_t)timer;
     if(t->init){
         TIMER_GLOBAL_LINK(g);
-        _timer_t t=(_timer_t)timer;
+        _timer_cptr_t t=(_timer_cptr_t)timer;
         pthread_mutex_lock(g->mtx);
         _timer_unlink(t);
         if(!g->first) pthread_cond_signal(g->cond);
