@@ -353,16 +353,16 @@ CLASS_COMPILE(GUI_WIDGET)(
 
 void _GUI_setFps(CLASS GUI *self,KLS_byte fps){
     if(fps){
-        if(!self->timer) self->timer=KLS_timerCreate((void*)self->update,self);
+        timer_init(&self->timer,(void*)self->update,self);
         self->tout=1000/fps;
-    }else KLS_timerDestroy(&self->timer);
+    }else timer_close(&self->timer);
 }
 
 int _GUI_objService(CLASS GUI *gui){
     int e;
-    KLS_timerStart(gui->timer,gui->tout,0,NULL,NULL);
+    timer_start(&gui->timer,gui->tout,0,NULL,NULL);
     e=GUI_displayEvent(&gui->display);
-    KLS_timerStop(gui->timer);
+    timer_stop(&gui->timer);
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
         gui->flags|=_GUI_SERVICE_FLAG;
         _GUI_inputService(gui,e & ~GUI_EVENT_UPDATE,gui->display.input.key);
@@ -408,7 +408,7 @@ CLASS_COMPILE(GUI)(
         ((CLASS GUI_WIDGET*)self)->m=self->display.m;
     ),
     destructor()(
-        KLS_timerDestroy(&self->timer);
+        timer_close(&self->timer);
         GUI_displayFree(&self->display);
     )
 )

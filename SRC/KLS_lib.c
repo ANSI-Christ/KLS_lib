@@ -11,6 +11,7 @@
 #define _KLS_GLOBVAR
 #define TRY_CATCH_IMPL
 #define PTHREAD_EXT_IMPL
+#define TIME_EXT_IMPL
 #include "KLS_lib.h"
 
 
@@ -41,7 +42,6 @@ extern void _KLS_rgbGetInfo(int bits);
 #include "./modules/_KLS_queue.c"
 #include "./modules/_KLS_matrix.c"
 #include "./modules/_KLS_canvas.c"
-#include "./modules/_KLS_timer.c"
 #include "./modules/_KLS_regex.c"
 #include "./modules/_KLS_net.c"
 #include "./modules/_KLS_gui.c"
@@ -320,31 +320,6 @@ void KLS_timeFromSec(int timeSec,int *hour,int *min,int *sec){
     if(sec)(*sec)=(int)floor(timeSec-((int)floor(timeSec/3600.))*3600)%60;
 }
 
-void KLS_timespecNorm(struct timespec *tm){
-    tm->tv_sec+=(tm->tv_nsec/_KLS_tm1sec);
-    tm->tv_nsec%=_KLS_tm1sec;
-}
-
-void KLS_timespecAdd(struct timespec *tm,int sec,int nanosec){
-    tm->tv_sec+=sec;
-    tm->tv_nsec+=nanosec;
-    KLS_timespecNorm(tm);
-}
-
-void KLS_timespecSub(struct timespec *tm,int sec,int nanosec){
-    sec+=nanosec/_KLS_tm1sec;
-    nanosec%=_KLS_tm1sec;
-    KLS_timespecNorm(tm);
-    if(tm->tv_sec >= sec){
-        tm->tv_sec-=sec;
-        if(tm->tv_nsec>nanosec){
-            tm->tv_nsec-=nanosec;
-        }else if(tm->tv_sec--){
-            tm->tv_nsec+=_KLS_tm1sec-nanosec;
-        }else tm->tv_sec=tm->tv_nsec=0;
-    }else tm->tv_sec=tm->tv_nsec=0;
-}
-
 
 
 void *_KLS_malloc(KLS_size size){
@@ -488,11 +463,12 @@ unsigned int KLS_crc32(unsigned int crc,const void *data,KLS_size size){
     return ~crc;
 }
 
-static void _KLS_libExit(void){
-    KLS_execKill();
-    _KLS_timerClose();
-    _KLS_MEMORY_SHOW()
-}
-#define PRAGMA_ATEXIT _KLS_libExit
-#include "pragma.h"
 
+#ifdef _KLS_MEMORY_DEBUG
+    static void _KLS_libExit(void){
+        KLS_execKill();
+        _KLS_MEMORY_SHOW()
+    }
+    #define PRAGMA_ATEXIT _KLS_libExit
+    #include "pragma.h"
+#endif

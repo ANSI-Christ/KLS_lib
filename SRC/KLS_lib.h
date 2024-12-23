@@ -39,6 +39,7 @@
 #include "macro.h"
 #include "class.h"
 #include "trycatch.h"
+#include "time_ext.h"
 #include "pthread_ext.h"
 
 #include "KLS_0b.h"
@@ -178,15 +179,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_ENDIAN() ({ const union{ short s; char c[sizeof(short)];}u={1}; u.c[0]; })
 
-#define KLS_RUNTIME(...) ({\
-    struct timespec KLS_MVN(_rt1)={0},KLS_MVN(_rt2)={0};\
-    clock_gettime(CLOCK_REALTIME,&KLS_MVN(_rt1));\
-    { __VA_ARGS__ ;}\
-    clock_gettime(CLOCK_REALTIME,&KLS_MVN(_rt2));\
-    KLS_timespecSub(&KLS_MVN(_rt2),KLS_MVN(_rt1).tv_sec,KLS_MVN(_rt1).tv_nsec);\
-    (KLS_MVN(_rt2).tv_sec + KLS_MVN(_rt2).tv_nsec/1000000000.);\
-})
-
+#define KLS_RUNTIME(...) ({ struct timespec KLS_MVN(_rt)[1]; timespec_runtime(KLS_MVN(_rt),__VA_ARGS__); timespec_seconds(KLS_MVN(_rt)); })
 
 
 
@@ -281,21 +274,6 @@ KLS_byte KLS_arrayInsert(void *array,KLS_size arraySize,KLS_size elementSize,KLS
 
 
 
-// TIMER SECTION
-
-typedef struct _KLS_t_TIMER* KLS_t_TIMER;
-
-void KLS_timerStop(KLS_t_TIMER timer);
-void KLS_timerDestroy(KLS_t_TIMER *timer);
-
-KLS_byte KLS_timerContinue(KLS_t_TIMER timer);
-KLS_byte KLS_timerStart(KLS_t_TIMER timer,unsigned int msDelay,unsigned int msInterval,void(*callback)(void *arg,unsigned int *msInterval,pthread_t tid),void *arg);
-
-KLS_t_TIMER KLS_timerCreate(void(*callback)(void *arg,unsigned int *msInterval,pthread_t tid),void *arg);
-
-
-
-
 // DATE AND TIME SECTION
 
 typedef struct{
@@ -305,11 +283,8 @@ typedef struct{
 
 int KLS_timeToSec(int hour,int min,int sec);
 
-void KLS_timespecNorm(struct timespec *tm);
 void KLS_dateTimePrint(const KLS_t_DATETIME *dt,FILE *f);
 void KLS_timeFromSec(int timeSec,int *hour,int *min,int *sec);
-void KLS_timespecAdd(struct timespec *tm,int sec,int nanosec);
-void KLS_timespecSub(struct timespec *tm,int sec,int nanosec);
 
 KLS_t_DATETIME KLS_dateTimeSystem(void);
 KLS_t_DATETIME KLS_dateTimeFrom(time_t time);
@@ -1086,7 +1061,7 @@ CLASS_END(GUI_TEXTBOX);
     ),\
     private(\
         void *focus, *select, *block, *trash;\
-        KLS_t_TIMER timer;\
+        struct timer timer;\
         GUI_t_DISPLAY display;\
         unsigned int flags,tout;\
         int wmv[2];\
