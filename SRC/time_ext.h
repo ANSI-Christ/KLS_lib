@@ -22,6 +22,7 @@ time_t datetime_to_epoch(const struct datetime *dt);
 
 void datetime_from_epoch(struct datetime *dt,time_t t);
 
+char *datetime_string(const struct datetime * const dt,const char *format,char buffer[],unsigned int buffer_size);
 
 
 
@@ -159,7 +160,29 @@ time_t datetime_to_epoch(const struct datetime * const dt){
     return t;
 }
 
-
+char *datetime_string(const struct datetime * const dt,const char *format,char buffer[],unsigned int buffer_size){
+    int l;
+    char *p=buffer;
+    if(--buffer_size)
+        while(buffer_size){
+            switch(*(format++)){
+                case 0: *p=0; return buffer;
+                case 'Y': l=snprintf(p,buffer_size,"%u",dt->year); break;
+                case 'M': l=snprintf(p,buffer_size,"%0*u",2,dt->month); break;
+                case 'D': l=snprintf(p,buffer_size,"%0*u",2,dt->day); break;
+                case 'w': l=snprintf(p,buffer_size,"%u",dt->day_w); break;
+                case 'y': l=snprintf(p,buffer_size,"%0*u",3,dt->day_y); break;
+                case 'h': l=snprintf(p,buffer_size,"%0*u",2,dt->hour); break;
+                case 'm': l=snprintf(p,buffer_size,"%0*u",2,dt->minute); break;
+                case 's': l=snprintf(p,buffer_size,"%0*u",2,dt->minute); break;
+                default:  l=1; *p=format[-1]; break;
+            }
+            if(l<1) break;
+            p+=l; buffer_size-=l;
+        }
+    *p=0;
+    return buffer;
+}
 
 typedef struct _timer_struct_t{
     struct _timer_struct_t *prev, *next;
