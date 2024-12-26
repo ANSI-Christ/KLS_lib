@@ -134,8 +134,9 @@ void datetime_from_epoch(struct datetime * const dt,time_t t){
     }
 
     { /* now 't' is days in one leap */
-        const unsigned short tab[4]={365,365,366,365};
-        for(month=0; t>=tab[(month=month&3)]; t-=tab[month],++month,++year);
+        const unsigned short tab[]={0,364,729,1095,1460,2048};
+        for(month=1;t>tab[month];++month);
+        year+=--month; t-=tab[month]+1;
     }
 
     { /* now 't' is days int one year */
