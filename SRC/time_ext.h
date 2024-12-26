@@ -10,6 +10,21 @@
 #include <pthread.h>
 
 
+
+struct datetime{
+    unsigned int year;
+    unsigned short day_y;
+    unsigned char month, day, day_w;
+    unsigned char hour, minute, second;
+};
+
+time_t datetime_to_epoch(const struct datetime * const dt);
+
+void datetime_from_epoch(struct datetime * const dt,time_t t);
+
+
+
+
 struct timer {void *_[4]; char __[sizeof(struct timespec)+sizeof(pthread_t)+sizeof(int)*2];};
 
 int timer_init(struct timer *t,void(*callback)(void *arg,unsigned int *interval_ms,pthread_t tid),void *arg);
@@ -97,6 +112,53 @@ double timespec_microseconds(const struct timespec *t){
 double timespec_nanoseconds(const struct timespec *t){
     return t->tv_sec*1000000000 + t->tv_nsec;
 }
+
+
+void datetime_from_epoch(struct datetime * const dt,time_t t){
+    unsigned int year;
+    unsigned char month;
+
+    dt->second=t%60;  t/=60;
+    dt->minute=t%60;  t/=60;
+    dt->hour=t%24;    t/=24;
+
+    { /* now 't' is days count */
+        const unsigned int leaps=t/(365*3+366);
+        year=(leaps<<2)+1970;
+        dt->day_w=(t+4)%7;
+        t%=(365*3+366);
+    }
+
+    { /* now 't' is days in one decade */
+        const unsigned short tab[4]={365,365,366,365};
+        for(month=0; t>=tab[(month=month&3)]; t-=tab[month],++month,++year);
+    }
+
+    { /* now 't' is days int one year */
+        const unsigned char tab[12]={31,28+!(year&3),31,30,31,30,31,31,30,31,30,31};
+        for(dt->day_y=t+1,month=0; t>=tab[month]; t-=tab[month], ++month);
+    }
+
+    dt->year=year;
+    dt->month=month+1;
+    dt->day=t+1;
+}
+
+time_t datetime_to_epoch(const struct datetime * const dt){
+    const unsigned int y=dt->year-1970, mod=y&3, leaps=(y-mod)>>2;
+    const unsigned short dpl[4]={0,365,365+365,366+365+365};
+    const unsigned short dpy[2][12]={
+        {0,31,59,90,120,151,181,212,243,273,304,334},
+        {0,31,60,91,121,152,182,213,244,274,305,335},
+    };
+    time_t t=(365*3+366)*leaps + dpl[mod] + dpy[!(dt->year&3)][dt->month-1] + (dt->day-1);
+    t*=3600*24;
+    t+=3600*(dt->hour);
+    t+=60*(dt->minute);
+    t+=dt->second;
+    return t;
+}
+
 
 
 typedef struct _timer_struct_t{
