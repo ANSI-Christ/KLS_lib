@@ -136,17 +136,19 @@ void datetime_from_epoch(struct datetime * const dt,time_t t){
     { /* now 't' is days in one leap */
         const short tab[]={-1,364,729,1095,1460,2048};
         for(month=1;t>tab[month];++month);
-        year+=--month; t-=tab[month]+1;
+        dt->year=(year+=--month);
+        dt->day_y=(t-=tab[month]);
     }
 
-    { /* now 't' is days int one year */
-        const unsigned char tab[12]={31,28+!(year&3),31,30,31,30,31,31,30,31,30,31};
-        for(dt->day_y=t+1,month=0; t>=tab[month]; t-=tab[month], ++month);
+    { /* now 't' is days in one year */
+        const unsigned short tabs[2][13]={
+            {0,31,59,90,120,151,181,212,243,273,304,334,1024},
+            {0,31,60,91,121,152,182,213,244,274,305,335,1024},
+        }, * const tab=tabs[!(year&3)];
+        for(month=1;t>tab[month];++month);
+        dt->month=month;
+        dt->day=t-tab[month-1];
     }
-
-    dt->year=year;
-    dt->month=month+1;
-    dt->day=t+1;
 }
 
 time_t datetime_to_epoch(const struct datetime * const dt){
@@ -180,11 +182,11 @@ char *datetime_string(const struct datetime * const dt,const char *format,char b
                 case 'Y': l=snprintf(p,buffer_size,"%u",dt->year); break;
                 case 'M': l=snprintf(p,buffer_size,"%0*u",2,dt->month); break;
                 case 'D': l=snprintf(p,buffer_size,"%0*u",2,dt->day); break;
-                case 'w': l=snprintf(p,buffer_size,"%u",dt->day_w); break;
-                case 'y': l=snprintf(p,buffer_size,"%0*u",3,dt->day_y); break;
                 case 'h': l=snprintf(p,buffer_size,"%0*u",2,dt->hour); break;
                 case 'm': l=snprintf(p,buffer_size,"%0*u",2,dt->minute); break;
-                case 's': l=snprintf(p,buffer_size,"%0*u",2,dt->minute); break;
+                case 's': l=snprintf(p,buffer_size,"%0*u",2,dt->second); break;
+                case 'w': l=snprintf(p,buffer_size,"%u",dt->day_w); break;
+                case 'y': l=snprintf(p,buffer_size,"%0*u",3,dt->day_y); break;
                 default:  l=1; *p=format[-1]; break;
             }
             if(l<1) break;
