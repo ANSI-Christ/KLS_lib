@@ -18,9 +18,11 @@ struct datetime{
     unsigned char hour, minute, second;
 };
 
-time_t datetime_to_epoch(const struct datetime *dt);
+int datetime_cmp(const struct datetime *dt1,const struct datetime *dt2);
 
 void datetime_from_epoch(struct datetime *dt,time_t t);
+
+time_t datetime_to_epoch(const struct datetime *dt);
 
 char *datetime_string(const struct datetime * const dt,const char *format,char buffer[],unsigned int buffer_size);
 
@@ -159,6 +161,12 @@ time_t datetime_to_epoch(const struct datetime * const dt){
     t+=60*(dt->minute);
     t+=dt->second;
     return t;
+}
+
+int datetime_cmp(const struct datetime * const dt1,const struct datetime * const dt2){
+    const time_t t1=datetime_to_epoch(dt1), t2=datetime_to_epoch(dt2);
+    if(t1<t2) return -1;
+    return !!(t1-t2);
 }
 
 char *datetime_string(const struct datetime * const dt,const char *format,char buffer[],unsigned int buffer_size){
