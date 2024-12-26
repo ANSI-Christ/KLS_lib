@@ -73,6 +73,7 @@ extern int _timer_start(void*,unsigned int,unsigned int,void*,const void*);
 #ifdef TIME_EXT_IMPL
 
 #include <errno.h>
+#include <stdio.h>
 
 void timespec_normalize(struct timespec * const t){
     t->tv_sec+=t->tv_nsec/1000000000;
