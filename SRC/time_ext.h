@@ -18,9 +18,9 @@ struct datetime{
     unsigned char hour, minute, second;
 };
 
-time_t datetime_to_epoch(const struct datetime * const dt);
+time_t datetime_to_epoch(const struct datetime *dt);
 
-void datetime_from_epoch(struct datetime * const dt,time_t t);
+void datetime_from_epoch(struct datetime *dt,time_t t);
 
 
 
@@ -125,7 +125,7 @@ void datetime_from_epoch(struct datetime * const dt,time_t t){
     { /* now 't' is days count */
         const unsigned int leaps=t/(365*3+366);
         year=(leaps<<2)+1970;
-        dt->day_w=(t+4)%7;
+        if( !(dt->day_w=(t+4)%7) ) dt->day_w=7;
         t%=(365*3+366);
     }
 
@@ -145,13 +145,13 @@ void datetime_from_epoch(struct datetime * const dt,time_t t){
 }
 
 time_t datetime_to_epoch(const struct datetime * const dt){
-    const unsigned int y=dt->year-1970, mod=y&3, leaps=(y-mod)>>2;
-    const unsigned short dpl[4]={0,365,365+365,366+365+365};
-    const unsigned short dpy[2][12]={
+    const unsigned int y=dt->year-1970, mod=y&3, leaps=y>>2;
+    const unsigned short dpl[4]={0,365,730,1096};
+    const unsigned short dpm[2][12]={
         {0,31,59,90,120,151,181,212,243,273,304,334},
         {0,31,60,91,121,152,182,213,244,274,305,335},
     };
-    time_t t=(365*3+366)*leaps + dpl[mod] + dpy[!(dt->year&3)][dt->month-1] + (dt->day-1);
+    time_t t=(365*3+366)*leaps + dpl[mod] + dpm[!(dt->year&3)][dt->month-1] + (dt->day-1);
     t*=3600*24;
     t+=3600*(dt->hour);
     t+=60*(dt->minute);
