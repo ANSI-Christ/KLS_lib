@@ -119,50 +119,36 @@ double timespec_nanoseconds(const struct timespec *t){
 
 
 void datetime_from_epoch(struct datetime * const dt,time_t t){
-    unsigned int year;
-    unsigned char month;
-
     dt->second=t%60;  t/=60;
     dt->minute=t%60;  t/=60;
     dt->hour=t%24;    t/=24;
-
-    { /* now 't' is days count */
-        const unsigned int leaps=t/(365*3+366);
-        year=(leaps<<2)+1970;
-        if( !(dt->day_w=(t+4)%7) ) dt->day_w=7;
-        t%=(365*3+366);
-    }
-
-    { /* now 't' is days in one leap */
-        const short tab[]={-1,364,729,1095,1460};
-        for(month=1;t>tab[month];++month);
-        dt->year=(year+=--month);
-        dt->day_y=(t-=tab[month]);
-    }
-
-    { /* now 't' is days in one year */
-        const unsigned short tabs[2][13]={
-            {0,31,59,90,120,151,181,212,243,273,304,334,1024},
-            {0,31,60,91,121,152,182,213,244,274,305,335,1024},
-        }, * const tab=tabs[!(year&3)];
-        for(month=1;t>tab[month];++month);
-        dt->month=month;
-        dt->day=t-tab[month-1];
+    if( !(dt->day_w=(t > -5 ? (t+4) % 7 : (t+5) % 7 + 6)) )
+        dt->day_w=7;
+    {
+        const int era = ((t += 719468) >= 0 ? t : t - 146096) / 146097;
+        const unsigned doe = (t - era * 146097);
+        const unsigned yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;
+        const int y = (int)yoe + era * 400;
+        const unsigned doy = doe - (365*yoe + yoe/4 - yoe/100);
+        const unsigned mp = (5*doy + 2)/153;
+        const unsigned d = doy - (153*mp+2)/5 + 1;
+        const unsigned m = mp + (mp < 10 ? 3 : -9);
+        dt->year=y + (m < 3);
+        dt->month=m;
+        dt->day=d;
+        dt->day_y=d+(153*(m-1))/5-(m>2);
     }
 }
 
 time_t datetime_to_epoch(const struct datetime * const dt){
-    const unsigned int y=dt->year-1970, mod=y&3, leaps=y>>2;
-    const unsigned short dpl[4]={0,365,730,1096};
-    const unsigned short dpm[2][12]={
-        {0,31,59,90,120,151,181,212,243,273,304,334},
-        {0,31,60,91,121,152,182,213,244,274,305,335},
-    };
-    time_t t=(365*3+366)*leaps + dpl[mod] + dpm[!(dt->year&3)][dt->month-1] + (dt->day-1);
-    t*=3600*24;
-    t+=3600*(dt->hour);
-    t+=60*(dt->minute);
-    t+=dt->second;
+    const unsigned char m=dt->month, d=dt->day;
+    const int y=dt->year-(m<3);
+    const int era = (y > -1 ? y : y-399) / 400;
+    const unsigned int yoe = y - era * 400;
+    const unsigned int doy = (153*(m + (m > 2 ? -3 : 9)) + 2)/5 + d-1;
+    const int doe = yoe * 365 + yoe/4 - yoe/100 + doy;
+    time_t t = era * 146097 + doe - 719468;
+    t *= 3600*24; t += 3600*dt->hour + 60*dt->minute + dt->second;
     return t;
 }
 
