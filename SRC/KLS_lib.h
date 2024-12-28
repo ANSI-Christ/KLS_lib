@@ -274,23 +274,6 @@ KLS_byte KLS_arrayInsert(void *array,KLS_size arraySize,KLS_size elementSize,KLS
 
 
 
-// DATE AND TIME SECTION
-
-typedef struct{
-    unsigned int year:22, day:5, hour:5;
-    unsigned short month:4, minute:6, second:6;
-}KLS_t_DATETIME;
-
-int KLS_timeToSec(int hour,int min,int sec);
-
-void KLS_dateTimePrint(const KLS_t_DATETIME *dt,FILE *f);
-void KLS_timeFromSec(int timeSec,int *hour,int *min,int *sec);
-
-KLS_t_DATETIME KLS_dateTimeSystem(void);
-KLS_t_DATETIME KLS_dateTimeFrom(time_t time);
-
-
-
 
 // FILE SYSTEM SECTION
 
@@ -302,7 +285,7 @@ typedef struct{
 
 typedef struct{
     KLS_size size;
-    KLS_t_DATETIME create, access, mod;
+    struct datetime create, access, mod;
     KLS_byte type;
 }KLS_t_FS_INFO;
 

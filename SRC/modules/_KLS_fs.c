@@ -51,9 +51,9 @@ KLS_byte KLS_fsInfoGet(const char *fileName,KLS_t_FS_INFO *info){
     struct stat data;
     if(info && fileName && !stat(fileName,&data)){
         info->size=data.st_size;
-        info->create=KLS_dateTimeFrom(data.st_ctime);
-        info->access=KLS_dateTimeFrom(data.st_atime);
-        info->mod=KLS_dateTimeFrom(data.st_mtime);
+        datetime_from_epoch(&info->create,data.st_ctime);
+        datetime_from_epoch(&info->access,data.st_atime);
+        datetime_from_epoch(&info->mod,data.st_mtime);
         if(S_ISDIR(data.st_mode))      info->type=KLS_FS_TYPE_FOLDER;
         else if(S_ISREG(data.st_mode)) info->type=KLS_FS_TYPE_FILE;
 #ifdef S_ISLNK
@@ -71,16 +71,17 @@ void KLS_fsInfoPrint(const KLS_t_FS_INFO *info,FILE *f){
     const char *types[]={_FSTP(ERROR),_FSTP(UNKNOWN),_FSTP(FILE),_FSTP(FOLDER),_FSTP(LINK)};
 #undef _FSTP
     if(info){
+        char tmp[3][64];
         if(!f) f=stdout;
         if(info->type==KLS_FS_TYPE_ERROR){
-            fprintf(f,"%s",types[info->type]);
+            fprintf(f,"%s [%zu]\n",types[info->type],info->size);
             return;
         }
-        fprintf(f,"%s [%zu]",types[info->type],info->size);
-        fprintf(f,"\n  create: "); KLS_dateTimePrint(&info->create,f);
-        fprintf(f,"\n  access: "); KLS_dateTimePrint(&info->access,f);
-        fprintf(f,"\n  mod:    "); KLS_dateTimePrint(&info->mod,f);
-        fprintf(f,"\n");
+        fprintf(f,"%s [%zu]\n  create: %s\n  access: %s\n  mod:    %s\n",types[info->type],info->size,
+            datetime_string(&info->create,"h:m:s / D.M.Y",tmp[0],sizeof(*tmp)),
+            datetime_string(&info->access,"h:m:s / D.M.Y",tmp[1],sizeof(*tmp)),
+            datetime_string(&info->mod,"h:m:s / D.M.Y",tmp[2],sizeof(*tmp))
+        );
     }
 }
 

@@ -290,37 +290,6 @@ int KLS_sysCmd(char **output,const char *cmdFormat,...){
     return -1;
 }
 
-KLS_t_DATETIME KLS_dateTimeFrom(time_t time){
-    KLS_t_DATETIME dt={0};
-    struct tm *timeTm=localtime(&time);
-    if(timeTm){
-       dt.day=timeTm->tm_mday;         dt.hour=timeTm->tm_hour;
-       dt.month=timeTm->tm_mon+1;      dt.minute=timeTm->tm_min;
-       dt.year=timeTm->tm_year+1900;   dt.second=timeTm->tm_sec;
-    } return dt;
-}
-
-KLS_t_DATETIME KLS_dateTimeSystem(void){
-    time_t timeT=time(NULL);
-    return KLS_dateTimeFrom(timeT);
-}
-
-void KLS_dateTimePrint(const KLS_t_DATETIME *dt,FILE *f){
-    if(!f) f=stdout;
-    fprintf(f,"%0*d.%0*d.%0*d / %0*d:%0*d:%0*d",  2,dt->day,2,dt->month,2,dt->year,  2,dt->hour,2,dt->minute,2,dt->second);
-}
-
-int KLS_timeToSec(int hour,int min,int sec){
-    return sec + min*60 + hour*60*60;
-}
-
-void KLS_timeFromSec(int timeSec,int *hour,int *min,int *sec){
-    if(hour)(*hour)=(int)floor(timeSec/3600.);
-    if(min)(*min)=(int)floor((timeSec-((int)floor(timeSec/3600.))*3600)/60.);
-    if(sec)(*sec)=(int)floor(timeSec-((int)floor(timeSec/3600.))*3600)%60;
-}
-
-
 
 void *_KLS_malloc(KLS_size size){
     if(size){
