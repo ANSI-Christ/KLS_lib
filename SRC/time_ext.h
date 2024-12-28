@@ -12,10 +12,14 @@
 
 
 struct datetime{
-    unsigned int year;
-    unsigned short day_y;
-    unsigned char month, day, day_w;
-    unsigned char hour, minute, second;
+    int year;
+    unsigned short doy;   /* 1 - 366 */
+    unsigned char month;  /* 1 - 12  */
+    unsigned char day;    /* 1 - 31  */
+    unsigned char dow;    /* 1 - 7   */
+    unsigned char hour;   /* 0 - 23  */
+    unsigned char minute; /* 0 - 59  */
+    unsigned char second; /* 0 - 59  */
 };
 
 int datetime_cmp(const struct datetime *dt1,const struct datetime *dt2);
@@ -122,8 +126,8 @@ void datetime_from_epoch(struct datetime * const dt,time_t t){
     dt->second=t%60;  t/=60;
     dt->minute=t%60;  t/=60;
     dt->hour=t%24;    t/=24;
-    if( !(dt->day_w=(t > -5 ? (t+4) % 7 : (t+5) % 7 + 6)) )
-        dt->day_w=7;
+    if( !(dt->dow=(t > -5 ? (t+4) % 7 : (t+5) % 7 + 6)) )
+        dt->dow=7;
     {
         const int era = ((t += 719468) >= 0 ? t : t - 146096) / 146097;
         const unsigned doe = (t - era * 146097);
@@ -136,7 +140,7 @@ void datetime_from_epoch(struct datetime * const dt,time_t t){
         dt->year=y;
         dt->month=m;
         dt->day=d;
-        dt->day_y=doy + ( m<3 ? -305 : 60 + ((y&3)==0 && (y%100!=0 || y%400==0)) );
+        dt->doy=doy + ( m<3 ? -305 : 60 + ((y&3)==0 && (y%100!=0 || y%400==0)) );
     }
 }
 
@@ -171,8 +175,8 @@ char *datetime_string(const struct datetime * const dt,const char *format,char b
                 case 'h': l=snprintf(p,buffer_size,"%0*u",2,dt->hour); break;
                 case 'm': l=snprintf(p,buffer_size,"%0*u",2,dt->minute); break;
                 case 's': l=snprintf(p,buffer_size,"%0*u",2,dt->second); break;
-                case 'w': l=snprintf(p,buffer_size,"%u",dt->day_w); break;
-                case 'y': l=snprintf(p,buffer_size,"%0*u",3,dt->day_y); break;
+                case 'w': l=snprintf(p,buffer_size,"%u",dt->dow); break;
+                case 'y': l=snprintf(p,buffer_size,"%0*u",3,dt->doy); break;
                 default:  l=1; *p=format[-1]; break;
             }
             if(l<1) break;
