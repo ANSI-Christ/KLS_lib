@@ -128,15 +128,15 @@ void datetime_from_epoch(struct datetime * const dt,time_t t){
         const int era = ((t += 719468) >= 0 ? t : t - 146096) / 146097;
         const unsigned doe = (t - era * 146097);
         const unsigned yoe = (doe - doe/1460 + doe/36524 - doe/146096) / 365;
-        const int y = (int)yoe + era * 400;
         const unsigned doy = doe - (365*yoe + yoe/4 - yoe/100);
         const unsigned mp = (5*doy + 2)/153;
         const unsigned d = doy - (153*mp+2)/5 + 1;
         const unsigned m = mp + (mp < 10 ? 3 : -9);
-        dt->year=y + (m < 3);
+        const int y = (int)yoe + era * 400 + (m < 3);
+        dt->year=y;
         dt->month=m;
         dt->day=d;
-        dt->day_y=d+(153*(m-1))/5-(m>2);
+        dt->day_y=doy + ( m<3 ? -305 : 60 + ((y&3)==0 && (y%100!=0 || y%400==0)) );
     }
 }
 
