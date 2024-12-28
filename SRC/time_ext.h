@@ -22,13 +22,18 @@ struct datetime{
     unsigned char second; /* 0 - 59  */
 };
 
+int timezone_current(void);
+
 int datetime_cmp(const struct datetime *dt1,const struct datetime *dt2);
 
 void datetime_from_epoch(struct datetime *dt,time_t t);
 
 time_t datetime_to_epoch(const struct datetime *dt);
 
+/*format: Y=year, M=month, D=day of month, W=day of week str, w=day of week, y=day of year, h=hour, m=minute, s=second */
 char *datetime_string(const struct datetime * const dt,const char *format,char buffer[],unsigned int buffer_size);
+
+
 
 
 
@@ -80,6 +85,23 @@ extern int _timer_start(void*,unsigned int,unsigned int,void*,const void*);
 
 #include <errno.h>
 #include <stdio.h>
+
+#ifdef __WIN32
+
+#define NOMINMAX
+#include <windows.h>
+
+int timezone_current(void){
+    _tzset(); return -(int)timezone;
+}
+
+#else
+
+int timezone_current(void){
+    tzset(); return -(int)timezone;
+}
+
+#endif
 
 void timespec_normalize(struct timespec * const t){
     t->tv_sec+=t->tv_nsec/1000000000;
@@ -172,6 +194,10 @@ char *datetime_string(const struct datetime * const dt,const char *format,char b
                 case 'Y': l=snprintf(p,buffer_size,"%u",dt->year); break;
                 case 'M': l=snprintf(p,buffer_size,"%0*u",2,dt->month); break;
                 case 'D': l=snprintf(p,buffer_size,"%0*u",2,dt->day); break;
+                case 'W':{
+                    const char *da[7]={"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
+                    l=snprintf(p,buffer_size,"%s",da[dt->dow]);
+                } break;
                 case 'h': l=snprintf(p,buffer_size,"%0*u",2,dt->hour); break;
                 case 'm': l=snprintf(p,buffer_size,"%0*u",2,dt->minute); break;
                 case 's': l=snprintf(p,buffer_size,"%0*u",2,dt->second); break;
