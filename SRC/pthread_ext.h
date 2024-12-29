@@ -163,7 +163,7 @@ static unsigned int _pthread_pool_index(const _pthread_pool_t p){
 
 static void *_pthread_pool_worker(_pthread_pool_t p){
     const unsigned int index=_pthread_pool_index(p);
-    unsigned char i, sleep=0, busy=2;
+    unsigned char i, sleep=0, busy=1;
     const struct timespec millisec[1]={{0,1000*1000}};
     void(* const del)(void*)=p->deallocator;
     _pthread_pool_task_t *t[4];
@@ -251,9 +251,8 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,unsi
             }
 
             p->max=prio;
-            p->busy=count;
             p->die=p->peak=0;
-            p->count=p->size=0;
+            p->count=p->size=p->busy=0;
             p->allocator=allocator;
             p->deallocator=deallocator;
             p->tid=(pthread_t*)(p->queue+1+prio);
@@ -263,7 +262,6 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,unsi
                 if(pthread_create(p->tid+p->count++,attr,(void*(*)(void*))_pthread_pool_worker,p)){
                     --p->count; pthread_pool_destroy(&p); break;
                 }
-            pthread_pool_wait(p);
             break;
         }
         pthread_attr_destroy(attr);
