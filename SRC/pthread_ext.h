@@ -350,6 +350,7 @@ const pthread_t *pthread_pool_array(pthread_pool_t pool){
 
 #define NOMINMAX
 #include <windows.h>
+#undef NOMINMAX
 
 int pthread_channel_open(pthread_channel_t * const channel){
     if(channel) return CreatePipe(channel->r,channel->w,NULL,0)-1;

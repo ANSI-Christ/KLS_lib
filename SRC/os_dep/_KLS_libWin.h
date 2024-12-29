@@ -6,9 +6,8 @@
 #include <windows.h>
 #include <imagehlp.h>
 #include <ws2tcpip.h>
-
 #include "__KLS_WinApi.h"
-
+#undef NOMINMAX
 
 KLS_byte KLS_fsDirCreate(const char *directory){
     return directory && !mkdir(directory);

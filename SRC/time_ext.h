@@ -90,6 +90,7 @@ extern int _timer_start(void*,unsigned int,unsigned int,void*,const void*);
 
 #define NOMINMAX
 #include <windows.h>
+#undef NOMINMAX
 
 int timezone_current(void){
     _tzset(); return -(int)timezone;
@@ -187,17 +188,14 @@ int datetime_cmp(const struct datetime * const dt1,const struct datetime * const
 char *datetime_string(const struct datetime * const dt,const char *format,char buffer[],unsigned int buffer_size){
     int l;
     char *p=buffer;
-    if(--buffer_size)
+    if(buffer_size--)
         while(buffer_size){
             switch(*(format++)){
                 case 0: *p=0; return buffer;
                 case 'Y': l=snprintf(p,buffer_size,"%u",dt->year); break;
                 case 'M': l=snprintf(p,buffer_size,"%0*u",2,dt->month); break;
                 case 'D': l=snprintf(p,buffer_size,"%0*u",2,dt->day); break;
-                case 'W':{
-                    const char *da[7]={"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
-                    l=snprintf(p,buffer_size,"%s",da[dt->dow]);
-                } break;
+                case 'W': l=snprintf(p,buffer_size,"%s","Mon\0Tue\0Wed\0Thu\0Fri\0Sat\0Sun"+(dt->dow-1)*4); break;
                 case 'h': l=snprintf(p,buffer_size,"%0*u",2,dt->hour); break;
                 case 'm': l=snprintf(p,buffer_size,"%0*u",2,dt->minute); break;
                 case 's': l=snprintf(p,buffer_size,"%0*u",2,dt->second); break;
