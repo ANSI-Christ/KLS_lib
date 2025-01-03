@@ -48,40 +48,49 @@ KLS_byte KLS_fsContentForEach(const char *directory,void(*action)(const char *na
 }
 
 KLS_byte KLS_fsInfoGet(const char *fileName,KLS_t_FS_INFO *info){
-    struct stat data;
-    if(info && fileName && !stat(fileName,&data)){
-        info->size=data.st_size;
-        datetime_from_epoch(&info->create,data.st_ctime);
-        datetime_from_epoch(&info->access,data.st_atime);
-        datetime_from_epoch(&info->mod,data.st_mtime);
-        if(S_ISDIR(data.st_mode))      info->type=KLS_FS_TYPE_FOLDER;
-        else if(S_ISREG(data.st_mode)) info->type=KLS_FS_TYPE_FILE;
-#ifdef S_ISLNK
-        else if(S_ISLNK(data.st_mode)) info->type=KLS_FS_TYPE_LINK;
-#endif
-        else info->type=KLS_FS_TYPE_UNKNOWN;
-        return 1;
+    if(info){
+        struct stat data;
+        if(fileName && !stat(fileName,&data)){
+            info->size=data.st_size;
+            info->create=data.st_ctime;
+            info->access=data.st_atime;
+            info->mod=data.st_mtime;
+            if(S_ISDIR(data.st_mode))      info->type=KLS_FS_TYPE_FOLDER;
+            else if(S_ISREG(data.st_mode)) info->type=KLS_FS_TYPE_FILE;
+            #ifdef S_ISLNK
+            else if(S_ISLNK(data.st_mode)) info->type=KLS_FS_TYPE_LINK;
+            #endif
+            else info->type=KLS_FS_TYPE_UNKNOWN;
+            return 1;
+        }
+        info->size=0;
+        info->type=KLS_FS_TYPE_ERROR;
     }
-    if(info) info->type=KLS_FS_TYPE_ERROR;
     return 0;
 }
 
-void KLS_fsInfoPrint(const KLS_t_FS_INFO *info,FILE *f){
-#define _FSTP(tp) [KLS_FS_TYPE_##tp]=#tp
-    const char *types[]={_FSTP(ERROR),_FSTP(UNKNOWN),_FSTP(FILE),_FSTP(FOLDER),_FSTP(LINK)};
+static const char *_KLS_fsInfoType(const int t){
+#define _FSTP(tp) case KLS_FS_TYPE_##tp: return #tp
+    switch(t){ _FSTP(ERROR);_FSTP(UNKNOWN);_FSTP(FILE);_FSTP(FOLDER);_FSTP(LINK); }
+    return "ERROR";
 #undef _FSTP
+}
+
+void KLS_fsInfoPrint(const KLS_t_FS_INFO *info,FILE *f){
     if(info){
-        char tmp[3][64];
         if(!f) f=stdout;
         if(info->type==KLS_FS_TYPE_ERROR){
-            fprintf(f,"%s [%zu]\n",types[info->type],info->size);
+            fprintf(f,"%s [%zu]\n",_KLS_fsInfoType(info->type),info->size);
             return;
         }
-        fprintf(f,"%s [%zu]\n  create: %s\n  access: %s\n  mod:    %s\n",types[info->type],info->size,
-            datetime_string(&info->create,"h:m:s / D.M.Y",tmp[0],sizeof(*tmp)),
-            datetime_string(&info->access,"h:m:s / D.M.Y",tmp[1],sizeof(*tmp)),
-            datetime_string(&info->mod,"h:m:s / D.M.Y",tmp[2],sizeof(*tmp))
-        );
+        {
+            char s[3][64];
+            struct datetime dt[1];
+            datetime_from_epoch(dt,info->create);  datetime_string(dt,"h:m:s / D.M.Y",s[0],sizeof(*s));
+            datetime_from_epoch(dt,info->access);  datetime_string(dt,"h:m:s / D.M.Y",s[1],sizeof(*s));
+            datetime_from_epoch(dt,info->mod);     datetime_string(dt,"h:m:s / D.M.Y",s[2],sizeof(*s));
+            fprintf(f,"%s [%zu]\n  create: %s\n  access: %s\n  mod:    %s\n",_KLS_fsInfoType(info->type),info->size,s[0],s[1],s[2]);
+        }
     }
 }
 
@@ -106,8 +115,10 @@ KLS_byte KLS_fsRuleGet(const char *path,KLS_t_FS_RULE *rule){
 void KLS_fsRulePrint(const KLS_t_FS_RULE *rules,FILE *f){
     if(rules){
         if(!f) f=stdout;
-        fprintf(f,"owner[%c%c%c] ", rules->owner.r?'R':' ', rules->owner.w?'W':' ', rules->owner.e?'E':' ');
-        fprintf(f,"groop[%c%c%c] ", rules->groop.r?'R':' ', rules->groop.w?'W':' ', rules->groop.e?'E':' ');
-        fprintf(f,"other[%c%c%c]", rules->other.r?'R':' ', rules->other.w?'W':' ', rules->other.e?'E':' ');
+        fprintf(f,"owner[%c%c%c] groop[%c%c%c] other[%c%c%c]\n",
+            rules->owner.r?'R':' ', rules->owner.w?'W':' ', rules->owner.e?'E':' ',
+            rules->groop.r?'R':' ', rules->groop.w?'W':' ', rules->groop.e?'E':' ',
+            rules->other.r?'R':' ', rules->other.w?'W':' ', rules->other.e?'E':' '
+        );
     }
 }

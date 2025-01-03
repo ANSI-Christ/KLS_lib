@@ -285,7 +285,7 @@ typedef struct{
 
 typedef struct{
     KLS_size size;
-    struct datetime create, access, mod;
+    time_t create, access, mod;
     KLS_byte type;
 }KLS_t_FS_INFO;
 

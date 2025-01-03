@@ -306,10 +306,8 @@ static void *_timer_thread_worker(void *arg){
             case 0: if(g->first) continue; break;
             case EINTR: continue;
         }
-        if(!(timer=g->first)){
-            g->t.tv_sec=0;
+        if(!(timer=g->first))
             break;
-        }
         timespec_current(&t);
         g->t.tv_sec=t.tv_sec+3600;
         while(timer && timer->run){
@@ -330,6 +328,7 @@ static void *_timer_thread_worker(void *arg){
             timer=timer->next;
         }
     }
+    g->t.tv_sec=0;
     pthread_cond_destroy(g->cond);
     pthread_mutex_unlock(g->mtx);
     return arg;
