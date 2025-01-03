@@ -163,7 +163,7 @@ static unsigned int _pthread_pool_index(const _pthread_pool_t p){
 
 static void *_pthread_pool_worker(_pthread_pool_t p){
     const unsigned int index=_pthread_pool_index(p);
-    unsigned char i, sleep=0, busy=1;
+    unsigned char i, sleep=0, busy=0;
     const struct timespec millisec[1]={{0,1000*1000}};
     void(* const del)(void*)=p->deallocator;
     _pthread_pool_task_t *t[4];
@@ -178,7 +178,7 @@ _mark:
             const unsigned char c=(s>3?3:s);
             for(i=0,p->size-=c; i<c;)
                 t[++i]=_pthread_pool_pop(p);
-            if(busy&1){busy<<=1; ++p->busy;}
+            if(!busy){busy=1; ++p->busy;}
 
             pthread_mutex_unlock(p->mtx);
 
@@ -186,13 +186,13 @@ _mark:
                 t[i]->f(t[i]+1,index,p);
                 del(t[i]);
             }
-            sleep|=64;
+            sleep=64;
             continue;
         }
         if(p->die)
             break;
-        if(busy&2){
-            busy>>=1; --p->busy;
+        if(busy){
+            busy=0; --p->busy;
         }
         if(!p->busy)
             pthread_cond_broadcast(p->cond+1);
