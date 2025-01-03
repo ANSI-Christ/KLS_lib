@@ -179,7 +179,7 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_ENDIAN() ({ const union{ short s; char c[sizeof(short)];}u={1}; u.c[0]; })
 
-#define KLS_RUNTIME(...) ({ struct timespec KLS_MVN(_rt)[1]; timespec_runtime(KLS_MVN(_rt),__VA_ARGS__); timespec_seconds(KLS_MVN(_rt)); })
+#define KLS_RUNTIME RUNTIME
 
 
 

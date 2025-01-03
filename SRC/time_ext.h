@@ -36,7 +36,6 @@ char *datetime_string(const struct datetime * const dt,const char *format,char b
 
 
 
-
 struct timer {void *_[4]; char __[sizeof(struct timespec)+sizeof(pthread_t)+sizeof(int)*2];};
 
 int timer_init(struct timer *t,void(*callback)(void *arg,unsigned int *interval_ms,pthread_t tid),void *arg);
@@ -60,6 +59,17 @@ double timespec_seconds(const struct timespec *t);
 double timespec_milliseconds(const struct timespec *t);
 double timespec_microseconds(const struct timespec *t);
 double timespec_nanoseconds(const struct timespec *t);
+
+
+
+void sleepf(double sec);
+
+
+
+#define RUNTIME(...)    ({ struct timespec _rt0[1]; timespec_runtime(_rt0,__VA_ARGS__); timespec_seconds(_rt0); })
+#define RUNTIME_MS(...) ({ struct timespec _rt0[1]; timespec_runtime(_rt0,__VA_ARGS__); timespec_milliseconds(_rt0); })
+#define RUNTIME_MC(...) ({ struct timespec _rt0[1]; timespec_runtime(_rt0,__VA_ARGS__); timespec_microseconds(_rt0); })
+#define RUNTIME_NS(...) ({ struct timespec _rt0[1]; timespec_runtime(_rt0,__VA_ARGS__); timespec_nanoseconds(_rt0); })
 
 
 
@@ -103,6 +113,12 @@ int timezone_current(void){
 }
 
 #endif
+
+void sleepf(double sec){
+    struct timespec t={sec}; t.tv_nsec=(sec-t.tv_sec)*1000000000;
+    while(nanosleep(&t,&t));
+}
+
 
 void timespec_normalize(struct timespec * const t){
     t->tv_sec+=t->tv_nsec/1000000000;
@@ -282,20 +298,16 @@ static void *_timer_thread_worker(void *arg){
     struct timespec t;
     struct _timer_struct_t *timer;
     _timer_sched();
-
+    pthread_mutex_lock(g->mtx);
     while('0'){
-        pthread_mutex_lock(g->mtx);
-_mark:
         t=g->t;
         switch(pthread_cond_timedwait(g->cond,g->mtx,&t)){
-            case -1: if(errno==EINTR) goto _mark; break;
-            case 0: if(g->first) goto _mark; break;
-            case EINTR: goto _mark;
+            case -1: if(errno==EINTR) continue; break;
+            case 0: if(g->first) continue; break;
+            case EINTR: continue;
         }
         if(!(timer=g->first)){
             g->t.tv_sec=0;
-            pthread_cond_destroy(g->cond);
-            pthread_mutex_unlock(g->mtx);
             break;
         }
         timespec_current(&t);
@@ -317,10 +329,10 @@ _mark:
                 g->t=timer->t;
             timer=timer->next;
         }
-        pthread_mutex_unlock(g->mtx);
     }
-    return NULL;
-    (void)arg;
+    pthread_cond_destroy(g->cond);
+    pthread_mutex_unlock(g->mtx);
+    return arg;
 }
 
 static char _timer_thread_init(void){
