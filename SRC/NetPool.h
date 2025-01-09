@@ -764,7 +764,7 @@ static void NetDispatch(NetPool * const p,unsigned int c){
         }
 }
 
-static void NetReservCleanup(NetPool * const p,const unsigned int max){
+static void NetReservCut(NetPool * const p,const unsigned int max){
     while(p->reserv_count>max){
         NetNode * const n=p->reserv->first;
         NetListUnlink(p->reserv,n);
@@ -787,7 +787,7 @@ int NetPoolDispatch(NetPool * const pool,int *emit){
             }
             NetDispatch(pool,count);
             NetChecks(pool);
-            NetReservCleanup(pool,pool->reserv_max);
+            NetReservCut(pool,pool->reserv_max);
         }while(work);
         return 0;
     } return EINVAL;
@@ -812,6 +812,8 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
         p->reserv_max=reserv_count;
         p->units->first=p->units->last=NULL;
         p->reserv->first=p->reserv->last=NULL;
+        p->emit[0]=p->emit[1]=INVALID_SOCKET;
+        p->node=NULL;
         if( !(p->sock=allocator(sizeof(*p->sock)*base_count)) ) break;
         if( !(p->node=allocator(sizeof(*p->node)*base_count)) ) break;
         _NetConfig(1);
@@ -827,18 +829,20 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
 
 void NetPoolDestroy(NetPool * const pool){
     if(pool){
-        NetSocketDestroy(pool->emit);
-        NetSocketDestroy(pool->emit+1);
         pool->deallocator(pool->node);
         pool->deallocator(pool->sock);
         pool->node=NULL;
+        if(pool->emit[0]!=INVALID_SOCKET){
+            NetSocketDestroy(pool->emit);
+            NetSocketDestroy(pool->emit+1);
+        }
         while(pool->units->first){
             NetNode * const n=pool->units->first;
             NetUnitDisconnect(n->u);
             NetListUnlink(pool->units,n);
             pool->deallocator(n);
         }
-        NetReservCleanup(pool,0);
+        NetReservCut(pool,0);
         pool->deallocator(pool);
         _NetConfig(0);
     }
