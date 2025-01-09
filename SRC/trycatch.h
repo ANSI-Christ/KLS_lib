@@ -24,8 +24,8 @@
 #define EXCEPTION    ((const struct _EXCEPTION*)(_TryCatch()->e))
 #define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
 
-extern void(*TryCatchSignal)(void); /*by default nothing*/
-extern void(*TryCatchTerminate)(void); /*by default exit(-1)*/
+extern void(*TryCatchSignal)(void);     /* by default nothing  */
+extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
