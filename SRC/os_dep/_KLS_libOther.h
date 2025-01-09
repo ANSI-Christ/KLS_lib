@@ -50,20 +50,4 @@ void KLS_displayFree(KLS_t_DISPLAY *d){}
 /////////////////////////////////////////////////////////  SOCKET  ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-typedef KLS_TYPEOF(socket(0,0,0)) _NET_t_SOCKET;
-
-void NET_socketSetBlock(NET_t_SOCKET *s,KLS_byte block){
-    block=!!block;
-    if(s->created && s->blocked!=block){
-        fcntl(*(_NET_t_SOCKET*)s->_osDep, F_SETFL, (!block ? O_NONBLOCK : 0) | (fcntl(*(_NET_t_SOCKET*)s->_osDep, F_GETFL) & ~O_NONBLOCK));
-        s->blocked=block;
-    }
-}
-
-unsigned int _NET_recvSize(NET_t_SOCKET *s){
-    int len=0;
-    ioctl(*(_NET_t_SOCKET*)s->_osDep,FIONREAD,&len);
-    return len;
-}
-
 #endif /* _KLS_OS_DEP_INC */

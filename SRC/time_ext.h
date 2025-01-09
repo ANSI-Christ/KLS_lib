@@ -115,7 +115,7 @@ int timezone_current(void){
 #endif
 
 void sleepf(double sec){
-    struct timespec t={sec}; t.tv_nsec=(sec-t.tv_sec)*1000000000;
+    struct timespec t={sec,0}; t.tv_nsec=(sec-t.tv_sec)*1000000000;
     while(nanosleep(&t,&t));
 }
 

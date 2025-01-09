@@ -12,6 +12,7 @@
 #define TRY_CATCH_IMPL
 #define PTHREAD_EXT_IMPL
 #define TIME_EXT_IMPL
+#define NETPOOL_IMPL
 #include "KLS_lib.h"
 
 
@@ -43,7 +44,6 @@ extern void _KLS_rgbGetInfo(int bits);
 #include "./modules/_KLS_matrix.c"
 #include "./modules/_KLS_canvas.c"
 #include "./modules/_KLS_regex.c"
-#include "./modules/_KLS_net.c"
 #include "./modules/_KLS_gui.c"
 
 
@@ -333,36 +333,36 @@ struct _KLS_t_URL_HELP{
     KLS_size dataSize;
 };
 
-void _KLS_urlHandler(NET_t_UNIT u, KLS_byte event){
-    struct _KLS_t_URL_HELP *h=u->userData;
+void _KLS_urlHandler(NetUnit * const u,const enum NET_EVENT event){
+    struct _KLS_t_URL_HELP *h=u->data.ptr;
     switch(event){
-        case NET_EVENT_CONNECT:{
+        case NET_CONNECT:{
             char req[1024],host[40];
             int reqSize=snprintf(req,sizeof(req),
                 "GET %s %s\r\n"
                 "Host: %s\r\n"  "%s\r\n",
                 h->url->url, h->url->protocol?h->url->protocol:"HTTP/1.0",
-                NET_addressToString(&u->address,host), h->url->header?h->url->header:"Connection: close\r\n"
+                NetAddressString(NetUnitAddress(u),host), h->url->header?h->url->header:"Connection: close\r\n"
             );
             u->timeout=5;
             u->pulse=10;
-            NET_write(u,req,reqSize,NULL);
+            NetUnitWrite(u,req,reqSize,NULL);
             break;
         }
-        case NET_EVENT_RECEIVE:{
-            void *d=NULL;
-            KLS_size s=NET_read(u,&d,0,NULL);
-            if(!KLS_dataJoin(&h->data,&h->dataSize,&d,&s,3)){
-                KLS_freeData(d);
+        case NET_CANREAD:{
+            char buffer[2<<10];
+            void *d=buffer;
+            KLS_size s=NetUnitRead(u,buffer,sizeof(buffer),NULL);
+            if(!KLS_dataJoin(&h->data,&h->dataSize,&d,&s,1)){
                 KLS_freeData(h->data);
-                NET_disconnect(u);
+                NetUnitDisconnect(u);
             }
             break;
         }
-        case NET_EVENT_DISCONNECT:{
+        case NET_DISCONNECT:{
             char *ptr;
             h->url=NULL;
-            NET_interrupt(u->manager);
+            NetPoolEmit(NetUnitPool(u),0);
             if( h->data && (ptr=strstr(h->data+sizeof(KLS_t_URL_DATA),"\r\n\r\n")) ){
                 KLS_t_URL_DATA *ans=h->data;
                 ptr[2]=ptr[3]=0;
@@ -372,8 +372,8 @@ void _KLS_urlHandler(NET_t_UNIT u, KLS_byte event){
             }
             break;
         }
-        case NET_EVENT_TIMEOUT:{
-            NET_disconnect(u);
+        case NET_TIMEOUT:{
+            NetUnitDisconnect(u);
             break;
         }
     }
@@ -383,15 +383,16 @@ KLS_t_URL_DATA *KLS_urlRequest(const KLS_t_URL *url){
     KLS_t_URL_DATA *ret=NULL;
     if(url && url->url){
         struct _KLS_t_URL_HELP h={url};
-        NET_t_MANAGER m=NET_new(1,0,0);
-        NET_t_UNIT u=NET_unit(m,NET_TCP);
-        if(NET_connect(u,NET_address(h.url->url,80),0)){
+        NetAddress a[1];
+        NetPool *p=NetPoolCreateEx(1,0,KLS_malloc,KLS_free);
+        NetUnit *u=NetPoolUnit(p,NET_TCP);
+        if(!NetUnitConnect(u,NetAddressTranslate(h.url->url,80,a))){
             u->handler=_KLS_urlHandler;
-            u->timeout=30; u->userData=&h;
-            while(NET_service(m)==EINTR && h.url);
+            u->timeout=30; u->data.ptr=&h;
+            while(NetPoolDispatch(p,NULL));
             ret=h.data;
         }
-        NET_free(&m);
+        NetPoolDestroy(p);;
     }
     return ret;
 }

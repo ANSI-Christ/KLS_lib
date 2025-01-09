@@ -480,9 +480,9 @@ int pthread_signal_resume=SIGBREAK;
 #else /* end __WIN32 */
 
 static int _pthread_pipe(int fd[2]){
-    struct _pipe_t{long fd[2];} s={-1,-1};
-    struct _pipe_t(*f)(int fd[2])=(struct _pipe_t(*)(int fd[2]))pipe;
-    fd[0]=fd[1]=-1; s=f(fd);
+    struct _pipe_t{long fd[2];} s={{-1,-1}};
+    const union{void * const _; struct _pipe_t(* const f)(int fd[2]);}f={(void*)pipe};
+    fd[0]=fd[1]=-1; s=f.f(fd);
     if(s.fd[0]==-1) return -1;
     if(fd[0]==-1){
         fd[0]=s.fd[0];
@@ -589,7 +589,7 @@ static void _pthread_holder(int sig){
     pthread_signal_handler(sig,_pthread_holder);
     pthread_signal_setmode(sig,SIG_UNBLOCK);
     if(sig==pthread_signal_pause){
-        static const struct timespec t[1]={{1}};
+        static const struct timespec t[1]={{1,0}};
         const char * const p=(const char*)pthread_getspecific(_pthreadKey);
         pthread_setspecific(_pthreadKey,p+1);
         if(!p) while(pthread_getspecific(_pthreadKey)) nanosleep(t,NULL);
