@@ -22,7 +22,7 @@
 #define FINALLY(...) if( ({char *_1_=&_TryCatch()->final, _2_=*_1_; *_1_=0; _2_;}) ){__VA_ARGS__}
 #define THROW(...)   M_IF(M_COUNT(__VA_ARGS__))(_THROW1,_THROW0)(__VA_ARGS__)
 #define EXCEPTION    ((const struct _EXCEPTION*)(_TryCatch()->e))
-#define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] <%s> at [%s]\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
+#define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
 
 extern void(*TryCatchSignal)(void); /*by default nothing*/
 extern void(*TryCatchTerminate)(void); /*by default exit(-1)*/
@@ -30,13 +30,13 @@ extern void(*TryCatchTerminate)(void); /*by default exit(-1)*/
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct _EXCEPTION{ const char *type, *where; union{const void *c;void *p;}data; };
-struct _TRYCATCH{ jmp_buf *jmp; struct _EXCEPTION e[1]; char final;};
+struct _EXCEPTION{ const char *type, *where; void *data; };
+struct _TRYCATCH{ jmp_buf *jmp; struct _EXCEPTION e[1]; char buffer[95], final;};
 struct _TRYCATCH *_TryCatch(void);
 #define _CATCH(...) {__VA_ARGS__ break;}}
 #define _CATCH0() else{ _CATCH
 #define _CATCH1(_type_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _CATCH
-#define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(EXCEPTION->data.p); _CATCH
+#define _CATCH2(_type_,_var_) else if( !strcmp(EXCEPTION->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(EXCEPTION->data); _CATCH
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
     struct _TRYCATCH * const _1_=_TryCatch();\
@@ -51,9 +51,17 @@ struct _TRYCATCH *_TryCatch(void);
 #define _THROW1(_type_,...) ({\
     struct _TRYCATCH * const _1_=_TryCatch();\
     if(_1_ && _1_->jmp){\
-        const struct{_type_ data;} _2_ M_WHEN(M_IS_ARG(M_PEAK(__VA_ARGS__)))(={__VA_ARGS__});\
         _1_->e->type=M_STRING(_type_); _1_->e->where=_THROW_INFO;\
-        _1_->e->data.c=&_2_.data; longjmp(*_1_->jmp,1);\
+        if(_1_->e->data!=_1_->buffer){free(_1_->e->data); _1_->e->data=_1_->buffer;}\
+        M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(\
+            M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->e->data=malloc(sizeof(_type_))) ){\
+                struct M_JOIN(_tc,M_LINE()){char _[sizeof(_type_)];};\
+                const struct{_type_ _;} _2_={__VA_ARGS__};\
+                *((struct M_JOIN(_tc,M_LINE())*)_1_->e->data)=*(const struct M_JOIN(_tc,M_LINE())*)&_2_;\
+                longjmp(*_1_->jmp,1);\
+            }) , \
+            M_EXTRACT( longjmp(*_1_->jmp,1); )\
+        )\
     }puts("\nterminate called after throwing an instance of \'" M_STRING(_type_) "\' at [" _THROW_INFO "]\n");\
     TryCatchTerminate();\
 })
@@ -83,6 +91,7 @@ static unsigned char _TryCatchInit;
 static void _TryCatchDeleter(struct _TRYCATCH *s){
     if(s){
         pthread_setspecific(_TryCatchKey,NULL);
+        if(s->e->data!=s->buffer) free(s->e->data);
         free(s);
     }
 }
