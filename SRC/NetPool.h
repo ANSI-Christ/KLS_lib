@@ -862,6 +862,7 @@ NetUnit *NetPoolUnit(NetPool * const pool,const enum NET_PROTOCOL protocol){
         }else n=pool->allocator(sizeof(*n));
         if(n){
             memset(n,0,sizeof(*n));
+            n->u->pulse=20;
             n->pool=pool;
             n->protocol=protocol;
             n->sock=n->ctrl=INVALID_SOCKET;
