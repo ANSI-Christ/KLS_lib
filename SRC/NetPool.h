@@ -86,8 +86,10 @@ short *NetUnitRDWR(const NetUnit *unit);
 
 NetPool *NetUnitPool(const NetUnit *unit);
 
-const NetAddress *NetUnitAddress(const NetUnit *unit);
+NetUnit *NetUnitNodeNext(const NetUnit *unit);
+NetUnit *NetUnitNodeServer(const NetUnit *unit);
 
+const NetAddress *NetUnitAddress(const NetUnit *unit);
 
 
 #endif /* NETPOOL_H */
@@ -757,11 +759,13 @@ static void NetDispatch(NetPool * const p,unsigned int c){
     void(* const f[2][2])(NetNode*,struct pollfd*,const time_t)={{_NetTcpClient,_NetTcpServer},{_NetUdpBoth,_NetUdpBoth}};
     const time_t t=time(NULL);
     unsigned int i=1;
-    for(;c;++i)
+    while(c){
         if(p->sock[i].revents){
             NetNode * const n=p->node[i]; --c;
             f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
-        }
+            if(p->node[i]!=n) continue;
+        } ++i;
+    }
 }
 
 static void NetReservCut(NetPool * const p,const unsigned int max){
@@ -808,7 +812,7 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
         p->allocator=allocator;
         p->deallocator=deallocator;
         p->real=base_count;
-        p->reserv_count=0;
+        p->reserv_count=p->size=0;
         p->reserv_max=reserv_count;
         p->units->first=p->units->last=NULL;
         p->reserv->first=p->reserv->last=NULL;
@@ -816,9 +820,9 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
         p->node=NULL;
         if( !(p->sock=allocator(sizeof(*p->sock)*base_count)) ) break;
         if( !(p->node=allocator(sizeof(*p->node)*base_count)) ) break;
+        p->size=1;
         _NetConfig(1);
         if(NetSocketPair(p->emit)) break;
-        p->size=1;
         p->sock->fd=p->emit[0];
         p->sock->events=POLLIN;
         return p;
@@ -829,9 +833,14 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
 
 void NetPoolDestroy(NetPool * const pool){
     if(pool){
-        pool->deallocator(pool->node);
-        pool->deallocator(pool->sock);
-        pool->node=NULL;
+        if(pool->node){
+            pool->deallocator(pool->node);
+            pool->node=NULL;
+        }
+        if(pool->sock){
+            pool->deallocator(pool->sock);
+            pool->sock=NULL;
+        }
         if(pool->emit[0]!=INVALID_SOCKET){
             NetSocketDestroy(pool->emit);
             NetSocketDestroy(pool->emit+1);
@@ -843,8 +852,11 @@ void NetPoolDestroy(NetPool * const pool){
             pool->deallocator(n);
         }
         NetReservCut(pool,0);
+        if(pool->size){
+            _NetConfig(0);
+            pool->size=0;
+        }
         pool->deallocator(pool);
-        _NetConfig(0);
     }
 }
 
@@ -879,6 +891,7 @@ NetUnit *NetPoolUnit(NetPool * const pool,const enum NET_PROTOCOL protocol){
 int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
     NetNode * const n=(NetNode*)unit;
     if( n && n->sock==INVALID_SOCKET && address && (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
+        n->server=NULL;
         if(NetSocketListen(n->sock,address,5,n->protocol) || NetPollAdd(n->pool,n,POLLIN|POLLHUP)){
             NetSocketDestroy(&n->sock);
             return -1;
@@ -893,6 +906,7 @@ int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
 int NetUnitConnect(NetUnit * const unit,const NetAddress * const address){
     NetNode * const n=(NetNode*)unit;
     if( n && n->sock==INVALID_SOCKET && address && (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
+        n->server=NULL;
         if(NetPollAdd(n->pool,n,POLLIN|POLLOUT|POLLHUP)){
             NetSocketDestroy(&n->sock);
             return -1;
@@ -936,21 +950,27 @@ int NetUnitRead(NetUnit * const unit,void * const buffer,const unsigned int size
 }
 
 void NetUnitDisconnect(NetUnit * const unit){
-    NetNode * const n=(NetNode*)unit;
-    if(n && n->sock!=INVALID_SOCKET){
-        NetList * const l=n->pool->units;
-        NetNode *x=n->next;
+    if(unit){
+        NetNode * const n=(NetNode*)unit;
         unit->timeout=0;
-        n->sock_state=NET_DISCONNECTED;
-        NetSocketDestroy(&n->sock);
-        NetSocketDestroy(&n->ctrl);
-        NetPollRem(n->pool,n->id);
-        NetListLinkAfter(l,n,l->last);
-        n->u->handler(n->u,NET_DISCONNECT);
-        while(x && x->server==n){
-            NetNode * const d=x;
-            x=x->next;
-            NetUnitDisconnect(d->u);
+        if(n->sock!=INVALID_SOCKET){
+            NetList * const l=n->pool->units;
+            NetNode *x=n->next;
+            NetSocketDestroy(&n->sock);
+            NetSocketDestroy(&n->ctrl);
+            NetPollRem(n->pool,n->id);
+            NetListLinkAfter(l,n,l->last);
+            n->sock_state=NET_DISCONNECTED;
+            n->u->handler(n->u,NET_DISCONNECT);
+            /* may be switch(n->sock_state):
+                - accepting without event
+                - connecting with error event sets errno ECONNABORTED
+                - connected / listened with dosconnect event */
+            while(x && x->server==n){
+                NetNode * const d=x;
+                x=x->next;
+                NetUnitDisconnect(d->u);
+            }
         }
     }
 }
@@ -958,6 +978,16 @@ void NetUnitDisconnect(NetUnit * const unit){
 void NetUnitAutoRemove(NetUnit * const unit){
     NetNode * const n=(NetNode*)unit;
     if(n) n->del=1;
+}
+
+NetUnit *NetUnitNodeServer(const NetUnit * const unit){
+    const NetNode * const n=(const NetNode*)unit;
+    if(n) return n->server;
+}
+
+NetUnit *NetUnitNodeNext(const NetUnit * const unit){
+    const NetNode * const n=(const NetNode*)unit;
+    if(n) return n->next;
 }
 
 short *NetUnitRDWR(const NetUnit * const unit){
@@ -979,5 +1009,7 @@ const NetAddress *NetUnitAddress(const NetUnit * const unit){
 }
 
 #undef _NET_LAST_ERROR
+#undef _NET_ADDR_PORT
+#undef _NET_ADDR_VERS
 
 #endif
