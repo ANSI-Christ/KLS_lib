@@ -572,7 +572,6 @@ static void NetListLinkAfter(NetList * const l,NetNode * const n, NetNode * cons
     }
 }
 
-
 static int NetPollAdd(NetPool * const p,NetNode * const n,const short flags){
     if(!p->node) return -1;
     if(p->size==p->real){
@@ -605,7 +604,9 @@ static void NetPollRem(NetPool * const p,const unsigned int i){
 }
 
 static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t){
-    if(p->revents & (POLLERR | POLLNVAL)){
+    const short revents=p->revents;
+    p->revents=0;
+    if(revents & (POLLERR | POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
@@ -617,13 +618,13 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
         n->u->handler(n->u,NET_CONNECT);
         return;
     }
-    if(p->revents & POLLOUT){
+    if(revents & POLLOUT){
         p->events^=POLLOUT;
         n->timeout=t;
         n->u->handler(n->u,NET_CANWRITE);
         return;
     }
-    if(p->revents & POLLIN){
+    if(revents & POLLIN){
         n->timeout=n->pulse=t;
         n->u->handler(n->u,NET_CANREAD);
         return;
@@ -631,12 +632,14 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
 }
 
 static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_t t){
-    if(p->revents & (POLLERR|POLLNVAL)){
+    const short revents=p->revents;
+    p->revents=0;
+    if(revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(p->revents & (POLLIN|POLLHUP)){
+    if(revents & (POLLIN|POLLHUP)){
         NetAddress a[1];
         NetSocket s=NetSocketAccept(n->sock,a);
         n->timeout=t;
@@ -667,13 +670,20 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
 }
 
 static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t t){
-    if(p->revents & (POLLERR|POLLNVAL)){
+    const short revents=p->revents;
+    p->revents=0;
+    if(revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(p->revents & POLLHUP){
-        NetUnitDisconnect(n->u);
+    if(revents & POLLHUP){
+        if(n->sock_state==NET_CONNECTED)
+            NetUnitDisconnect(n->u);
+        else{
+            errno=EHOSTUNREACH;
+            n->u->handler(n->u,NET_ERROR);
+        }
         return;
     }
     if(n->sock_state==NET_CONNECTING){
@@ -685,8 +695,9 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
         n->timeout=n->pulse=t;
         n->sock_state=NET_CONNECTED;
         n->u->handler(n->u,NET_CONNECT);
+        return;
     }
-    if(p->revents & POLLIN){
+    if(revents & POLLIN){
         char skip[1];
         switch(recv(n->sock,skip,1,MSG_NOSIGNAL|MSG_PEEK)){
             case 0:
@@ -703,7 +714,7 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
                 return;
         }
     }
-    if(p->revents & POLLOUT){
+    if(revents & POLLOUT){
         n->timeout=t;
         p->events^=POLLOUT;
         n->u->handler(n->u,NET_CANWRITE);
@@ -735,6 +746,7 @@ static void NetChecks(NetPool * const p){
                         default: NetUnitDisconnect(n->u); break;
                     }
                 }else if(n->u->pulse && t>n->pulse+n->u->pulse && (n->ctrl=NetSocketCreate(NET_TCP,_NET_ADDR_VERS(n->address)))!=INVALID_SOCKET ){
+                    /* may be connect to same address, but different port: 7 or else */
                     NetSocketConnect(n->ctrl,n->address);
                     n->pulse=t+20;
                 }
@@ -960,12 +972,14 @@ void NetUnitDisconnect(NetUnit * const unit){
             NetSocketDestroy(&n->ctrl);
             NetPollRem(n->pool,n->id);
             NetListLinkAfter(l,n,l->last);
-            n->sock_state=NET_DISCONNECTED;
-            n->u->handler(n->u,NET_DISCONNECT);
-            /* may be switch(n->sock_state):
-                - accepting without event
-                - connecting with error event sets errno ECONNABORTED
-                - connected / listened with dosconnect event */
+            switch(n->sock_state){
+                case NET_CONNECTED:
+                case NET_LISTENING:
+                    n->sock_state=NET_DISCONNECTED;
+                    n->u->handler(n->u,NET_DISCONNECT);
+                    break;
+                default: n->sock_state=NET_DISCONNECTED;
+            }
             while(x && x->server==n){
                 NetNode * const d=x;
                 x=x->next;
