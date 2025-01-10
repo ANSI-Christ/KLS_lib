@@ -410,8 +410,9 @@ static char NetAddressGet(const char *host,NetAddress *addr){
     const struct addrinfo in={.ai_family=AF_UNSPEC, .ai_flags=0};
     struct addrinfo *info=NULL, *iter=NULL;
     _NET_ADDR_VERS(addr)=0;
-    if(getaddrinfo(host,NULL,&in,&info))
-        return 0;
+    if(getaddrinfo(host,NULL,&in,&info)){
+        _NET_LAST_ERROR(); return 0;
+    }
     iter=info;
     do{
         if(NetAddressFromNet((const _NetAddressStorage*)iter->ai_addr,iter->ai_addrlen,addr))
@@ -897,12 +898,16 @@ NetUnit *NetPoolUnit(NetPool * const pool,const enum NET_PROTOCOL protocol){
         }
         pool->deallocator(n);
     }
+    errno=EINVAL;
     return NULL;
 }
 
 int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
     NetNode * const n=(NetNode*)unit;
-    if( n && n->sock==INVALID_SOCKET && address && (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
+    if(!address) return -1;
+    if(!n){errno=EINVAL; return -1;}
+    if(n->sock!=INVALID_SOCKET){errno=EBUSY; return -1;}
+    if( (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
         n->server=NULL;
         if(NetSocketListen(n->sock,address,5,n->protocol) || NetPollAdd(n->pool,n,POLLIN|POLLHUP)){
             NetSocketDestroy(&n->sock);
@@ -917,7 +922,10 @@ int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
 
 int NetUnitConnect(NetUnit * const unit,const NetAddress * const address){
     NetNode * const n=(NetNode*)unit;
-    if( n && n->sock==INVALID_SOCKET && address && (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
+    if(!address) return -1;
+    if(!n){errno=EINVAL; return -1;}
+    if(n->sock!=INVALID_SOCKET){errno=EBUSY; return -1;}
+    if( (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
         n->server=NULL;
         if(NetPollAdd(n->pool,n,POLLIN|POLLOUT|POLLHUP)){
             NetSocketDestroy(&n->sock);
@@ -943,7 +951,9 @@ int NetUnitWrite(NetUnit * const unit,const void * const data,const unsigned int
         }else bytes=send(n->sock,data,size,MSG_NOSIGNAL);
         if(bytes<0) _NET_LAST_ERROR();
         return bytes;
-    } return -1;
+    }
+    errno=EINVAL;
+    return -1;
 }
 
 int NetUnitRead(NetUnit * const unit,void * const buffer,const unsigned int size,NetAddress * const address){
@@ -958,7 +968,9 @@ int NetUnitRead(NetUnit * const unit,void * const buffer,const unsigned int size
         }else bytes=recv(n->sock,buffer,size,MSG_NOSIGNAL);
         if(bytes<0) _NET_LAST_ERROR();
         return bytes;
-    } return -1;
+    }
+    errno=EINVAL;
+    return -1;
 }
 
 void NetUnitDisconnect(NetUnit * const unit){
@@ -990,18 +1002,16 @@ void NetUnitDisconnect(NetUnit * const unit){
 }
 
 void NetUnitAutoRemove(NetUnit * const unit){
-    NetNode * const n=(NetNode*)unit;
-    if(n) n->del=1;
+    if(unit) ((NetNode*)unit)->del=1;
 }
 
 NetUnit *NetUnitNodeServer(const NetUnit * const unit){
-    const NetNode * const n=(const NetNode*)unit;
-    if(n) return n->server;
+    return ((const NetNode*)unit)->server;
 }
 
 NetUnit *NetUnitNodeNext(const NetUnit * const unit){
-    const NetNode * const n=(const NetNode*)unit;
-    if(n) return n->next;
+    if(unit) return ((const NetNode*)unit)->next;
+    return NULL;
 }
 
 short *NetUnitRDWR(const NetUnit * const unit){
@@ -1011,14 +1021,12 @@ short *NetUnitRDWR(const NetUnit * const unit){
 }
 
 NetPool *NetUnitPool(const NetUnit * const unit){
-    const NetNode * const n=(const NetNode*)unit;
-    if(n) return n->pool;
+    if(unit) return ((const NetNode*)unit)->pool;
     return NULL;
 }
 
 const NetAddress *NetUnitAddress(const NetUnit * const unit){
-    const NetNode * const n=(const NetNode*)unit;
-    if(n) return n->address;
+    if(unit) return ((const NetNode*)unit)->address;
     return NULL;
 }
 
