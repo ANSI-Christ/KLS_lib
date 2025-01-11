@@ -610,9 +610,7 @@ static void NetPollRem(NetPool * const p,const unsigned int i){
 }
 
 static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t){
-    const short revents=p->revents;
-    /*p->revents=0;*/
-    if(revents & (POLLERR | POLLNVAL)){
+    if(p->revents & (POLLERR | POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
@@ -624,13 +622,13 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
         n->u->handler(n->u,NET_CONNECT);
         return;
     }
-    if(revents & POLLOUT){
+    if(p->revents & POLLOUT){
         p->events^=POLLOUT;
         n->timeout=t;
         n->u->handler(n->u,NET_CANWRITE);
         return;
     }
-    if(revents & POLLIN){
+    if(p->revents & POLLIN){
         n->timeout=n->pulse=t;
         n->u->handler(n->u,NET_CANREAD);
         return;
@@ -638,14 +636,12 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
 }
 
 static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_t t){
-    const short revents=p->revents;
-    /*p->revents=0;*/
-    if(revents & (POLLERR|POLLNVAL)){
+    if(p->revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(revents & (POLLIN|POLLHUP)){
+    if(p->revents & (POLLIN|POLLHUP)){
         NetAddress a[1];
         NetSocket s=NetSocketAccept(n->sock,a);
         n->timeout=t;
@@ -676,14 +672,12 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
 }
 
 static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t t){
-    const short revents=p->revents;
-    /*p->revents=0;*/
-    if(revents & (POLLERR|POLLNVAL)){
+    if(p->revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(revents & POLLHUP){
+    if(p->revents & POLLHUP){
         if(n->sock_state==NET_CONNECTED)
             NetUnitDisconnect(n->u);
         else{
@@ -703,7 +697,7 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
         n->u->handler(n->u,NET_CONNECT);
         return;
     }
-    if(revents & POLLIN){
+    if(p->revents & POLLIN){
         char skip[1];
         switch(recv(n->sock,skip,1,MSG_NOSIGNAL|MSG_PEEK)){
             case 0:
@@ -720,7 +714,7 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
                 return;
         }
     }
-    if(revents & POLLOUT){
+    if(p->revents & POLLOUT){
         n->timeout=t;
         p->events^=POLLOUT;
         n->u->handler(n->u,NET_CANWRITE);
@@ -773,33 +767,16 @@ static void NetChecks(NetPool * const p){
     }
 }
 
-/* strange shit with c and revents: c=2 and only one revent not zero... (and its not because of i for starts from 1, [0] is emit socket)*/
-/*static void NetDispatch(NetPool * const p,unsigned int c){
+static void NetDispatch(NetPool * const p,int c){
     void(* const f[2][2])(NetNode*,struct pollfd*,const time_t)={{_NetTcpClient,_NetTcpServer},{_NetUdpBoth,_NetUdpBoth}};
     const time_t t=time(NULL);
-    unsigned int i=1;
-    printf("dispatch %u / %u\n",c,p->size);
-    for(i=1;i<p->size;++i)
-        printf("  revents[%u]=%d\n",i,p->sock[i].revents);
-    while(c)
-        for(i=1;i<p->size && c;++i)
-            if(p->sock[i].revents){
-                NetNode * const n=p->node[i]; --c;
-                f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
-            }
-}*/
-
-static void NetDispatch(NetPool * const p,unsigned int c){
-    if(c){
-        void(* const f[2][2])(NetNode*,struct pollfd*,const time_t)={{_NetTcpClient,_NetTcpServer},{_NetUdpBoth,_NetUdpBoth}};
-        const time_t t=time(NULL);
-        unsigned int i;
-        for(i=1;i<p->size;++i)
-            if(p->sock[i].revents){
-                NetNode * const n=p->node[i];
-                f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
-            }
-    }
+    unsigned int i=p->size;
+    while(c && --i)
+        if(p->sock[i].revents){
+            NetNode * const n=p->node[i];
+            f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
+            --c; if(i>p->size) i=p->size;
+        }
 }
 
 static void NetReservCut(NetPool * const p,const unsigned int max){
@@ -817,8 +794,8 @@ int NetPoolDispatch(NetPool * const pool,int *emit){
         char work=1;
         if(!emit) emit=tmp;
         do{
-            unsigned int count=poll(pool->sock,pool->size,1000);
-            if(count==(unsigned int)SOCKET_ERROR) return errno;
+            int count=poll(pool->sock,pool->size,1000);
+            if(count==SOCKET_ERROR) return errno;
             if(pool->sock->revents){
                 recv(pool->emit[0],emit,sizeof(*emit),MSG_NOSIGNAL);
                 --count; work=0;
