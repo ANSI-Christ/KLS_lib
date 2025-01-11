@@ -150,7 +150,7 @@ static int _NetErrnoTranslate(const int e){
 
 #ifdef POLLIN
 static int poll(struct pollfd * const p,const int c,const int t){
-    const int ret=WSApoll(p,c,t); _NET_LAST_ERROR(); return ret;
+    return WSApoll(p,c,t);
 }
 #endif
 
@@ -333,7 +333,7 @@ static int poll(struct pollfd * const p,int cnt,const int timeout){
         FD_SET(p[i].fd,set+2);
         if(p[i].fd>max) max=p[i].fd;
     }
-    if((s=select(max+1,set,set+1,set+2,timeout<0?NULL:&t))>0)
+    if( (s=select(max+1,set,set+1,set+2,timeout<0?NULL:&t))!=SOCKET_ERROR && s>0)
         for(i=0;i<cnt;++i){
             if(FD_ISSET(p[i].fd,set)){
                 char tmp;
@@ -345,7 +345,6 @@ static int poll(struct pollfd * const p,int cnt,const int timeout){
             if(FD_ISSET(p[i].fd,set+1)) p[i].revents|=POLLOUT;
             if(FD_ISSET(p[i].fd,set+2)) p[i].revents|=POLLERR;
         }
-    _NET_LAST_ERROR();
     return s;
 }
 
