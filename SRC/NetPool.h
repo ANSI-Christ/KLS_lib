@@ -128,9 +128,6 @@ const NetAddress *NetUnitAddress(const NetUnit *unit);
     #define WSAEAGAIN EAGAIN
 #endif
 
-#ifdef POLLIN
-static int poll(void *p,int c,int t){return WSApoll(p,c,t);}
-#endif
 
 static void _NetConfig(const char on){
     if(on){
@@ -150,6 +147,12 @@ static int _NetErrnoTranslate(const int e){
 }
 
 #define _NET_LAST_ERROR() (errno=_NetErrnoTranslate(WSAGetLastError()))
+
+#ifdef POLLIN
+static int poll(struct pollfd * const p,const int c,const int t){
+    const int ret=WSApoll(p,c,t); _NET_LAST_ERROR(); return ret;
+}
+#endif
 
 static int socketpair_udp(struct addrinfo* addr_info,SOCKET sock[2]){
     SOCKET client, server;
@@ -317,7 +320,7 @@ struct pollfd{
     short events,revents;
 };
 
-static int poll(struct pollfd * const p,int cnt,int timeout){
+static int poll(struct pollfd * const p,int cnt,const int timeout){
     int i,s;
     struct timeval t={timeout/1000,1000*(timeout%1000)};
     NetSocket max=p->fd;
@@ -342,7 +345,8 @@ static int poll(struct pollfd * const p,int cnt,int timeout){
             if(FD_ISSET(p[i].fd,set+1)) p[i].revents|=POLLOUT;
             if(FD_ISSET(p[i].fd,set+2)) p[i].revents|=POLLERR;
         }
-    return s<-1 ? -1 : s;
+    _NET_LAST_ERROR();
+    return s;
 }
 
 #endif
@@ -814,7 +818,7 @@ int NetPoolDispatch(NetPool * const pool,int *emit){
         if(!emit) emit=tmp;
         do{
             unsigned int count=poll(pool->sock,pool->size,1000);
-            if(count==(unsigned int)-1) return errno;
+            if(count==(unsigned int)SOCKET_ERROR) return errno;
             if(pool->sock->revents){
                 recv(pool->emit[0],emit,sizeof(*emit),MSG_NOSIGNAL);
                 --count; work=0;
