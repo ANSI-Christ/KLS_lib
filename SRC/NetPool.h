@@ -589,6 +589,7 @@ static int NetPollAdd(NetPool * const p,NetNode * const n,const short flags){
     }
     n->id=p->size++;
     p->node[n->id]=n;
+    p->sock[n->id].revents=0;
     p->sock[n->id].fd=n->sock;
     p->sock[n->id].events=flags;
     return 0;
@@ -606,7 +607,7 @@ static void NetPollRem(NetPool * const p,const unsigned int i){
 
 static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t){
     const short revents=p->revents;
-    p->revents=0;
+    /*p->revents=0;*/
     if(revents & (POLLERR | POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
@@ -634,7 +635,7 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
 
 static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_t t){
     const short revents=p->revents;
-    p->revents=0;
+    /*p->revents=0;*/
     if(revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
@@ -672,7 +673,7 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
 
 static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t t){
     const short revents=p->revents;
-    p->revents=0;
+    /*p->revents=0;*/
     if(revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
@@ -768,16 +769,32 @@ static void NetChecks(NetPool * const p){
     }
 }
 
-static void NetDispatch(NetPool * const p,unsigned int c){
+/* strange shit with c and revents: c=2 and only one revent not zero... (and its not because of i for starts from 1, [0] is emit socket)*/
+/*static void NetDispatch(NetPool * const p,unsigned int c){
     void(* const f[2][2])(NetNode*,struct pollfd*,const time_t)={{_NetTcpClient,_NetTcpServer},{_NetUdpBoth,_NetUdpBoth}};
     const time_t t=time(NULL);
     unsigned int i=1;
-    while(c){
-        if(p->sock[i].revents){
-            NetNode * const n=p->node[i]; --c;
-            f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
-            if(p->node[i]!=n) continue;
-        } ++i;
+    printf("dispatch %u / %u\n",c,p->size);
+    for(i=1;i<p->size;++i)
+        printf("  revents[%u]=%d\n",i,p->sock[i].revents);
+    while(c)
+        for(i=1;i<p->size && c;++i)
+            if(p->sock[i].revents){
+                NetNode * const n=p->node[i]; --c;
+                f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
+            }
+}*/
+
+static void NetDispatch(NetPool * const p,unsigned int c){
+    if(c){
+        void(* const f[2][2])(NetNode*,struct pollfd*,const time_t)={{_NetTcpClient,_NetTcpServer},{_NetUdpBoth,_NetUdpBoth}};
+        const time_t t=time(NULL);
+        unsigned int i;
+        for(i=1;i<p->size;++i)
+            if(p->sock[i].revents){
+                NetNode * const n=p->node[i];
+                f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
+            }
     }
 }
 
@@ -798,7 +815,7 @@ int NetPoolDispatch(NetPool * const pool,int *emit){
         do{
             unsigned int count=poll(pool->sock,pool->size,1000);
             if(count==(unsigned int)-1) return errno;
-            if(count && pool->sock->revents){
+            if(pool->sock->revents){
                 recv(pool->emit[0],emit,sizeof(*emit),MSG_NOSIGNAL);
                 --count; work=0;
             }
@@ -821,18 +838,15 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
     if(base_count<10) base_count=10;
     ++base_count;
     do{
-        if( !(p=allocator(sizeof(*p))) ) break;
+        if( !(p=(NetPool*)allocator(sizeof(*p))) ) break;
+        memset(p,0,sizeof(*p));
         p->allocator=allocator;
         p->deallocator=deallocator;
         p->real=base_count;
-        p->reserv_count=p->size=0;
         p->reserv_max=reserv_count;
-        p->units->first=p->units->last=NULL;
-        p->reserv->first=p->reserv->last=NULL;
         p->emit[0]=p->emit[1]=INVALID_SOCKET;
-        p->node=NULL;
-        if( !(p->sock=allocator(sizeof(*p->sock)*base_count)) ) break;
-        if( !(p->node=allocator(sizeof(*p->node)*base_count)) ) break;
+        if( !(p->sock=(struct pollfd*)allocator(sizeof(*p->sock)*base_count)) ) break;
+        if( !(p->node=(NetNode**)allocator(sizeof(*p->node)*base_count)) ) break;
         p->size=1;
         _NetConfig(1);
         if(NetSocketPair(p->emit)) break;
