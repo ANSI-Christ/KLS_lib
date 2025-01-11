@@ -222,8 +222,8 @@ fail:
 static int socketpair(int family,int type,int protocol,SOCKET sock[2]){
     const struct addrinfo cfg={.ai_family=AF_INET, .ai_socktype=type, .ai_protocol=protocol};
     struct addrinfo *info;
-    if(getaddrinfo("127.0.0.1","0",&cfg,&info))
-        return -1;
+    const int err=getaddrinfo("127.0.0.1","0",&cfg,&info);
+    if(err){errno=EADDRNOTAVAIL;return -1;}
     if(type==SOCK_DGRAM)
         family=socketpair_udp(info,sock);
     else family=-1;
@@ -409,20 +409,13 @@ static unsigned int NetAddressToNet(const NetAddress * const in,_NetAddress * co
     return 0;
 }
 
-static char NetAddressGet(const char *host,NetAddress *addr){
+static char NetAddressDNS(const char *host,NetAddress *out){
     const struct addrinfo in={.ai_family=AF_UNSPEC};
-    struct addrinfo *info=NULL, *iter=NULL;
-    _NET_ADDR_VERS(addr)=0;
-    if(getaddrinfo(host,NULL,&in,&info)){
-        _NET_LAST_ERROR(); return 0;
-    }
-    iter=info;
-    do{
-        if(NetAddressFromNet((const _NetAddressStorage*)iter->ai_addr,iter->ai_addrlen,addr))
-            break;
-    }while( (iter=iter->ai_next) );
+    struct addrinfo *i, *info=NULL;
+    if(getaddrinfo(host,NULL,&in,&info)) return 0;
+    for(i=info;i && !NetAddressFromNet((_NetAddressStorage*)i->ai_addr,i->ai_addrlen,out);i=i->ai_next);
     freeaddrinfo(info);
-    return _NET_ADDR_VERS(addr);
+    return _NET_ADDR_VERS(out);
 }
 
 static const char *NetAddressDomain(const char *address,char *domain){
@@ -436,10 +429,13 @@ static const char *NetAddressDomain(const char *address,char *domain){
 
 NetAddress *NetAddressTranslate(const char *host,unsigned short port,NetAddress * const address){
     char tmp[128];
-    if(NetAddressGet(NetAddressDomain(host,tmp),address)){
+    _NET_ADDR_VERS(address)=0;
+    if(NetAddressDNS(NetAddressDomain(host,tmp),address)){
         _NET_ADDR_PORT(address)=port;
         return address;
-    } return NULL;
+    }
+    errno=EADDRNOTAVAIL;
+    return NULL;
 }
 
 char *NetAddressString(const NetAddress * const address,char name[static 40]){
