@@ -410,7 +410,7 @@ static unsigned int NetAddressToNet(const NetAddress * const in,_NetAddress * co
 }
 
 static char NetAddressGet(const char *host,NetAddress *addr){
-    const struct addrinfo in={.ai_family=AF_UNSPEC, .ai_flags=0};
+    const struct addrinfo in={.ai_family=AF_UNSPEC};
     struct addrinfo *info=NULL, *iter=NULL;
     _NET_ADDR_VERS(addr)=0;
     if(getaddrinfo(host,NULL,&in,&info)){
@@ -457,7 +457,7 @@ char *NetAddressString(const NetAddress * const address,char name[static 40]){
     return NULL;
 }
 
-static NetSocket NetSocketCreate(const enum NET_PROTOCOL p,const unsigned char v){
+static NetSocket NetSocketCreate(const unsigned char p,const unsigned char v){
     NetSocket s=socket((v==6?AF_INET6:AF_INET),(p==NET_TCP?SOCK_STREAM:SOCK_DGRAM),0);
     if(s!=INVALID_SOCKET){
         const int opt1=1;
@@ -480,7 +480,7 @@ static NetSocket NetSocketAccept(NetSocket in,NetAddress * const a){
     } return s;
 }
 
-static int NetSocketListen(NetSocket s,const NetAddress * const a,const unsigned int peers,const enum NET_PROTOCOL protocol){
+static int NetSocketListen(NetSocket s,const NetAddress * const a,const unsigned int peers,const unsigned char protocol){
     _NetAddress _a={0};
     const unsigned int l=NetAddressToNet(a,&_a);
     if(l){
@@ -878,7 +878,7 @@ NetUnit *NetPoolUnit(NetPool * const pool,const enum NET_PROTOCOL protocol){
         if(n){
             NetListUnlink(pool->reserv,n);
             --pool->reserv_count;
-        }else n=pool->allocator(sizeof(*n));
+        }else n=(NetNode*)pool->allocator(sizeof(*n));
         if(n){
             memset(n,0,sizeof(*n));
             n->u->pulse=20;
@@ -1000,11 +1000,11 @@ void NetUnitAutoRemove(NetUnit * const unit){
 }
 
 NetUnit *NetUnitNodeServer(const NetUnit * const unit){
-    return ((const NetNode*)unit)->server;
+    return (NetUnit*)(((const NetNode*)unit)->server);
 }
 
 NetUnit *NetUnitNodeNext(const NetUnit * const unit){
-    if(unit) return ((const NetNode*)unit)->next;
+    if(unit) return (NetUnit*)(((const NetNode*)unit)->next);
     return NULL;
 }
 
