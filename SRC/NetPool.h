@@ -129,12 +129,11 @@ const NetAddress *NetUnitAddress(const NetUnit *unit);
 #endif
 
 
-static void _NetConfig(const char on){
+static int _NetConfig(const char on){
     if(on){
         WSADATA w;
-        WSAStartup(0x0202,&w);
-        return;
-    } WSACleanup();
+        return WSAStartup(MAKEWORD(2,2),&w);
+    } WSACleanup(); return 0;
 }
 
 static int _NetErrnoTranslate(const int e){
@@ -188,8 +187,10 @@ static int socketpair_udp(struct addrinfo* addr_info,SOCKET sock[2]){
     else
         address = "127.0.0.1";
 
-    if (getaddrinfo(address, "0", &addr, &result))
+    if (getaddrinfo(address, "0", &addr, &result)){
+        WSASetLastError(EFAULT);
         goto fail;
+    }
 
     setsockopt(client,SOL_SOCKET,SO_REUSEADDR,(const char*)&opt, sizeof(opt));
     if(SOCKET_ERROR == bind(client, result->ai_addr, result->ai_addrlen))
@@ -223,7 +224,7 @@ static int socketpair(int family,int type,int protocol,SOCKET sock[2]){
     const struct addrinfo cfg={.ai_family=AF_INET, .ai_socktype=type, .ai_protocol=protocol};
     struct addrinfo *info;
     const int err=getaddrinfo("127.0.0.1","0",&cfg,&info);
-    if(err){errno=EADDRNOTAVAIL;return -1;}
+    if(err){WSASetLastError(EFAULT);return -1;}
     if(type==SOCK_DGRAM)
         family=socketpair_udp(info,sock);
     else family=-1;
@@ -247,8 +248,7 @@ static void NetSocketDestroy(NetSocket * const s){
 
 static int NetSocketPair(NetSocket s[2]){
     if(socketpair(AF_INET,SOCK_DGRAM,0,s)){
-        _NET_LAST_ERROR();
-        return -1;
+        _NET_LAST_ERROR(); return -1;
     } return 0;
 }
 
@@ -273,7 +273,7 @@ static int NetSocketError(NetSocket s){
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 
-static void _NetConfig(const char on){return;(void)on;}
+static int _NetConfig(const char on){return 0;(void)on;}
 
 typedef int NetSocket;
 #define INVALID_SOCKET -1
@@ -809,45 +809,46 @@ NetPool *NetPoolCreate(void){
 
 NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*(*allocator)(size_t),void(*deallocator)(void*)){
     NetPool *p=NULL;
+    if(_NetConfig(1)){errno=ENETDOWN; return NULL;}
     if(!allocator) allocator=malloc;
     if(!deallocator) deallocator=free;
     if(base_count<10) base_count=10;
-    ++base_count;
     do{
-        if( !(p=(NetPool*)allocator(sizeof(*p))) ) break;
+        if( !(p=(NetPool*)allocator(sizeof(*p))) ){
+            _NetConfig(0);
+            return NULL;
+        }
         memset(p,0,sizeof(*p));
+        p->emit[0]=p->emit[1]=INVALID_SOCKET;
+        if(NetSocketPair(p->emit)) break;
+        ++base_count;
+        if( !(p->node=(NetNode**)allocator(sizeof(*p->node)*base_count)) ) break;
+        if( !(p->sock=(struct pollfd*)allocator(sizeof(*p->sock)*base_count)) ) break;
         p->allocator=allocator;
         p->deallocator=deallocator;
         p->real=base_count;
         p->reserv_max=reserv_count;
-        p->emit[0]=p->emit[1]=INVALID_SOCKET;
-        if( !(p->sock=(struct pollfd*)allocator(sizeof(*p->sock)*base_count)) ) break;
-        if( !(p->node=(NetNode**)allocator(sizeof(*p->node)*base_count)) ) break;
         p->size=1;
-        _NetConfig(1);
-        if(NetSocketPair(p->emit)) break;
         p->sock->fd=p->emit[0];
         p->sock->events=POLLIN;
         return p;
     }while(0);
-    NetPoolDestroy(p);
+    if(p->node) deallocator(p->node);
+    if(p->sock) deallocator(p->sock);
+    if(p->emit[0]!=INVALID_SOCKET){
+        NetSocketDestroy(p->emit);
+        NetSocketDestroy(p->emit+1);
+    }
+    _NetConfig(0);
     return NULL;
 }
 
 void NetPoolDestroy(NetPool * const pool){
     if(pool){
-        if(pool->node){
-            pool->deallocator(pool->node);
-            pool->node=NULL;
-        }
-        if(pool->sock){
-            pool->deallocator(pool->sock);
-            pool->sock=NULL;
-        }
-        if(pool->emit[0]!=INVALID_SOCKET){
-            NetSocketDestroy(pool->emit);
-            NetSocketDestroy(pool->emit+1);
-        }
+        NetSocketDestroy(pool->emit);
+        NetSocketDestroy(pool->emit+1);
+        pool->deallocator(pool->node); pool->node=NULL;
+        pool->deallocator(pool->sock); pool->sock=NULL;
         while(pool->units->first){
             NetNode * const n=pool->units->first;
             NetUnitDisconnect(n->u);
@@ -855,11 +856,8 @@ void NetPoolDestroy(NetPool * const pool){
             pool->deallocator(n);
         }
         NetReservCut(pool,0);
-        if(pool->size){
-            _NetConfig(0);
-            pool->size=0;
-        }
         pool->deallocator(pool);
+        _NetConfig(0);
     }
 }
 
