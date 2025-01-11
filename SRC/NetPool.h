@@ -44,7 +44,8 @@ struct NetUnit{
         void *ptr;
         const void *cptr;
     }data;
-    unsigned int timeout, pulse;
+    unsigned int timeout;
+    unsigned int pulse;   /* default: 20 */
 };
 
 typedef struct{
@@ -92,6 +93,10 @@ NetUnit *NetUnitNodeNext(const NetUnit *unit);
 NetUnit *NetUnitNodeServer(const NetUnit *unit);
 
 const NetAddress *NetUnitAddress(const NetUnit *unit);
+
+
+
+const char *NetEventString(enum NET_EVENT event);
 
 
 #endif /* NETPOOL_H */
@@ -517,6 +522,16 @@ static void NetSocketKeepAlive(NetSocket s){
         #endif
     #endif
 #endif
+}
+
+
+const char *NetEventString(const enum NET_EVENT event){
+    switch(event){
+        #define _CASE(_e_) case NET_##_e_: return #_e_
+        _CASE(DISCONNECT); _CASE(CONNECT); _CASE(CANWRITE); _CASE(CANREAD); _CASE(TIMEOUT); _CASE(ACCEPT); _CASE(ERROR);
+        #undef _CASE
+        default: return "UNKNOWN";
+    }
 }
 
 
