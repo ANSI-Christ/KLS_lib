@@ -56,7 +56,9 @@ typedef struct{
 
 char *NetAddressString(const NetAddress *address,char buffer[static 40]);
 
-NetAddress *NetAddressTranslate(const char *host,unsigned short port,NetAddress * const address);
+NetAddress *NetAddressTranslate(const char *host,unsigned short port,NetAddress *address);
+
+unsigned short *NetAddressPort(NetAddress *address);
 
 
 
@@ -429,13 +431,19 @@ static const char *NetAddressDomain(const char *address,char *domain){
 
 NetAddress *NetAddressTranslate(const char *host,unsigned short port,NetAddress * const address){
     char tmp[128];
+    if(!address){errno=EINVAL; return NULL;}
     _NET_ADDR_VERS(address)=0;
+    if(!host || !port){errno=EINVAL; return NULL;}
     if(NetAddressDNS(NetAddressDomain(host,tmp),address)){
         _NET_ADDR_PORT(address)=port;
         return address;
     }
     errno=EADDRNOTAVAIL;
     return NULL;
+}
+
+unsigned short *NetAddressPort(NetAddress * const address){
+    return (unsigned short *)&_NET_ADDR_PORT(address);
 }
 
 char *NetAddressString(const NetAddress * const address,char name[static 40]){
