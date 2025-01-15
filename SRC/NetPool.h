@@ -27,11 +27,11 @@ enum NET_EVENT{
 #define NET_ANY6        "::"
 #define NET_LOCAL4      "127.0.0.1"
 #define NET_LOCAL6      "::1"
-#define NET_ENDIAN      ((const union{unsigned short b2; unsigned char b1;}){256}).b1
 
-extern const short NET_RD;
-extern const short NET_WR;
-
+#define NET_ENDIAN()       ((const union{unsigned char _; unsigned int i;}){1}).i
+#define NET_ENDIAN_BIG     (1<<((sizeof(int)-1)<<3))
+#define NET_ENDIAN_PDP     (1<<8)
+#define NET_ENDIAN_LITTLE  (1<<0)
 
 
 
@@ -87,6 +87,8 @@ void NetUnitDisconnect(NetUnit *unit);
 void NetUnitAutoRemove(NetUnit *unit);
 
 short *NetUnitRDWR(const NetUnit *unit);
+extern const short NET_RD;
+extern const short NET_WR;
 
 NetPool *NetUnitPool(const NetUnit *unit);
 
