@@ -337,7 +337,7 @@ void _KLS_urlHandler(NetUnit * const u,const enum NET_EVENT event){
     struct _KLS_t_URL_HELP *h=u->data.ptr;
     switch(event){
         case NET_CONNECT:{
-            char req[1024],host[40];
+            char req[1024],host[64];
             int reqSize=snprintf(req,sizeof(req),
                 "GET %s %s\r\n"
                 "Host: %s\r\n"  "%s\r\n",

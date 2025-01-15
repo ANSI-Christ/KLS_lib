@@ -50,18 +50,20 @@ struct NetUnit{
 };
 
 typedef struct{
-    unsigned short _[10];
+    union{
+        unsigned char v4[4];
+        unsigned short v6[8];
+    }ip;
+    unsigned short port;
+    unsigned char ipv;  /* 4 or 6 */
 }NetAddress;
 
 
 
 
-char *NetAddressString(const NetAddress *address,char buffer[static 40]);
+char *NetAddressString(const NetAddress *address,char buffer[static 46]);
 
 NetAddress *NetAddressTranslate(const char *host,unsigned short port,NetAddress *address);
-
-unsigned short *NetAddressPort(NetAddress *address);
-
 
 
 
@@ -386,34 +388,30 @@ typedef union{
     struct sockaddr_storage st;
 }_NetAddressStorage;
 
-#define _NET_ADDR_PORT(_a_) (_a_)->_[8]
-#define _NET_ADDR_VERS(_a_) (_a_)->_[9]
 
 static int NetAddressFromNet(const _NetAddressStorage * const in,const unsigned int l,NetAddress * const out){
     if(in->st.ss_family==AF_INET || (in->st.ss_family==AF_UNSPEC && l==sizeof(in->a4)) ){
         memcpy(out,&in->a4.sin_addr,sizeof(in->a4.sin_addr));
-        _NET_ADDR_PORT(out)=ntohs(in->a4.sin_port);
-        _NET_ADDR_VERS(out)=4;
+        out->port=ntohs(in->a4.sin_port); out->ipv=4;
         return 0;
     }
     if(in->st.ss_family==AF_INET6 || (in->st.ss_family==AF_UNSPEC && l==sizeof(in->a6)) ){
         memcpy(out,&in->a6.sin6_addr,sizeof(in->a6.sin6_addr));
-        _NET_ADDR_PORT(out)=ntohs(in->a6.sin6_port);
-        _NET_ADDR_VERS(out)=6;
+        out->port=ntohs(in->a6.sin6_port); out->ipv=6;
         return 0;
     }
     return -1;
 }
 
 static unsigned int NetAddressToNet(const NetAddress * const in,_NetAddress * const out){
-    switch(_NET_ADDR_VERS(in)){
+    switch(in->ipv){
         case 4:
             memcpy(&out->a4.sin_addr,in,sizeof(out->a4.sin_addr));
-            out->a4.sin_family=AF_INET; out->a4.sin_port=htons(_NET_ADDR_PORT(in));
+            out->a4.sin_family=AF_INET; out->a4.sin_port=htons(in->port);
             return sizeof(out->a4);
         case 6:
             memcpy(&out->a6.sin6_addr,in,sizeof(out->a6.sin6_addr));
-            out->a6.sin6_family=AF_INET6; out->a6.sin6_port=htons(_NET_ADDR_PORT(in));
+            out->a6.sin6_family=AF_INET6; out->a6.sin6_port=htons(in->port);
             return sizeof(out->a6);
     }
     return 0;
@@ -425,7 +423,7 @@ static char NetAddressDNS(const char *host,NetAddress *out){
     if(getaddrinfo(host,NULL,&in,&info)) return 0;
     for(i=info;i && NetAddressFromNet((_NetAddressStorage*)i->ai_addr,i->ai_addrlen,out);i=i->ai_next);
     freeaddrinfo(info);
-    return _NET_ADDR_VERS(out);
+    return out->ipv;
 }
 
 static const char *NetAddressDomain(const char *address,char *domain){
@@ -440,29 +438,25 @@ static const char *NetAddressDomain(const char *address,char *domain){
 NetAddress *NetAddressTranslate(const char *host,unsigned short port,NetAddress * const address){
     char tmp[128];
     if(!address){errno=EINVAL; return NULL;}
-    _NET_ADDR_VERS(address)=0;
+    address->ipv=0;
     if(!host || !port){errno=EINVAL; return NULL;}
     if(NetAddressDNS(NetAddressDomain(host,tmp),address)){
-        _NET_ADDR_PORT(address)=port;
+        address->port=port;
         return address;
     }
     errno=EADDRNOTAVAIL;
     return NULL;
 }
 
-unsigned short *NetAddressPort(NetAddress * const address){
-    return (unsigned short *)&_NET_ADDR_PORT(address);
-}
-
-char *NetAddressString(const NetAddress * const address,char name[static 40]){
-    switch(_NET_ADDR_VERS(address)){
+char *NetAddressString(const NetAddress * const address,char name[static 46]){
+    switch(address->ipv){
         case 4:{
-            const unsigned char * const p=(const unsigned char*)address;
-            sprintf(name,"%d.%d.%d.%d",p[0],p[1],p[2],p[3]);
+            const unsigned char * const p=address->ip.v4;
+            sprintf(name,"%d.%d.%d.%d:%d",p[0],p[1],p[2],p[3],address->port);
         } return name;
         case 6:{
-            const unsigned short * const p=(const unsigned short*)address;
-            sprintf(name,"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x",p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7]);
+            const unsigned short * const p=address->ip.v6;
+            sprintf(name,"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d",p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],address->port);
         } return name;
     }
     *name=0;
@@ -770,7 +764,7 @@ static void NetChecks(NetPool * const p){
                         case ECONNREFUSED: n->pulse=t; NetSocketDestroy(&n->ctrl); break;
                         default: NetUnitDisconnect(n->u); break;
                     }
-                }else if(n->u->pulse && t>n->pulse+n->u->pulse && (n->ctrl=NetSocketCreate(NET_TCP,_NET_ADDR_VERS(n->address)))!=INVALID_SOCKET ){
+                }else if(n->u->pulse && t>n->pulse+n->u->pulse && (n->ctrl=NetSocketCreate(NET_TCP,n->address->ipv))!=INVALID_SOCKET ){
                     /* may be connect to same address, but different port: 7 or else */
                     NetSocketConnect(n->ctrl,n->address);
                     n->pulse=t+20;
@@ -922,10 +916,9 @@ NetUnit *NetPoolUnit(NetPool * const pool,const enum NET_PROTOCOL protocol){
 
 int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
     NetNode * const n=(NetNode*)unit;
-    if(!address) return -1;
-    if(!n){errno=EINVAL; return -1;}
+    if(!n || !address || !address->ipv){errno=EINVAL; return -1;}
     if(n->sock!=INVALID_SOCKET){errno=EBUSY; return -1;}
-    if( (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
+    if( (n->sock=NetSocketCreate(n->protocol,address->ipv))!=INVALID_SOCKET ){
         n->server=NULL;
         if(NetSocketListen(n->sock,address,5,n->protocol) || NetPollAdd(n->pool,n,POLLIN|POLLHUP)){
             NetSocketDestroy(&n->sock);
@@ -940,10 +933,9 @@ int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
 
 int NetUnitConnect(NetUnit * const unit,const NetAddress * const address){
     NetNode * const n=(NetNode*)unit;
-    if(!address) return -1;
-    if(!n){errno=EINVAL; return -1;}
+    if(!n || !address || !address->ipv){errno=EINVAL; return -1;}
     if(n->sock!=INVALID_SOCKET){errno=EBUSY; return -1;}
-    if( (n->sock=NetSocketCreate(n->protocol,_NET_ADDR_VERS(address)))!=INVALID_SOCKET ){
+    if( (n->sock=NetSocketCreate(n->protocol,address->ipv))!=INVALID_SOCKET ){
         n->server=NULL;
         if(NetPollAdd(n->pool,n,POLLIN|POLLOUT|POLLHUP)){
             NetSocketDestroy(&n->sock);
@@ -1049,7 +1041,5 @@ const NetAddress *NetUnitAddress(const NetUnit * const unit){
 }
 
 #undef _NET_LAST_ERROR
-#undef _NET_ADDR_PORT
-#undef _NET_ADDR_VERS
 
 #endif
