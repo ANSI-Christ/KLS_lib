@@ -27,6 +27,7 @@ enum NET_EVENT{
 #define NET_ANY6        "::"
 #define NET_LOCAL4      "127.0.0.1"
 #define NET_LOCAL6      "::1"
+#define NET_ENDIAN      ((const union{unsigned short b2; unsigned char b1;}){256}).b1
 
 extern const short NET_RD;
 extern const short NET_WR;
@@ -386,20 +387,20 @@ typedef union{
 #define _NET_ADDR_PORT(_a_) (_a_)->_[8]
 #define _NET_ADDR_VERS(_a_) (_a_)->_[9]
 
-static char NetAddressFromNet(const _NetAddressStorage * const in,const unsigned int l,NetAddress * const out){
+static int NetAddressFromNet(const _NetAddressStorage * const in,const unsigned int l,NetAddress * const out){
     if(in->st.ss_family==AF_INET || (in->st.ss_family==AF_UNSPEC && l==sizeof(in->a4)) ){
         memcpy(out,&in->a4.sin_addr,sizeof(in->a4.sin_addr));
         _NET_ADDR_PORT(out)=ntohs(in->a4.sin_port);
         _NET_ADDR_VERS(out)=4;
-        return 1;
+        return 0;
     }
     if(in->st.ss_family==AF_INET6 || (in->st.ss_family==AF_UNSPEC && l==sizeof(in->a6)) ){
         memcpy(out,&in->a6.sin6_addr,sizeof(in->a6.sin6_addr));
         _NET_ADDR_PORT(out)=ntohs(in->a6.sin6_port);
         _NET_ADDR_VERS(out)=6;
-        return 1;
+        return 0;
     }
-    return 0;
+    return -1;
 }
 
 static unsigned int NetAddressToNet(const NetAddress * const in,_NetAddress * const out){
@@ -420,7 +421,7 @@ static char NetAddressDNS(const char *host,NetAddress *out){
     const struct addrinfo in={.ai_family=AF_UNSPEC};
     struct addrinfo *i, *info=NULL;
     if(getaddrinfo(host,NULL,&in,&info)) return 0;
-    for(i=info;i && !NetAddressFromNet((_NetAddressStorage*)i->ai_addr,i->ai_addrlen,out);i=i->ai_next);
+    for(i=info;i && NetAddressFromNet((_NetAddressStorage*)i->ai_addr,i->ai_addrlen,out);i=i->ai_next);
     freeaddrinfo(info);
     return _NET_ADDR_VERS(out);
 }
@@ -482,7 +483,7 @@ static NetSocket NetSocketAccept(NetSocket in,NetAddress * const a){
     unsigned int l=sizeof(_a);
     NetSocket s=accept(in,&_a.sa,&l);
     if(s!=INVALID_SOCKET){
-        if(!NetAddressFromNet(&_a,l,a)){
+        if(NetAddressFromNet(&_a,l,a)){
             NetSocketDestroy(&s); return INVALID_SOCKET;
         }
         NetSocketUnblock(s);
@@ -662,10 +663,10 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
     if(p->revents & (POLLIN|POLLHUP)){
         NetAddress a[1];
         NetSocket s=NetSocketAccept(n->sock,a);
+        NetNode *x;
         n->timeout=t;
         if(s!=INVALID_SOCKET){
-            NetNode * const x=(NetNode*)NetPoolUnit(n->pool,NET_TCP);
-            if(x){
+            while( (x=(NetNode*)NetPoolUnit(n->pool,NET_TCP)) ){
                 x->sock=s;
                 if(!NetPollAdd(n->pool,x,POLLIN|POLLHUP)){
                     NetUnitAutoRemove(x->u);
@@ -679,11 +680,15 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
                         NetListLinkAfter(n->pool->units,x,n);
                         x->sock_state=NET_CONNECTED;
                         x->u->handler(x->u,NET_CONNECT);
-                    } return;
+                    }
+                    if( (s=NetSocketAccept(n->sock,a))!=INVALID_SOCKET )
+                        continue;
+                    return;
                 }
                 NetListUnlink(n->pool->units,x);
                 NetListLink(n->pool->reserv,x);
                 ++n->pool->reserv_count;
+                break;
             } NetSocketDestroy(&s);
         } n->u->handler(n->u,NET_ERROR);
     }
@@ -696,12 +701,12 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
         return;
     }
     if(p->revents & POLLHUP){
-        if(n->sock_state==NET_CONNECTED)
+        if(n->sock_state==NET_CONNECTED){
             NetUnitDisconnect(n->u);
-        else{
-            errno=EHOSTUNREACH;
-            n->u->handler(n->u,NET_ERROR);
+            return;
         }
+        errno=EHOSTUNREACH;
+        n->u->handler(n->u,NET_ERROR);
         return;
     }
     if(n->sock_state==NET_CONNECTING){
