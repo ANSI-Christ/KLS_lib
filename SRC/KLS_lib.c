@@ -386,7 +386,7 @@ KLS_t_URL_DATA *KLS_urlRequest(const KLS_t_URL *url){
         NetAddress a[1];
         NetPool *p=NetPoolCreateEx(1,0,KLS_malloc,KLS_free);
         NetUnit *u=NetPoolUnit(p,NET_TCP);
-        if(!NetUnitConnect(u,NetAddressTranslate(h.url->url,80,a))){
+        if(!NetUnitConnect(u,NetAddressIpX(h.url->url,80,a))){
             u->handler=_KLS_urlHandler;
             u->timeout=30; u->data.ptr=&h;
             while(NetPoolDispatch(p,NULL));
