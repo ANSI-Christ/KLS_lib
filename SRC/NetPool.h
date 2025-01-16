@@ -64,9 +64,8 @@ typedef struct{
 
 char *NetAddressString(const NetAddress *address,char buffer[static 46]);
 
-NetAddress *NetAddressIp4(const char *ip,unsigned short port,NetAddress *address);
-NetAddress *NetAddressIp6(const char *ip,unsigned short port,NetAddress *address);
-NetAddress *NetAddressIpX(const char *host,unsigned short port,NetAddress *address);
+NetAddress *NetAddressDns(const char *host,unsigned short port,NetAddress *address);
+NetAddress *NetAddressNumeric(const char *ip,unsigned short port,NetAddress *address);
 
 
 
@@ -293,8 +292,6 @@ static int NetSocketError(NetSocket s){
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 
-extern int inet_pton(int,const char*,void*);
-
 static int _NetConfig(const char on){return 0;(void)on;}
 
 typedef int NetSocket;
@@ -399,13 +396,6 @@ typedef union{
 }_NetAddressStorage;
 
 
-static int NetAddressTranslate(const int family,const char * const ip,void * const dst){
-    switch(inet_pton(family,ip,dst)){
-        case -1: errno=EOPNOTSUPP; return -1;
-        case 0: errno=EINVAL; return -1;
-    } return 0;
-}
-
 static int NetAddressFromNet(const _NetAddressStorage * const in,const unsigned int l,NetAddress * const out){
     if(in->st.ss_family==AF_INET || (in->st.ss_family==AF_UNSPEC && l==sizeof(in->a4)) ){
         memcpy(out,&in->a4.sin_addr,sizeof(in->a4.sin_addr));
@@ -434,8 +424,8 @@ static unsigned int NetAddressToNet(const NetAddress * const in,_NetAddress * co
     return 0;
 }
 
-static char NetAddressDNS(const char *host,NetAddress *out){
-    const struct addrinfo in={.ai_family=AF_UNSPEC};
+static char NetAddressFind(const char * const host,NetAddress * const out,const int flags){
+    const struct addrinfo in={.ai_flags=flags, .ai_family=AF_UNSPEC};
     struct addrinfo *i, *info=NULL;
     if(getaddrinfo(host,NULL,&in,&info)) return 0;
     for(i=info;i && NetAddressFromNet((_NetAddressStorage*)i->ai_addr,i->ai_addrlen,out);i=i->ai_next);
@@ -452,9 +442,9 @@ static const char *NetAddressDomain(const char *address,char *domain){
     return domain;
 }
 
-NetAddress *NetAddressIpX(const char *host,unsigned short port,NetAddress * const address){
+NetAddress *NetAddressDns(const char * const host,const unsigned short port,NetAddress * const address){
     char tmp[128];
-    if(NetAddressDNS(NetAddressDomain(host,tmp),address)){
+    if(NetAddressFind(NetAddressDomain(host,tmp),address,0)){
         address->port=port;
         return address;
     }
@@ -463,14 +453,14 @@ NetAddress *NetAddressIpX(const char *host,unsigned short port,NetAddress * cons
     return NULL;
 }
 
-NetAddress *NetAddressIp4(const char *ip,unsigned short port,NetAddress * const address){
-    if(NetAddressTranslate(AF_INET,ip,address)) return NULL;
-    address->ipv=4; address->port=port; return address;
-}
-
-NetAddress *NetAddressIp6(const char *ip,unsigned short port,NetAddress * const address){
-    if(NetAddressTranslate(AF_INET6,ip,address)) return NULL;
-    address->ipv=6; address->port=port; return address;
+NetAddress *NetAddressNumeric(const char * const ip,const unsigned short port,NetAddress * const address){
+    if(NetAddressFind(ip,address,AI_NUMERICHOST)){
+        address->port=port;
+        return address;
+    }
+    address->ipv=0;
+    errno=EADDRNOTAVAIL;
+    return NULL;
 }
 
 char *NetAddressString(const NetAddress * const address,char name[static 46]){
@@ -487,6 +477,7 @@ char *NetAddressString(const NetAddress * const address,char name[static 46]){
     *name=0;
     return NULL;
 }
+
 
 static NetSocket NetSocketCreate(const unsigned char p,const unsigned char v){
     NetSocket s=socket((v==6?AF_INET6:AF_INET),(p==NET_TCP?SOCK_STREAM:SOCK_DGRAM),0);
