@@ -23,15 +23,16 @@ enum NET_EVENT{
     NET_ERROR
 };
 
+enum NET_ENDIAN{
+    NET_LTL = (1<<0),
+    NET_PDP = (1<<8),
+    NET_BIG = (1<<((sizeof(NET_PDP)-1)<<3))
+};
+
 #define NET_ANY4        "0.0.0.0"
 #define NET_ANY6        "::"
 #define NET_LOCAL4      "127.0.0.1"
 #define NET_LOCAL6      "::1"
-
-#define NET_ENDIAN()       ((const union{unsigned char _; unsigned int i;}){1}).i
-#define NET_ENDIAN_BIG     (1<<((sizeof(int)-1)<<3))
-#define NET_ENDIAN_PDP     (1<<8)
-#define NET_ENDIAN_LITTLE  (1<<0)
 
 
 
@@ -103,6 +104,10 @@ const NetAddress *NetUnitAddress(const NetUnit *unit);
 
 const char *NetEventString(enum NET_EVENT event);
 
+
+
+enum NET_ENDIAN NetEndian(void);
+#define NetEndian() ((const union{unsigned char _; enum NET_ENDIAN e;}){1}).e
 
 #endif /* NETPOOL_H */
 
