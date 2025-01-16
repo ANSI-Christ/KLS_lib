@@ -456,7 +456,7 @@ char *NetAddressString(const NetAddress * const address,char name[static 46]){
         } return name;
         case 6:{
             const unsigned short * const p=address->ip.v6;
-            sprintf(name,"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d",p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],address->port);
+            sprintf(name,"%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x:%d",ntohs(p[0]),ntohs(p[1]),ntohs(p[2]),ntohs(p[3]),ntohs(p[4]),ntohs(p[5]),ntohs(p[6]),ntohs(p[7]),address->port);
         } return name;
     }
     *name=0;
