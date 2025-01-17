@@ -25,8 +25,8 @@ enum NET_EVENT{
 
 enum NET_ENDIAN{
     NET_LTL = (1<<0),
-    NET_PDP = (1<<8),
-    NET_BIG = (1<<((sizeof(NET_PDP)-1)<<3))
+    NET_PDP = (1<<16),
+    NET_BIG = (1<<24)
 };
 
 #define NET_ANY4        "0.0.0.0"
@@ -107,9 +107,38 @@ const NetAddress *NetUnitAddress(const NetUnit *unit);
 const char *NetEventString(enum NET_EVENT event);
 
 
+void NetViewNet(void *base_type_pointer);
+void NetViewHost(void *base_type_pointer);
 
 enum NET_ENDIAN NetEndian(void);
+
+
+
+
 #define NetEndian() ((const union{unsigned char _; enum NET_ENDIAN e;}){1}).e
+#define NetViewHost(_p_) NetViewNet(_p_)
+#define NetViewNet(_p_) do{\
+    switch(NetEndian()){\
+        case NET_LTL: break;\
+        case NET_BIG:\
+            switch(sizeof(*(_p_))){\
+                case 1:  break;\
+                case 2:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
+                case 4:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(3,0),  _NetViewSwap(2,1);} break;\
+                case 8:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(7,0),  _NetViewSwap(6,1),  _NetViewSwap(5,2),  _NetViewSwap(4,3);} break;\
+                case 12: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(11,0), _NetViewSwap(10,1), _NetViewSwap(9,2),  _NetViewSwap(8,3),  _NetViewSwap(7,4),  _NetViewSwap(6,5);} break;\
+                case 16: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(15,0), _NetViewSwap(14,1), _NetViewSwap(13,2), _NetViewSwap(12,3), _NetViewSwap(11,4), _NetViewSwap(10,5), _NetViewSwap(9,6), _NetViewSwap(8,7);} break;\
+            } break;\
+        case NET_PDP:\
+            switch(sizeof(*(_p_))){\
+                case 1: case 2: break;\
+                case 4: {unsigned short * const _1_=(unsigned short *)(_p_),_2_; _NetViewSwap(1,0);} break;\
+                case 8: case 12: case 16: break;\
+            } break;\
+        default: break;  (_p_)[0]+=1;\
+    }\
+}while(0)
+#define _NetViewSwap(_i_,_j_) _2_=_1_[_i_], _1_[_i_]=_1_[_j_], _1_[_j_]=_2_
 
 #endif /* NETPOOL_H */
 
