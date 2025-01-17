@@ -26,7 +26,7 @@ enum NET_EVENT{
 enum NET_ENDIAN{
     NET_LTL = (1<<0),
     NET_PDP = (1<<16),
-    NET_BIG = (1<<24)
+    NET_BIG = (1<<24)   /* network byte order */
 };
 
 #define NET_ANY4        "0.0.0.0"
@@ -119,8 +119,7 @@ enum NET_ENDIAN NetEndian(void);
 #define NetViewHost(_p_) NetViewNet(_p_)
 #define NetViewNet(_p_) do{\
     switch(NetEndian()){\
-        case NET_LTL: break;\
-        case NET_BIG:\
+        case NET_LTL:\
             switch(sizeof(*(_p_))){\
                 case 1:  break;\
                 case 2:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
@@ -135,6 +134,7 @@ enum NET_ENDIAN NetEndian(void);
                 case 4: {unsigned short * const _1_=(unsigned short *)(_p_),_2_; _NetViewSwap(1,0);} break;\
                 case 8: case 12: case 16: break;\
             } break;\
+        case NET_BIG: break;\
         default: break;  (_p_)[0]+=1;\
     }\
 }while(0)
