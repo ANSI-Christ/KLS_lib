@@ -130,8 +130,9 @@ enum NET_ENDIAN NetEndian(void);
             } break;\
         case NET_PDP:\
             switch(sizeof(*(_p_))){\
-                case 1: case 2: break;\
-                case 4: {unsigned short * const _1_=(unsigned short *)(_p_),_2_; _NetViewSwap(1,0);} break;\
+                case 1: break;\
+                case 2: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
+                case 4: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(3,2), _NetViewSwap(1,0);} break;\
                 case 8: case 12: case 16: break;\
             } break;\
         case NET_BIG: break;\
