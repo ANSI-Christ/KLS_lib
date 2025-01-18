@@ -118,7 +118,7 @@ enum NET_ENDIAN NetEndian(void);
 #define NetEndian() ((const union{unsigned char _; enum NET_ENDIAN e;}){1}).e
 #define NetViewHost(_p_) NetViewNet(_p_)
 #define NetViewNet(_p_) do{\
-    struct static_assert_bad_type_##__LINE__{char _[sizeof((_p_)[0]<=16) && sizeof((_p_)[0]>1) && sizeof((_p_)[0]+1)?1:-1];};\
+    struct static_assert_bad_type_##__LINE__{char _1[sizeof((_p_)[0]<=16) && sizeof((_p_)[0]>1) ? 1 : -1], _2[sizeof((_p_)[0]+=1)];};\
     if(NetEndian()==NET_LTL)\
         switch(sizeof(*(_p_))){\
             case 2:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
@@ -131,6 +131,7 @@ enum NET_ENDIAN NetEndian(void);
         switch(sizeof(*(_p_))){\
             case 2: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
             case 4: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(3,2), _NetViewSwap(1,0);} break;\
+            case 8: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(7,6), _NetViewSwap(5,4), _NetViewSwap(3,2), _NetViewSwap(1,0);} break;\
         }\
 }while(0)
 #define _NetViewSwap(_i_,_j_) _2_=_1_[_i_], _1_[_i_]=_1_[_j_], _1_[_j_]=_2_
