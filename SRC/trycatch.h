@@ -114,7 +114,7 @@ struct _TRYCATCH *_TryCatch(void){
         if(pthread_setspecific(_TryCatchKey,s)){
             free(s); s=NULL;
         }else{
-            memset(s,0,sizeof(*s));
+            s->jmp=NULL; s->e->data=s->buffer;
             if(TryCatchSignal) TryCatchSignal();
         }
     }
