@@ -224,11 +224,11 @@ static char _pthread_attr_init(pthread_attr_t *a,size_t s){
     return 0;
 }
 
-pthread_pool_t pthread_pool_create(unsigned int count,unsigned char prio){
+pthread_pool_t pthread_pool_create(const unsigned int count,const unsigned char prio){
     return pthread_pool_create_ex(count,prio,0,(void*(*)(size_t))0,(void(*)(void*))0);
 }
 
-pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,unsigned int stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
+pthread_pool_t pthread_pool_create_ex(unsigned int count,const unsigned char prio,const unsigned int stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
     pthread_attr_t attr[1];
     if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) && (allocator || (allocator=malloc)) && (deallocator || (deallocator=free)) ){
         const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
