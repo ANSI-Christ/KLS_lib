@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 #include "macro.h"
 
@@ -84,6 +83,8 @@ struct _TRYCATCH *_TryCatch(void);
 
 
 #ifdef TRY_CATCH_IMPL
+
+#include <pthread.h>
 
 static pthread_key_t _TryCatchKey;
 static unsigned char _TryCatchInit;
