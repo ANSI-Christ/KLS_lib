@@ -19,34 +19,34 @@
     extern const struct M_JOIN(_,_name_) *_name_(void)
 
 #define CLASS_COMPILE(_name_) \
-    void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * const _CLASS_ARGS_STD(_name_) );\
     void M_JOIN(_dtor_,_name_)(void * const self){\
         _CLASS_LOOP(_CLASS_DESTRUCT(_name_,self))\
     }\
     void *M_JOIN(_ctor_,_name_)(void * const self _CLASS_ARGS_VAR(_name_) ){\
         if(self){\
+            extern void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * const _CLASS_ARGS_STD(_name_) );\
             M_IF(_CLASS_EXT(_name_))(\
                 _CLASS_CLEAR(((char * const )self)+sizeof(CLASS _CLASS_EXT(_name_)),sizeof(CLASS _name_)-sizeof(CLASS _CLASS_EXT(_name_))) ,\
                 _CLASS_CLEAR(self,sizeof(CLASS _name_))\
             )\
             if( _CLASS_CAST(void*(* const)(const char,void * const _CLASS_ARGS_VAR(_name_))) (M_JOIN(_impl_,_name_)) (1,self _CLASS_ARGS_CALL(_name_,)) )\
-                *_CLASS_CAST(void**)(self)=M_JOIN(_dtor_,_name_);\
+                *(void(**)(void*))self=M_JOIN(_dtor_,_name_);\
             else{ M_JOIN(_dtor_,_name_)(self); return (void*)0; }\
         } return self;\
     }\
     const struct M_JOIN(_,_name_) *_name_(void){\
-        typedef union { void *p; struct M_JOIN(_,_name_) pad; struct{char pad[sizeof(struct M_JOIN(_,_name_))];} c; } M_JOIN(_t_u,_name_);\
+        typedef union { void *ctor; struct M_JOIN(_,_name_) ret[1]; struct{char _[sizeof(struct M_JOIN(_,_name_))];} data; } M_JOIN(_t_u,_name_);\
         static M_JOIN(_t_u,_name_) c={(void*)1};\
-        if(c.p==(void*)1){\
+        if(c.ctor==(void*)1){\
             M_WHEN(_CLASS_EXT(_name_))( _CLASS_EXT(_name_)(); )\
             {\
                 M_JOIN(_t_u,_name_) tmp; _CLASS_ARGS_UNION(_name_) zero={0};\
                 if( M_JOIN(_ctor_,_name_)(&tmp _CLASS_ARGS_CALL(_name_,zero)) )\
                     M_JOIN(_dtor_,_name_)(&tmp);\
-                tmp.p=c.p; c.c=tmp.c; if(0)(void)zero;\
-                c.p=(void*)M_IF(_CLASS_ABS(_name_))(0,M_JOIN(_ctor_,_name_));\
+                tmp.ctor=c.ctor; c.data=tmp.data; if(0)(void)zero;\
+                c.ctor=(void*)M_IF(_CLASS_ABS(_name_))(0,M_JOIN(_ctor_,_name_));\
             }\
-        } return (void*)&c;\
+        } return c.ret;\
     }\
     void *M_JOIN(_impl_,_name_)(const char M_JOIN(M_JOIN(_,M_LINE()),ctr),CLASS _name_ * const self _CLASS_ARGS_STD(_name_) ){\
         if(!M_JOIN(M_JOIN(_,M_LINE()),ctr)){_CLASS_DTR(_name_)}\
@@ -144,21 +144,24 @@
 
 #define _CLASS_CLEAR(_v_,_s_) \
     if(_s_){\
-        union{const void *_;char *c;int *i;} _1_={(const void*)(_v_)}; unsigned int _2_=(_s_); \
-        while(_2_ & (sizeof(*_1_.i)-1)){ --_2_; *_1_.c=0; ++_1_.c; } _2_/=sizeof(*_1_.i);\
-        while(_2_){ --_2_; *_1_.i=0; ++_1_.i; }\
+        union{const void *_;char *c;void **i;} _1_={(const void*)(_v_)};\
+        unsigned int _2_=(_s_)/sizeof(*_1_.i);\
+        unsigned char _3_=(_s_)&(sizeof(*_1_.i)-1);\
+        while(_2_) _1_.i[--_2_]=(void*)0;\
+        _1_.i+=(_s_)/sizeof(*_1_.i);\
+        while(_3_) _1_.c[--_3_]=0;\
     }
 
 #define _CLASS_SUPER(_name_) \
     M_WHEN(_CLASS_EXT(_name_))(\
         extern void *M_JOIN(_ctor_,_CLASS_EXT(_name_))(void * const _CLASS_ARGS_VAR(_CLASS_EXT(_name_)));\
-        void *(* const super)(void * const _CLASS_ARGS_STD(_CLASS_EXT(_name_)))=_CLASS_CAST(void * const)(M_JOIN(_ctor_,_CLASS_EXT(_name_)));\
+        void *(* const super)(void * const _CLASS_ARGS_STD(_CLASS_EXT(_name_)))=_CLASS_CAST(void *(* const)(void * const _CLASS_ARGS_STD(_CLASS_EXT(_name_))))(M_JOIN(_ctor_,_CLASS_EXT(_name_)));\
     )
 
 #define __CLASS_DESTRUCT() _CLASS_DESTRUCT
 #define _CLASS_DESTRUCT(_name_,_self_) \
-    extern void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * const _CLASS_ARGS_STD(_name_) );\
-    _CLASS_CAST(void(* const)(const char,void * const)) (M_JOIN(_impl_,_name_)) (0,_self_);\
+    {extern void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * const _CLASS_ARGS_STD(_name_) );\
+    _CLASS_CAST(void(* const)(const char,void * const)) (M_JOIN(_impl_,_name_)) (0,_self_);}\
     M_WHEN(_CLASS_EXT(_name_))( M_OBSTRUCT(__CLASS_DESTRUCT)()(_CLASS_EXT(_name_),_self_) )
 
 #define __CLASS_END() _CLASS_END
