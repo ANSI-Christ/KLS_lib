@@ -403,8 +403,9 @@ static int poll(struct pollfd * const p,int cnt,const int timeout){
     }
 #endif
 
+const short NET_RD=POLLIN;
 const short NET_WR=POLLOUT;
-const short NET_RD=POLLIN|POLLHUP;
+
 
 typedef union{
     int _;
@@ -705,7 +706,7 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
         if(s!=INVALID_SOCKET){
             while( (x=(NetNode*)NetPoolUnit(n->pool,NET_TCP)) ){
                 x->sock=s;
-                if(!NetPollAdd(n->pool,x,POLLIN|POLLHUP)){
+                if(!NetPollAdd(n->pool,x,POLLIN)){
                     NetUnitAutoRemove(x->u);
                     x->server=n;
                     x->address[0]=a[0];
@@ -955,7 +956,7 @@ int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
     if(n->sock!=INVALID_SOCKET){errno=EBUSY; return -1;}
     if( (n->sock=NetSocketCreate(n->protocol,address->ipv))!=INVALID_SOCKET ){
         n->server=NULL;
-        if(NetSocketListen(n->sock,address,5,n->protocol) || NetPollAdd(n->pool,n,POLLIN|POLLHUP)){
+        if(NetSocketListen(n->sock,address,5,n->protocol) || NetPollAdd(n->pool,n,POLLIN)){
             NetSocketDestroy(&n->sock);
             return -1;
         }
@@ -971,7 +972,7 @@ int NetUnitConnect(NetUnit * const unit,const NetAddress * const address){
     if(n->sock!=INVALID_SOCKET){errno=EBUSY; return -1;}
     if( (n->sock=NetSocketCreate(n->protocol,address->ipv))!=INVALID_SOCKET ){
         n->server=NULL;
-        if(NetPollAdd(n->pool,n,POLLIN|POLLOUT|POLLHUP)){
+        if(NetPollAdd(n->pool,n,POLLIN|POLLOUT)){
             NetSocketDestroy(&n->sock);
             return -1;
         }
