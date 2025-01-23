@@ -333,6 +333,7 @@ static void NetSocketDestroy(NetSocket * const s){
 
 static int NetSocketPair(NetSocket s[2]){
     return socketpair(AF_UNIX,SOCK_DGRAM,0,s);
+    /*return pipe(s);*/
 }
 
 static void NetSocketUnblock(NetSocket s){
@@ -886,16 +887,14 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
     if(!deallocator) deallocator=free;
     if(base_count<10) base_count=10;
     do{
-        if( !(p=(NetPool*)allocator(sizeof(*p))) ){
-            _NetConfig(0);
-            return NULL;
-        }
-        memset(p,0,sizeof(*p));
+        if( !(p=(NetPool*)allocator(sizeof(*p))) ) break;
         p->emit[0]=p->emit[1]=INVALID_SOCKET;
+        p->node=NULL; p->sock=NULL;
         if(NetSocketPair(p->emit)) break;
         ++base_count;
         if( !(p->node=(NetNode**)allocator(sizeof(*p->node)*base_count)) ) break;
         if( !(p->sock=(struct pollfd*)allocator(sizeof(*p->sock)*base_count)) ) break;
+        p->reserv->first=p->reserv->last=p->units->first=p->units->last=NULL;
         p->allocator=allocator;
         p->deallocator=deallocator;
         p->real=base_count;
@@ -905,11 +904,14 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
         p->sock->events=POLLIN;
         return p;
     }while(0);
-    if(p->node) deallocator(p->node);
-    if(p->sock) deallocator(p->sock);
-    if(p->emit[0]!=INVALID_SOCKET){
-        NetSocketDestroy(p->emit);
-        NetSocketDestroy(p->emit+1);
+    if(p){
+        if(p->node) deallocator(p->node);
+        if(p->sock) deallocator(p->sock);
+        if(p->emit[0]!=INVALID_SOCKET){
+            NetSocketDestroy(p->emit);
+            NetSocketDestroy(p->emit+1);
+        }
+        deallocator(p);
     }
     _NetConfig(0);
     return NULL;
