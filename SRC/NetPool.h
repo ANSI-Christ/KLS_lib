@@ -190,6 +190,7 @@ static int _NetErrnoTranslate(const int e){
 }
 
 #define _NET_LAST_ERROR() (errno=_NetErrnoTranslate(WSAGetLastError()))
+#define _NET_LAST_ERROR_IF(_cond_) if(_cond_) _NET_LAST_ERROR()
 
 #ifdef POLLIN
 static int poll(struct pollfd * const p,const int c,const int t){
@@ -324,6 +325,7 @@ typedef int NetSocket;
 #define SOCKET_ERROR   -1
 
 #define _NET_LAST_ERROR() errno
+#define _NET_LAST_ERROR_IF(_cond_)
 
 static void NetSocketDestroy(NetSocket * const s){
     shutdown(*s,SHUT_RDWR); close(*s); *s=INVALID_SOCKET;
@@ -667,7 +669,9 @@ static void NetPollRem(NetPool * const p,const unsigned int i){
 }
 
 static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t){
-    if(p->revents & (POLLERR | POLLNVAL)){
+    const short revents=p->revents;
+    p->revents=0;
+    if(revents & (POLLERR | POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
@@ -679,13 +683,13 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
         n->u->handler(n->u,NET_CONNECT);
         return;
     }
-    if(p->revents & POLLOUT){
+    if(revents & POLLOUT){
         p->events^=POLLOUT;
         n->timeout=t;
         n->u->handler(n->u,NET_CANWRITE);
         return;
     }
-    if(p->revents & POLLIN){
+    if(revents & POLLIN){
         n->timeout=n->pulse=t;
         n->u->handler(n->u,NET_CANREAD);
         return;
@@ -693,12 +697,14 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
 }
 
 static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_t t){
-    if(p->revents & (POLLERR|POLLNVAL)){
+    const short revents=p->revents;
+    p->revents=0;
+    if(revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(p->revents & (POLLIN|POLLHUP)){
+    if(revents & (POLLIN|POLLHUP)){
         NetAddress a[1];
         NetSocket s=NetSocketAccept(n->sock,a);
         NetNode *x;
@@ -733,12 +739,14 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
 }
 
 static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t t){
-    if(p->revents & (POLLERR|POLLNVAL)){
+    const short revents=p->revents;
+    p->revents=0;
+    if(revents & (POLLERR|POLLNVAL)){
         errno=NetSocketError(n->sock);
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(p->revents & POLLHUP){
+    if(revents & POLLHUP){
         if(n->sock_state==NET_CONNECTED){
             NetUnitDisconnect(n->u);
             return;
@@ -758,7 +766,7 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
         n->u->handler(n->u,NET_CONNECT);
         return;
     }
-    if(p->revents & POLLIN){
+    if(revents & POLLIN){
         char skip[1];
         switch(recv(n->sock,skip,1,MSG_NOSIGNAL|MSG_PEEK)){
             case 0:
@@ -770,12 +778,12 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
                 n->u->handler(n->u,NET_CANREAD);
                 return;
             default:
-                _NET_LAST_ERROR();
+                _NET_LAST_ERROR_IF(1);
                 n->u->handler(n->u,NET_ERROR);
                 return;
         }
     }
-    if(p->revents & POLLOUT){
+    if(revents & POLLOUT){
         n->timeout=t;
         p->events^=POLLOUT;
         n->u->handler(n->u,NET_CANWRITE);
@@ -993,7 +1001,7 @@ int NetUnitWrite(NetUnit * const unit,const void * const data,const unsigned int
         if(!l) return -2;
         bytes=sendto(n->sock,data,size,MSG_NOSIGNAL,&_a.sa,l);
     }else bytes=send(n->sock,data,size,MSG_NOSIGNAL);
-    if(bytes<0) _NET_LAST_ERROR();
+    _NET_LAST_ERROR_IF(bytes<0);
     return bytes;
 }
 
@@ -1006,7 +1014,7 @@ int NetUnitRead(NetUnit * const unit,void * const buffer,const unsigned int size
         bytes=recvfrom(n->sock,buffer,size,MSG_NOSIGNAL,&_a.sa,&l);
         NetAddressFromNet(&_a,l,address);
     }else bytes=recv(n->sock,buffer,size,MSG_NOSIGNAL);
-    if(bytes<0) _NET_LAST_ERROR();
+    _NET_LAST_ERROR_IF(bytes<0);
     return bytes;
 }
 
@@ -1063,5 +1071,6 @@ const NetAddress *NetUnitAddress(const NetUnit * const unit){
 }
 
 #undef _NET_LAST_ERROR
+#undef _NET_LAST_ERROR_IF
 
 #endif
