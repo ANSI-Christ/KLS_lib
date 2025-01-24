@@ -23,6 +23,14 @@ enum NET_EVENT{
     NET_ERROR
 };
 
+enum NET_STATE{
+    NET_DISCONNECTED = 0,
+    NET_CONNECTING,
+    NET_CONNECTED,
+    NET_LISTENING,
+    NET_ACCEPTING
+};
+
 enum NET_ENDIAN{
     NET_LTL = (1<<0),
     NET_PDP = (1<<16),
@@ -101,6 +109,8 @@ NetUnit *NetUnitNodeNext(const NetUnit *unit);
 NetUnit *NetUnitNodeServer(const NetUnit *unit);
 
 const NetAddress *NetUnitAddress(const NetUnit *unit);
+
+enum NET_STATE NetUnitState(const NetUnit *unit);
 
 
 
@@ -547,14 +557,6 @@ static void _NetSocketKeepAlive(NetSocket s){
 
 
 
-enum NET_SOCK_STATE{
-    NET_DISCONNECTED = 0,
-    NET_CONNECTING,
-    NET_CONNECTED,
-    NET_LISTENING,
-    NET_ACCEPTING
-};
-
 typedef struct NetNode NetNode;
 
 struct NetNode{
@@ -562,7 +564,7 @@ struct NetNode{
     NetNode *prev, *next, *server;
     NetPool *pool;
     unsigned int id;
-    unsigned char sock_state, protocol, del;
+    unsigned char state, protocol, del;
     NetAddress address[1];
     time_t timeout, pulse;
     NetSocket sock, ctrl;
@@ -647,9 +649,9 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(n->sock_state==NET_CONNECTING){
+    if(n->state==NET_CONNECTING){
         p->events&=~POLLOUT;
-        n->sock_state=NET_CONNECTED;
+        n->state=NET_CONNECTED;
         n->timeout=n->pulse=t;
         n->u->handler(n->u,NET_CONNECT);
         return;
@@ -688,12 +690,12 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
                     x->server=n;
                     x->address[0]=a[0];
                     x->timeout=x->pulse=t;
-                    x->sock_state=NET_ACCEPTING;
+                    x->state=NET_ACCEPTING;
                     n->u->handler(x->u,NET_ACCEPT);
-                    if(x->sock_state==NET_ACCEPTING){
+                    if(x->state==NET_ACCEPTING){
                         _NetSocketKeepAlive(s);
                         _NetListLinkAfter(n->pool->units,x,n);
-                        x->sock_state=NET_CONNECTED;
+                        x->state=NET_CONNECTED;
                         x->u->handler(x->u,NET_CONNECT);
                     }
                     if( (s=_NetSocketAccept(n->sock,a))!=INVALID_SOCKET )
@@ -718,7 +720,7 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
         return;
     }
     if(revents & POLLHUP){
-        if(n->sock_state==NET_CONNECTED){
+        if(n->state==NET_CONNECTED){
             NetUnitDisconnect(n->u);
             return;
         }
@@ -726,14 +728,14 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(n->sock_state==NET_CONNECTING){
+    if(n->state==NET_CONNECTING){
         if( (errno=_NetSocketError(n->sock)) || _NetSocketConnect(n->sock,n->address)!=EISCONN){
             n->u->handler(n->u,NET_ERROR);
             return;
         }
         _NetSocketKeepAlive(n->sock);
         n->timeout=n->pulse=t;
-        n->sock_state=NET_CONNECTED;
+        n->state=NET_CONNECTED;
         n->u->handler(n->u,NET_CONNECT);
         return;
     }
@@ -767,7 +769,7 @@ static void _NetChecks(NetPool * const p){
     while(n){
         const time_t t=time(NULL);
         NetNode * const next=n->next;
-        switch(n->sock_state){
+        switch(n->state){
             case NET_CONNECTING:
                 if(n->u->timeout && t>n->timeout+n->u->timeout){
                     errno=ETIMEDOUT;
@@ -814,7 +816,7 @@ static void _NetDispatch(NetPool * const p,int c){
     while(c && --i)
         if(p->sock[i].revents){
             NetNode * const n=p->node[i];
-            f[n->protocol==NET_UDP][n->sock_state==NET_LISTENING](n,p->sock+i,t);
+            f[n->protocol==NET_UDP][n->state==NET_LISTENING](n,p->sock+i,t);
             --c; if(i>p->size) i=p->size;
         }
 }
@@ -916,19 +918,21 @@ NetUnit *NetPoolUnit(NetPool * const pool,const enum NET_PROTOCOL protocol){
             --pool->reserv_count;
         }else n=(NetNode*)pool->allocator(sizeof(*n));
         if(n){
-            memset(n,0,sizeof(*n));
+            n->u->data.ptr=NULL;
+            n->u->handler=(void(*)(NetUnit*,enum NET_EVENT))0;
+            n->u->timeout=0;
             n->u->pulse=20;
+            n->prev=n->next=n->server=NULL;
+            n->del=0;
             n->pool=pool;
             n->protocol=protocol;
             n->sock=n->ctrl=INVALID_SOCKET;
-            n->sock_state=NET_DISCONNECTED;
-            time(&n->timeout);
+            n->state=NET_DISCONNECTED;
+            n->timeout=time(NULL);
             _NetListLink(pool->units,n);
             return (NetUnit*)n;
         }
-        pool->deallocator(n);
     }
-    errno=EINVAL;
     return NULL;
 }
 
@@ -941,7 +945,7 @@ int NetUnitListen(NetUnit * const unit,const NetAddress * const address){
             _NetSocketDestroy(&n->sock);
             return -1;
         }
-        n->sock_state=NET_LISTENING;
+        n->state=NET_LISTENING;
         n->address[0]=address[0];
         time(&n->timeout);
         return 0;
@@ -958,7 +962,7 @@ int NetUnitConnect(NetUnit * const unit,const NetAddress * const address){
             return -1;
         }
         _NetSocketConnect(n->sock,address);
-        n->sock_state=NET_CONNECTING;
+        n->state=NET_CONNECTING;
         n->address[0]=address[0];
         time(&n->timeout);
         return 0;
@@ -1001,13 +1005,13 @@ void NetUnitDisconnect(NetUnit * const unit){
         _NetSocketDestroy(&n->ctrl);
         _NetPollRem(n->pool,n->id);
         _NetListLinkAfter(l,n,l->last);
-        switch(n->sock_state){
+        switch(n->state){
             case NET_CONNECTED:
             case NET_LISTENING:
-                n->sock_state=NET_DISCONNECTED;
+                n->state=NET_DISCONNECTED;
                 n->u->handler(n->u,NET_DISCONNECT);
                 break;
-            default: n->sock_state=NET_DISCONNECTED;
+            default: n->state=NET_DISCONNECTED;
         }
         while(x && x->server==n){
             NetNode * const d=x;
@@ -1037,6 +1041,10 @@ short *NetUnitRDWR(const NetUnit * const unit){
 
 NetPool *NetUnitPool(const NetUnit * const unit){
     return ((const NetNode*)unit)->pool;
+}
+
+enum NET_STATE NetUnitState(const NetUnit * const unit){
+    return ((const NetNode*)unit)->state;
 }
 
 const NetAddress *NetUnitAddress(const NetUnit * const unit){
