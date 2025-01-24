@@ -86,7 +86,7 @@ void KLS_canvasBMPf(const KLS_t_CANVAS *canvas,const char *format,...){
 }
 
 void KLS_canvasBMP(const KLS_t_CANVAS *canvas,const char *fileName){
-    #define _KLS_BMP_WR(t,...) ({KLS_TYPEOF(t) _tmp_=(__VA_ARGS__); fwrite(&_tmp_,1,sizeof(_tmp_),f);})
+    #define _KLS_BMP_WR(t,...) ({const M_TYPEOF(t) _tmp_=(__VA_ARGS__); fwrite(&_tmp_,1,sizeof(_tmp_),f);})
     if(canvas && canvas->m.data && fileName){
         unsigned int row,c;
         const char extraColor=0;

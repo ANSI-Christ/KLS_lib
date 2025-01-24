@@ -128,7 +128,7 @@ char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
     if(w){
         CLASS GUI *gui=w->gui;
         if((e & GUI_EVENT_CURSOR) && (gui->flags & 16)){
-            KLS_TYPEOF(gui->display.input.mouse) const * const m=&gui->display.input.mouse;
+            M_TYPEOF(gui->display.input.mouse) const * const m=&gui->display.input.mouse;
             key=0;
             if(w->resizable){
                 gui->flags|=32;

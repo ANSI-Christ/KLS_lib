@@ -348,7 +348,7 @@ _KLS_t_SOLVE *_KLS_solveNew(const char *s){
     if(vals){
         unsigned int size=vals+8;
         size+=sizeof(double)-(size%sizeof(double)) + (vals-1)*sizeof(double);
-        _KLS_t_SOLVE *p=KLS_malloc(KLS_OFFSET(*p,str)+size+sizeof(double));
+        _KLS_t_SOLVE *p=KLS_malloc(M_OFFSETOF(*p,str)+size+sizeof(double));
         if(p) p->val=(void*)(p->str+size);
         return p;
     } return NULL;

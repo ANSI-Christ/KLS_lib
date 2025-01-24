@@ -80,13 +80,12 @@ void pthread_channel_close(pthread_channel_t *channel);
 
 
 
-#define _PTHREAD_OFFSET(_s_,_f_) (size_t)(&((__typeof__(_s_)*)0)->_f_)
 #define _PTHREAD_STRUCT(...) struct{union{void *_; struct{M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;} *cmp;} p; void *f; M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;}
-#define __PTHREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( __typeof__(__VA_ARGS__) M_JOIN(_,_index_); )
+#define __PTHREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
 #define _PTHREAD_TASK(_id_,_pr_,_f_,...) ({\
     const _PTHREAD_STRUCT(__VA_ARGS__) M_JOIN(_pt_,M_LINE())={{NULL},(void*)(_f_),__VA_ARGS__};\
-    M_ASSERT( sizeof(void*[2]) + _PTHREAD_OFFSET(*M_JOIN(_pt_,M_LINE()).p.cmp,size) == _PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()),size), pthread_pool_task_bad_align_of_arguments);\
-    _pthread_pool_task(_id_,&M_JOIN(_pt_,M_LINE()),_PTHREAD_OFFSET(M_JOIN(_pt_,M_LINE()),size),(_pr_));\
+    M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(*M_JOIN(_pt_,M_LINE()).p.cmp,size) == M_OFFSETOF(M_JOIN(_pt_,M_LINE()),size), pthread_pool_task_bad_align_of_arguments);\
+    _pthread_pool_task(_id_,&M_JOIN(_pt_,M_LINE()),M_OFFSETOF(M_JOIN(_pt_,M_LINE()),size),(_pr_));\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
@@ -232,7 +231,7 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,const unsigned char pri
     pthread_attr_t attr[1];
     if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) && (allocator || (allocator=malloc)) && (deallocator || (deallocator=free)) ){
         const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
-        pthread_pool_t p=(pthread_pool_t)allocator( _PTHREAD_OFFSET(*p,queue) + size);
+        pthread_pool_t p=(pthread_pool_t)allocator(M_OFFSETOF(*p,queue) + size);
         while(p){
             if(pthread_mutex_init(p->mtx,NULL)){
                 deallocator(p); p=NULL;

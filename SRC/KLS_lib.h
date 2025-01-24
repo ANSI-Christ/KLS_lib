@@ -125,8 +125,6 @@ extern KLS_byte KLS_COLOR_BITS;
 
 // TEMPLATES SECTION
 
-#define KLS_TYPEOF __typeof__
-
 #define KLS_MVN(_name_) M_JOIN(M_JOIN(_,M_LINE()),M_JOIN(__,_name_)) 
 
 #define KLS_LMBD(_return_type_,...) ({ _return_type_ KLS_MVN(lambda) __VA_ARGS__ (void*)KLS_MVN(lambda); })
@@ -135,15 +133,9 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_$(_type_,...) ( (void*)((_type_[__VA_ARGS__]) _KLS_ALLOC
 
-#define KLS_ABSTRACT(_type_) ((KLS_TYPEOF(_type_)*)0)
+#define KLS_NONCODE(_type_)  ({ const union{KLS_size i; M_TYPEOF(_type_) t;} KLS_MVN(nc)={(((KLS_size)1)<<(sizeof(_type_)*8-1))}; KLS_MVN(nc).t; })
 
-#define KLS_OFFSET(_type_,_field_) ((KLS_size)(&(KLS_ABSTRACT(_type_)->_field_)))
-
-#define KLS_TYPE_ALIGN(_type_) _KLS_TYPE_ALIGN(KLS_TYPEOF(_type_) _1)
-
-#define KLS_NONCODE(_type_)  ({ const union{KLS_size i; KLS_TYPEOF(_type_) t;} KLS_MVN(nc)={(((KLS_size)1)<<(sizeof(_type_)*8-1))}; KLS_MVN(nc).t; })
-
-#define KLS_SIGNBIT(_value_) ({ const union{KLS_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(sb)={(_value_)}; KLS_MVN(sb).i>>(sizeof(_value_)*8-1); })
+#define KLS_SIGNBIT(_value_) ({ const union{M_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(sb)={(_value_)}; KLS_MVN(sb).i>>(sizeof(_value_)*8-1); })
 
 #define KLS_SIGN(_value_) ((signed char)((KLS_IS_SIGNED(_value_) && KLS_SIGNBIT(_value_))?-1:1))
 
@@ -153,13 +145,13 @@ extern KLS_byte KLS_COLOR_BITS;
 
 #define KLS_IS_CONST(_someExpression_) ( sizeof(int)==sizeof( *(1 ? ((void*)( (long)(_someExpression_)*0l )) : (int*)1) ) )
 
-#define KLS_IS_FLOAT(_value_) ( ((const char)(*(KLS_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa")) == 0 )
+#define KLS_IS_FLOAT(_value_) ( ((const char)(*(M_TYPEOF(_value_)*)"\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa\xa")) == 0 )
 
-#define KLS_IS_SIGNED(_value_) ( ((KLS_TYPEOF(_value_))-1) < 0 )
+#define KLS_IS_SIGNED(_value_) ( ((M_TYPEOF(_value_))-1) < 0 )
 
 #define KLS_IS_POINTER(_value_) ( !KLS_IS_SIGNED(_value_) && sizeof(_value_)==sizeof(void*) )
 
-#define KLS_IS_NONCODE(_value_) ({ const union{KLS_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(nc)={(_value_)}; KLS_MVN(nc).i==(((KLS_size)1)<<(sizeof(_value_)*8-1)); })
+#define KLS_IS_NONCODE(_value_) ({ const union{M_TYPEOF(_value_) t; KLS_size i;} KLS_MVN(nc)={(_value_)}; KLS_MVN(nc).i==(((KLS_size)1)<<(sizeof(_value_)*8-1)); })
 
 #define KLS_IS_CORRECT(_value_) ( (_value_)==(_value_) && !KLS_IS_INF(_value_) )
 
@@ -975,9 +967,9 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 #define _KLS_MAIN2(...) argc,argv
 #define _KLS_MAIN3(...) argc,argv,env
 #define main(...)\
-    __KLS_main(); KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
-    KLS_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)()); (void)argc; (void)argv; (void)env;}\
-    KLS_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
+    __KLS_main(); M_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__); \
+    M_TYPEOF(__KLS_main()) main(int argc,char *argv[],char *env[]){KLS_execNameSet(argv[0]); return _KLS_main(M_OVERLOAD(_KLS_MAIN,__VA_ARGS__)()); (void)argc; (void)argv; (void)env;}\
+    M_TYPEOF(__KLS_main()) _KLS_main(__VA_ARGS__)
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 #define _KLS_CAST(_pointer_) ({ const union{const void * const _; void *p;} M_JOIN(_cast,M_LINE())={(const void * const)(_pointer_)}; M_JOIN(_cast,M_LINE()).p; }) )
@@ -986,21 +978,20 @@ CLASS GUI_WIDGET *(*GUI_widgetNew(KLS_any))(void *self,...);
 #define _KLS_CMPCAST(_t_,_a_) ((unsigned _t_*)&(_a_))
 #define __KLS_CMP(_t_,_1_,_2_,...) ( sizeof(_1_)==sizeof(_t_) ? *_KLS_CMPCAST(_t_,_1_) ^ *_KLS_CMPCAST(_t_,_2_) : (__VA_ARGS__) )
 #define _KLS_CMP(_1_,_2_) (sizeof(_1_)==sizeof(_2_) ? __KLS_CMP(char,_1_,_2_, __KLS_CMP(short,_1_,_2_, __KLS_CMP(int,_1_,_2_, _KLS_CMPCAST(int,_1_)[0] ^ _KLS_CMPCAST(int,_2_)[0] || _KLS_CMPCAST(int,_1_)[1] ^ _KLS_CMPCAST(int,_2_)[1] ) ) ) : 1 )
-#define _KLS_CMP2(_a_,_b_) ({ KLS_TYPEOF(_a_) _1_=(_a_); KLS_TYPEOF(_b_) _2_=(_b_); _KLS_CMP(_1_,_2_); })
+#define _KLS_CMP2(_a_,_b_) ({ M_TYPEOF(_a_) _1_=(_a_); M_TYPEOF(_b_) _2_=(_b_); _KLS_CMP(_1_,_2_); })
 #define _KLS_CMP3(_a_,_b_,_d_) (fabs((_a_)-(_b_))>(_d_))
 #define __KLS_AVERAGE(_i_,_s_,_arg_) M_WHEN(M_IS_ARG(_arg_))( (_s_)+=(_arg_); )
-#define ____KLS_EXTREMUM(_op_,_1_,_c_) {KLS_TYPEOF(_c_) _3_=(_c_); if(_3_ _op_ _1_.x) memcpy(&_1_,&_3_,sizeof(_3_));}
+#define ____KLS_EXTREMUM(_op_,_1_,_c_) {M_TYPEOF(_c_) _3_=(_c_); if(_3_ _op_ _1_.x) memcpy(&_1_,&_3_,sizeof(_3_));}
 #define ___KLS_EXTREMUM(...) ____KLS_EXTREMUM(__VA_ARGS__)
 #define __KLS_EXTREMUM(_i_,_a_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( ___KLS_EXTREMUM(M_EXTRACT _a_, __VA_ARGS__) )
 #define _KLS_EXTREMUM(_op_,_value_,...) ({\
-    struct{KLS_TYPEOF(_value_) x;}_1_={(_value_)};\
+    struct{M_TYPEOF(_value_) x;}_1_={(_value_)};\
     M_FOREACH(__KLS_EXTREMUM,(_op_,_1_),__VA_ARGS__) _1_.x;\
 })
 #define _KLS_AVERAGE(_value_,...) ({\
     double _1_=(_value_); M_FOREACH(__KLS_AVERAGE,_1_,__VA_ARGS__)\
     _1_/(KLS_ARGS_COUNT(__VA_ARGS__)+1);\
 })
-#define _KLS_TYPE_ALIGN(_expr_) ((sizeof(struct{char ________; _expr_;})-sizeof(char))%sizeof(struct{_expr_;})+1)
 char *_KLS_stringv(const char *format, va_list ap[2]);
 KLS_COLOR _KLS_rgbDetect(KLS_byte,KLS_byte,KLS_byte);
 _KLS_GLOBVAR(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);

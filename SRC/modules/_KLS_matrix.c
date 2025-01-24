@@ -473,7 +473,7 @@ void _KLS_matrixBB_SS(const KLS_t_MATRIX * const from,KLS_t_MATRIX * const to,vo
             transformer(KLS_matrixAt(from,round(is*r),round(js*c)),KLS_matrixAt(to,is,js),arg);
 }
 
-KLS_byte _KLS_matrixTransformerDefault(const void * const src,void * const dst,const KLS_TYPEOF(KLS_ABSTRACT(KLS_t_MATRIX)->elSize) *size){ if(dst && src){memcpy(dst,src,*size); return 1;} return 0; }
+KLS_byte _KLS_matrixTransformerDefault(const void * const src,void * const dst,const M_TYPEOF(M_ABSTRACT(KLS_t_MATRIX)->elSize) *size){ if(dst && src){memcpy(dst,src,*size); return 1;} return 0; }
 
 KLS_byte KLS_matrixTransform(const KLS_t_MATRIX * const from,KLS_t_MATRIX * const to,KLS_byte(*transformer)(const void *elFrom,void *elTo,void *arg),void *arg){
     if(from && from->data && to && to->data){
