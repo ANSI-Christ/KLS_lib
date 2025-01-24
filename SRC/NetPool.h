@@ -115,6 +115,7 @@ enum NET_STATE NetUnitState(const NetUnit *unit);
 
 
 const char *NetEventString(enum NET_EVENT event);
+const char *NetStateString(enum NET_STATE state);
 
 
 void NetViewNet(void *base_type_pointer);
@@ -345,7 +346,7 @@ struct pollfd{
     short events,revents;
 };
 
-static int poll(struct pollfd * const p,int cnt,const int timeout){
+static int poll(struct pollfd * const p,const int cnt,const int timeout){
     int i,s;
     struct timeval t={timeout/1000,1000*(timeout%1000)};
     NetSocket max=p->fd;
@@ -358,18 +359,22 @@ static int poll(struct pollfd * const p,int cnt,const int timeout){
         FD_SET(p[i].fd,set+2);
         if(p[i].fd>max) max=p[i].fd;
     }
-    if( (s=select(max+1,set,set+1,set+2,timeout<0?NULL:&t))!=SOCKET_ERROR && s>0)
-        for(i=0;i<cnt;++i){
+    if((s=select(max+1,set,set+1,set+2,timeout<0?NULL:&t))!=SOCKET_ERROR){
+        int left=s;
+        for(i=s=0;left && i<cnt;++i){
+            unsigned char event=0;
             if(FD_ISSET(p[i].fd,set)){
-                char tmp;
-                switch(recv(p[i].fd,&tmp,1,MSG_PEEK|MSG_NOSIGNAL)){
+                switch(recv(p[i].fd,&event,1,MSG_PEEK|MSG_NOSIGNAL)){
+                    case 0: p[i].revents|=POLLHUP; break;
                     case 1: p[i].revents|=POLLIN; break;
                     default: p[i].revents|=POLLIN|POLLHUP; break;
-                }
+                } event=1; --left;
             }
-            if(FD_ISSET(p[i].fd,set+1)) p[i].revents|=POLLOUT;
-            if(FD_ISSET(p[i].fd,set+2)) p[i].revents|=POLLERR;
+            if(FD_ISSET(p[i].fd,set+1)){--left; event=1; p[i].revents|=POLLOUT;}
+            if(FD_ISSET(p[i].fd,set+2)){--left; event=1; p[i].revents|=POLLERR;}
+            s+=event;
         }
+    }
     return s;
 }
 
@@ -494,6 +499,14 @@ const char *NetEventString(const enum NET_EVENT event){
     }
 }
 
+const char *NetStateString(const enum NET_STATE state){
+    switch(state){
+        #define _CASE(_e_) case NET_##_e_: return #_e_
+        _CASE(DISCONNECTED); _CASE(CONNECTING); _CASE(CONNECTED); _CASE(LISTENING); _CASE(ACCEPTING);
+        #undef _CASE
+        default: return "UNKNOWN";
+    }
+}
 
 
 
