@@ -114,9 +114,6 @@ enum NET_STATE NetUnitState(const NetUnit *unit);
 
 
 
-const char *NetEventString(enum NET_EVENT event);
-const char *NetStateString(enum NET_STATE state);
-
 
 void NetViewNet(void *base_type_pointer);
 void NetViewHost(void *base_type_pointer);
@@ -489,25 +486,6 @@ char *NetAddressString(const NetAddress * const address,char name[static 46]){
     *name=0;
     return NULL;
 }
-
-const char *NetEventString(const enum NET_EVENT event){
-    switch(event){
-        #define _CASE(_e_) case NET_##_e_: return #_e_
-        _CASE(DISCONNECT); _CASE(CONNECT); _CASE(CANWRITE); _CASE(CANREAD); _CASE(TIMEOUT); _CASE(ACCEPT); _CASE(ERROR);
-        #undef _CASE
-        default: return "UNKNOWN";
-    }
-}
-
-const char *NetStateString(const enum NET_STATE state){
-    switch(state){
-        #define _CASE(_e_) case NET_##_e_: return #_e_
-        _CASE(DISCONNECTED); _CASE(CONNECTING); _CASE(CONNECTED); _CASE(LISTENING); _CASE(ACCEPTING);
-        #undef _CASE
-        default: return "UNKNOWN";
-    }
-}
-
 
 
 static NetSocket _NetSocketCreate(const unsigned char p,const unsigned char v){
