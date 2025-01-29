@@ -13,6 +13,7 @@
 #define PTHREAD_EXT_IMPL
 #define TIME_EXT_IMPL
 #define NETPOOL_IMPL
+#define PILE_IMPL
 #include "KLS_lib.h"
 
 
@@ -37,7 +38,6 @@ extern void _KLS_rgbGetInfo(int bits);
 #include "./modules/_KLS_array.c"
 #include "./modules/_KLS_geometry.c"
 #include "./modules/_KLS_fs.c"
-#include "./modules/_KLS_heap.c"
 #include "./modules/_KLS_vector.c"
 #include "./modules/_KLS_list.c"
 #include "./modules/_KLS_queue.c"
@@ -304,23 +304,38 @@ void _KLS_free(void *data){
     _KLS_MEMORY_POP(data)
 }
 
+#ifdef _KLS_MALLOC_HEAP
+
+static pthread_mutex_t _KLS_mallocMtx[1]={PTHREAD_MUTEX_INITIALIZER};
+
+void *KLS_malloc(const KLS_size size){
+    static PILE(heap,_KLS_MALLOC_HEAP);
+    void * p;
+    pthread_mutex_lock(_KLS_mallocMtx);
+    p=pile_request(heap,size);
+    pthread_mutex_unlock(_KLS_mallocMtx);
+    return p
+}
+
+void *KLS_free(void * const data){
+    pthread_mutex_lock(_KLS_mallocMtx);
+    pile_release(data);
+    pthread_mutex_unlock(_KLS_mallocMtx);
+    return NULL;
+}
+
+#else
+
 void *KLS_malloc(KLS_size size){
-    #ifdef _KLS_MALLOC_HEAP
-    static pthread_mutex_t mtx[1]={PTHREAD_MUTEX_INITIALIZER};
-    static KLS_HEAP(heap,_KLS_MALLOC_HEAP,mtx);
-    return KLS_heapAlloc(heap,size);
-    #else
     return _KLS_malloc(size);
-    #endif
 }
 
 void *KLS_free(void *data){
-    #ifdef _KLS_MALLOC_HEAP
-    if(_KLS_MALLOC_HEAP){KLS_heapFree(data);return NULL;}
-    #else
     _KLS_free(data); return NULL;
-    #endif
 }
+
+#endif
+
 
 void KLS_ptrDeleter(void *data){
     KLS_free(*(void**)data);

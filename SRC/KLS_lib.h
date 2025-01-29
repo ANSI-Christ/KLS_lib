@@ -42,6 +42,7 @@
 #include "trycatch.h"
 #include "time_ext.h"
 #include "pthread_ext.h"
+#include "pile.h"
 
 
 #include "KLS_0b.h"
@@ -221,17 +222,6 @@ unsigned char KLS_bitGet(void *data,unsigned int index);
 #define KLS_freeFile(_1_) ({ if((_1_) && (_1_)!=stdin && (_1_)!=stdout && (_1_)!=stderr) {fclose(_1_);(_1_)=NULL;} })
 
 
-
-
-// HEAP SECTION
-#define KLS_HEAP(_name_,_size_,...)  _KLS_HEAP(_name_,_size_, M_IF(M_IS_ARG(__VA_ARGS__))((__VA_ARGS__),(NULL)) )
-
-void KLS_heapFree(void *data);
-void KLS_heapClose(void *heap);
-void KLS_heapInfo(void *heap,FILE *f);
-
-void *KLS_heapAlloc(void *heap,KLS_size size);
-void *KLS_heapInit(void *heap,KLS_size size,pthread_mutex_t *mtx);
 
 
 
@@ -1010,39 +1000,7 @@ _KLS_GLOBVAR(KLS_COLOR(*_KLS_rgb)(KLS_byte,KLS_byte,KLS_byte),=_KLS_rgbDetect);
 #define _KLS_ARRAY_AT_20(_i_) (_KLS_ARRAY_AT_18(_i_)*_i_[19]+_i_[18])
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
-typedef struct _KLS_t_HEAP_NODE _KLS_t_HEAP_NODE;
-typedef struct _KLS_t_HEAP_FREES _KLS_t_HEAP_FREES;
-typedef struct _KLS_t_HEAP_HEADER _KLS_t_HEAP_HEADER;
 
-struct _KLS_t_HEAP_HEADER{
-    void *p, *mtx;
-    _KLS_t_HEAP_FREES *frees;
-};
-
-struct _KLS_t_HEAP_FREES{
-    _KLS_t_HEAP_NODE *first, **last;
-};
-
-struct _KLS_t_HEAP_NODE{
-    _KLS_t_HEAP_HEADER *h;
-    _KLS_t_HEAP_NODE *prev, *next, **free;
-    KLS_size size;
-};
-
-#define _KLS_HEAP(_N_,_S_,_M_) \
-    struct{\
-        _KLS_t_HEAP_HEADER _h;\
-        _KLS_t_HEAP_NODE _n;\
-        char buff[_S_];\
-        _KLS_t_HEAP_FREES frees;\
-    }_N_[1]={{\
-        { _N_, (_M_),(void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES) },\
-        { (void*)_N_, NULL, NULL, (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES), (_S_) },\
-        { 0 },\
-        { (void*)(((_KLS_t_HEAP_HEADER*)_N_)+1), (void*)(_N_+1)-sizeof(_KLS_t_HEAP_FREES) }\
-    }}
-/////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
 
 #undef _KLS_GLOBVAR
 
