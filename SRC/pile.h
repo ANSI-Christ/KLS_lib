@@ -11,8 +11,8 @@
 void pile_release(void *data);
 void *pile_request(void *pile,size_t size);
 
-int pile_init(void *area,size_t size);
-int pile_increase(void *pile,void *area,size_t size);
+int pile_init(void *area,size_t size,void(*fini)(void *area));
+int pile_increase(void *pile,void *area,size_t size,void(*fini)(void *area));
 
 void pile_close(void *pile);
 void pile_info(const void *pile);
@@ -25,7 +25,7 @@ void pile_info(const void *pile);
         unsigned char pile[_size_];\
         struct _pile_able able;\
     }_name_[1]={{\
-        { _name_,(struct _pile_able*)((char*)(_name_+1)-sizeof(struct _pile_able)), NULL },\
+        { _name_, (void(*)(void*))0, (struct _pile_able*)((char*)(_name_+1)-sizeof(struct _pile_able)), NULL },\
         { (struct _pile_header*)_name_, NULL, NULL, (struct _pile_node**)((char*)(_name_+1)-sizeof(struct _pile_able)), (_size_) },\
         { 0 },\
         { (struct _pile_node*)(((struct _pile_header*)_name_)+1), (struct _pile_node**)((char*)(_name_+1)-sizeof(struct _pile_able)) }\
@@ -34,6 +34,7 @@ void pile_info(const void *pile);
 
 struct _pile_header{
     void *area;
+    void(*deallocator)(void*);
     struct _pile_able *able;
     struct _pile_header *next;
 };
@@ -56,18 +57,19 @@ struct _pile_node{
 
 #include <stdio.h>
 
-static const void *_pile_is_init(const void * const h){
-    return (h && ((const struct _pile_header*)h)->area==h) ? (((const struct _pile_header*)h)+1) : NULL;
+static const char _pile_is_init(const void * const h){
+    return h && ((const struct _pile_header*)h)->area==h;
 }
 
-int pile_init(void * const area,const size_t size){
+int pile_init(void * const area,const size_t size,void(* const fini)(void *area)){
     struct _pile_default{ struct _pile_header h; struct _pile_node n; struct _pile_able a;};
     if(size>sizeof(struct _pile_default) && area){
         struct _pile_header * const h=(struct _pile_header*)area;
         struct _pile_node * const n=(struct _pile_node*)(h+1);
         n->header=(struct _pile_header*)(h->area=area);
-        h->able=(struct _pile_able*)((char*)area+size-sizeof(struct _pile_able));
         h->next=NULL;
+        h->deallocator=fini;
+        h->able=(struct _pile_able*)((char*)area+size-sizeof(struct _pile_able));
         h->able->first=n;
         h->able->last=n->able=&h->able->first;
         n->next=n->prev=NULL;
@@ -76,8 +78,8 @@ int pile_init(void * const area,const size_t size){
     } return -1;
 }
 
-int pile_increase(void * const pile,void * const area,const size_t size){
-    if((_pile_is_init(pile)) && !pile_init(area,size)){
+int pile_increase(void * const pile,void * const area,const size_t size,void(* const fini)(void *area)){
+    if((_pile_is_init(pile)) && !pile_init(area,size,fini)){
         struct _pile_header * const h=(struct _pile_header*)pile;
         struct _pile_header * const next=(struct _pile_header*)area;
         next->next=h->next;
@@ -86,8 +88,9 @@ int pile_increase(void * const pile,void * const area,const size_t size){
     } return -1;
 }
 
-static void *_pile_occupy(struct _pile_header * const h,struct _pile_node **a,const size_t size){
+static void *_pile_occupy(struct _pile_node ** const a,const size_t size){
     struct _pile_node * const n=*a, *next=n->next;
+    struct _pile_header * const h=n->header;
     if(h->able->first->size<sizeof(void*))
         return NULL;
     h->able->first->size-=sizeof(void*);
@@ -143,7 +146,7 @@ void *pile_request(void * const pile,size_t size){
         const unsigned char align=size%sizeof(void*);
         if(align) size+=sizeof(void*)-align;
         if( (n=_pile_find(h,size)) )
-            return _pile_occupy(h,n,size);
+            return _pile_occupy(n,size);
     } return NULL;
 }
 
@@ -189,22 +192,27 @@ void pile_release(void * const data){
 }
 
 void pile_close(void * const pile){
-    if(_pile_is_init(pile)) ((struct _pile_header*)pile)->area=NULL;
+    if(_pile_is_init(pile)){
+        struct _pile_header *h=(struct _pile_header*)pile, *next;
+        do{
+            next=h->next;
+            if(h->deallocator) h->deallocator(h);
+            else h->area=NULL;
+        }while( (h=next) );
+    }
 }
 
 void pile_info(const void * const pile){
-    const struct _pile_node *n=(const struct _pile_node*)_pile_is_init(pile);
-    if(n){
-        struct _pile_node * const *i=n->header->able->last, * const * const first=&n->header->able->first;
-        printf("\npile: %p\n",n->header);
-        while(n){
-            printf("  %c [%zu / %zu]: %p<-(%p)->%p {%p}\n",n->able?' ':'*',n->size,n->size+sizeof(*n),n->prev,n,n->next,n->able);
-            n=n->next;
-        }
-        puts(" able array:\n");
+    if(_pile_is_init(pile)){
+        const struct _pile_header * h=(const struct _pile_header*)pile, *next;
         do{
-            printf("  {%p}: (%p)\n",i,*i);
-        }while(i++!=first);
+            const struct _pile_node *n=(const struct _pile_node *)(h+1);
+            printf("pile: %p -> %p\n",h,(next=h->next));
+            while(n){
+                printf("  %c [%zu / %zu]: %p<-(%p)->%p {%p}\n",n->able?' ':'*',n->size,n->size+sizeof(*n),n->prev,n,n->next,n->able);
+                n=n->next;
+            }
+        }while( (h=next) );
     }
 }
 

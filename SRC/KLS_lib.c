@@ -310,7 +310,7 @@ static pthread_mutex_t _KLS_mallocMtx[1]={PTHREAD_MUTEX_INITIALIZER};
 
 void *KLS_malloc(const KLS_size size){
     static PILE(heap,_KLS_MALLOC_HEAP);
-    void * p;
+    void *p;
     pthread_mutex_lock(_KLS_mallocMtx);
     p=pile_request(heap,size);
     pthread_mutex_unlock(_KLS_mallocMtx);
