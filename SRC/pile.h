@@ -127,16 +127,17 @@ static void *_pile_occupy(struct _pile_node ** const a,const size_t size){
 }
 
 static struct _pile_node **_pile_find(const struct _pile_header *h,const size_t size){
-    struct _pile_node **n=&h->able->first;
+    struct _pile_node **n=NULL;
     do{
         const struct _pile_able * const a=h->able;
         const void * const first=&a->first;
         struct _pile_node **i=a->last;
-        for(;(void*)i!=first;++i)
-            if(i[0]->size>=size && i[0]->size<n[0]->size && (n=i)[0]->size-size<=sizeof(void*))
+        do{
+            if(i[0]->size>=size && (!n || i[0]->size<n[0]->size) && (n=i)[0]->size-size<=sizeof(void*))
                 return n;
+        }while((void*)(i++)!=first);
     }while( (h=h->next) );
-    return n[0]->size>=size ? n : NULL;
+    return n;
 }
 
 void *pile_request(void * const pile,size_t size){
