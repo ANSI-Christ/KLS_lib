@@ -608,7 +608,7 @@ static void _NetListLinkAfter(NetList * const l,NetNode * const n, NetNode * con
 }
 
 static int _NetPollAdd(NetPool * const p,NetNode * const n,const short flags){
-    if(!p->node) return -1;
+    if(!p->sock) return -1;
     if(p->size==p->real){
         const unsigned int count=p->real+(p->real<2000 ? p->real : 1000);
         void * const x[2]={p->allocator(sizeof(*p->node)*count), p->allocator(sizeof(*p->sock)*count)};
@@ -630,7 +630,7 @@ static int _NetPollAdd(NetPool * const p,NetNode * const n,const short flags){
 }
 
 static void _NetPollRem(NetPool * const p,const unsigned int i){
-    if(!p->node) return;
+    if(!p->sock) return;
     p->node[i]->id=0;
     if(i!=--p->size){
         p->node[i]=p->node[p->size];
@@ -896,13 +896,18 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
 }
 
 void NetPoolDestroy(NetPool * const pool){
+    unsigned int i=pool->size;
     _NetSocketDestroy(pool->emit);
     _NetSocketDestroy(pool->emit+1);
-    pool->deallocator(pool->node); pool->node=NULL;
     pool->deallocator(pool->sock); pool->sock=NULL;
+    while(--i){
+        NetNode * const n=pool->node[i];
+        NetUnitDisconnect(n->u);
+        if(i>pool->size) i=pool->size;
+    }
+    pool->deallocator(pool->node); pool->node=NULL;
     while(pool->units->first){
         NetNode * const n=pool->units->first;
-        NetUnitDisconnect(n->u);
         _NetListUnlink(pool->units,n);
         pool->deallocator(n);
     }
