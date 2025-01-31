@@ -263,8 +263,12 @@ static int poll(struct pollfd * const p,const int c,const int t){
 
 typedef SOCKET NetSocket;
 
+static void _NetSocketShutdown(NetSocket s){
+    shutdown(s,SHUT_RDWR);
+}
+
 static void _NetSocketDestroy(NetSocket * const s){
-    shutdown(*s,SD_BOTH); closesocket(*s); *s=INVALID_SOCKET;
+    _NetSocketShutdown(*s); closesocket(*s); *s=INVALID_SOCKET;
 }
 
 static int _NetSocketPair(NetSocket s[2]){
@@ -303,13 +307,16 @@ typedef int NetSocket;
 #define _NET_LAST_ERROR() errno
 #define _NET_LAST_ERROR_IF(_cond_)
 
+static void _NetSocketShutdown(NetSocket s){
+    shutdown(s,SHUT_RDWR);
+}
+
 static void _NetSocketDestroy(NetSocket * const s){
-    shutdown(*s,SHUT_RDWR); close(*s); *s=INVALID_SOCKET;
+    _NetSocketShutdown(*s); close(*s); *s=INVALID_SOCKET;
 }
 
 static int _NetSocketPair(NetSocket s[2]){
     return socketpair(AF_UNIX,SOCK_DGRAM,0,s);
-    /*return pipe(s);*/
 }
 
 static void _NetSocketUnblock(NetSocket s){
@@ -363,8 +370,7 @@ static int poll(struct pollfd * const p,const int cnt,const int timeout){
             if(FD_ISSET(p[i].fd,set)){
                 switch(recv(p[i].fd,&event,1,MSG_PEEK|MSG_NOSIGNAL)){
                     case 0: p[i].revents|=POLLHUP; break;
-                    case 1: p[i].revents|=POLLIN; break;
-                    default: p[i].revents|=POLLIN|POLLHUP; break;
+                    default: p[i].revents|=POLLIN; break;
                 } event=1; --left;
             }
             if(FD_ISSET(p[i].fd,set+1)){--left; event=1; p[i].revents|=POLLOUT;}
@@ -640,6 +646,10 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
         n->u->handler(n->u,NET_ERROR);
         return;
     }
+    if(revents & POLLHUP){
+        NetUnitDisconnect(n->u);
+        return;
+    }
     if(n->state==NET_CONNECTING){
         p->events&=~POLLOUT;
         n->state=NET_CONNECTED;
@@ -668,7 +678,11 @@ static void  _NetTcpServer(NetNode * const n,struct pollfd * const p,const time_
         n->u->handler(n->u,NET_ERROR);
         return;
     }
-    if(revents & (POLLIN|POLLHUP)){
+    if(revents & POLLHUP){
+        NetUnitDisconnect(n->u);
+        return;
+    }
+    if(revents & POLLIN){
         NetAddress a[1];
         NetSocket s=_NetSocketAccept(n->sock,a);
         NetNode *x;
@@ -779,7 +793,6 @@ static void _NetChecks(NetPool * const p){
                         default: NetUnitDisconnect(n->u); break;
                     }
                 }else if(n->u->pulse && t>n->pulse+n->u->pulse && (n->ctrl=_NetSocketCreate(NET_TCP,n->address->ipv))!=INVALID_SOCKET ){
-                    /* may be connect to same address, but different port: 7 or else */
                     _NetSocketConnect(n->ctrl,n->address);
                     n->pulse=t+20;
                 }
