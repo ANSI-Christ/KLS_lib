@@ -901,8 +901,7 @@ void NetPoolDestroy(NetPool * const pool){
     _NetSocketDestroy(pool->emit+1);
     pool->deallocator(pool->sock); pool->sock=NULL;
     while(--i){
-        NetNode * const n=pool->node[i];
-        NetUnitDisconnect(n->u);
+        NetUnitDisconnect(pool->node[i]->u);
         if(i>pool->size) i=pool->size;
     }
     pool->deallocator(pool->node); pool->node=NULL;
