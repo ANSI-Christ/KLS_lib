@@ -1027,7 +1027,7 @@ void NetUnitDisconnect(NetUnit * const unit){
                 break;
             default: n->state=NET_DISCONNECTED;
         }
-        while(x && x->server==n){
+        while(x && x!=n && x->server==n){
             NetNode * const d=x;
             x=x->next;
             NetUnitDisconnect(d->u);
