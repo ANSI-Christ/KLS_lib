@@ -96,6 +96,7 @@ int NetUnitConnect(NetUnit *unit,const NetAddress *address);
 int NetUnitRead(NetUnit *unit,void *buffer,unsigned int size,NetAddress *address);
 int NetUnitWrite(NetUnit *unit,const void *data,unsigned int size,const NetAddress *address);
 
+void NetUnitShutdown(NetUnit *unit);
 void NetUnitDisconnect(NetUnit *unit);
 void NetUnitAutoRemove(NetUnit *unit);
 
@@ -997,6 +998,10 @@ int NetUnitRead(NetUnit * const unit,void * const buffer,const unsigned int size
     }else bytes=recv(n->sock,buffer,size,MSG_NOSIGNAL);
     _NET_LAST_ERROR_IF(bytes<0);
     return bytes;
+}
+
+void NetUnitShutdown(NetUnit * const unit){
+    _NetSocketShutdown(((NetNode*)unit)->sock);
 }
 
 void NetUnitDisconnect(NetUnit * const unit){
