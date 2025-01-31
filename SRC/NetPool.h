@@ -618,7 +618,9 @@ static int _NetPollAdd(NetPool * const p,NetNode * const n,const short flags){
             return -1;
         }
         memcpy(x[0],p->node,sizeof(*p->node)*p->size);
+        p->deallocator(p->node); p->node=x[0];
         memcpy(x[1],p->sock,sizeof(*p->sock)*p->size);
+        p->deallocator(p->sock); p->sock=x[1];
         p->real=count;
     }
     n->id=p->size++;
