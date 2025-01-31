@@ -666,6 +666,8 @@ static void _NetUdpBoth(NetNode * const n,struct pollfd * const p,const time_t t
     }
     if(revents & POLLIN){
         n->timeout=n->pulse=t;
+        if(n->ctrl!=INVALID_SOCKET)
+            _NetSocketDestroy(&n->ctrl);
         n->u->handler(n->u,NET_CANREAD);
         return;
     }
@@ -754,6 +756,8 @@ static void _NetTcpClient(NetNode * const n,struct pollfd * const p,const time_t
             case 1:
                 if(n->server) _NetListLinkAfter(n->pool->units,n,n->server);
                 n->timeout=n->pulse=t;
+                if(n->ctrl!=INVALID_SOCKET)
+                    _NetSocketDestroy(&n->ctrl);
                 n->u->handler(n->u,NET_CANREAD);
                 return;
             default:
