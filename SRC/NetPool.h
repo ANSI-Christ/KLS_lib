@@ -78,8 +78,8 @@ NetAddress *NetAddressNumeric(const char *ip,unsigned short port,NetAddress *add
 
 
 
-int NetPoolEmit(NetPool *pool,int value);
-int NetPoolDispatch(NetPool *pool,int *emit); /* return 0 on emit or [EINVAL,EINTR,...] */
+int NetPoolAsync(NetPool *pool,const void *pointer);
+int NetPoolDispatch(NetPool *pool,void **async); /* return 0 on async or [EINVAL,EINTR,...] */
 
 void NetPoolDestroy(NetPool *pool);
 
@@ -579,7 +579,7 @@ struct NetPool{
     NetNode **node;
     struct pollfd *sock;
     unsigned int size, real, reserv_count, reserv_max;
-    NetSocket emit[2];
+    NetSocket async[2];
 };
 
 
@@ -841,15 +841,15 @@ static void _NetReservCut(NetPool * const p,const unsigned int max){
     }
 }
 
-int NetPoolDispatch(NetPool * const pool,int *emit){
-    int tmp[1];
+int NetPoolDispatch(NetPool * const pool,void **async){
+    void *tmp;
     char work=1;
-    if(!emit) emit=tmp;
+    if(!async) async=&tmp;
     do{
         int count=poll(pool->sock,pool->size,1000);
         if(count==SOCKET_ERROR) return errno;
         if(pool->sock->revents){
-            recv(pool->emit[0],emit,sizeof(*emit),MSG_NOSIGNAL);
+            recv(pool->async[0],async,sizeof(*async),MSG_NOSIGNAL);
             --count; work=0;
         }
         _NetDispatch(pool,count);
@@ -871,9 +871,9 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
     if(base_count<10) base_count=10;
     do{
         if( !(p=(NetPool*)allocator(sizeof(*p))) ) break;
-        p->emit[0]=p->emit[1]=INVALID_SOCKET;
+        p->async[0]=p->async[1]=INVALID_SOCKET;
         p->node=NULL; p->sock=NULL;
-        if(_NetSocketPair(p->emit)) break;
+        if(_NetSocketPair(p->async)) break;
         ++base_count;
         if( !(p->node=(NetNode**)allocator(sizeof(*p->node)*base_count)) ) break;
         if( !(p->sock=(struct pollfd*)allocator(sizeof(*p->sock)*base_count)) ) break;
@@ -884,16 +884,16 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
         p->reserv_max=reserv_count;
         p->size=1;
         p->real=base_count;
-        p->sock->fd=p->emit[0];
+        p->sock->fd=p->async[0];
         p->sock->events=POLLIN;
         return p;
     }while(0);
     if(p){
         if(p->node) deallocator(p->node);
         if(p->sock) deallocator(p->sock);
-        if(p->emit[0]!=INVALID_SOCKET){
-            _NetSocketDestroy(p->emit);
-            _NetSocketDestroy(p->emit+1);
+        if(p->async[0]!=INVALID_SOCKET){
+            _NetSocketDestroy(p->async);
+            _NetSocketDestroy(p->async+1);
         }
         deallocator(p);
     }
@@ -903,8 +903,8 @@ NetPool *NetPoolCreateEx(unsigned int base_count,unsigned int reserv_count,void*
 
 void NetPoolDestroy(NetPool * const pool){
     unsigned int i=pool->size;
-    _NetSocketDestroy(pool->emit);
-    _NetSocketDestroy(pool->emit+1);
+    _NetSocketDestroy(pool->async);
+    _NetSocketDestroy(pool->async+1);
     pool->deallocator(pool->sock); pool->sock=NULL;
     while(--i){
         NetUnitDisconnect(pool->node[i]->u);
@@ -921,8 +921,8 @@ void NetPoolDestroy(NetPool * const pool){
     _NetConfig(0);
 }
 
-int NetPoolEmit(NetPool * const pool,const int value){
-    return send(pool->emit[1],&value,sizeof(value),MSG_NOSIGNAL)==SOCKET_ERROR;
+int NetPoolAsync(NetPool * const pool,const void * const pointer){
+    return send(pool->async[1],&pointer,sizeof(pointer),MSG_NOSIGNAL)==SOCKET_ERROR;
 }
 
 NetUnit *NetPoolUnit(NetPool * const pool,const enum NET_PROTOCOL protocol){

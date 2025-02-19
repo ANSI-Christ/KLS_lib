@@ -377,7 +377,7 @@ void _KLS_urlHandler(NetUnit * const u,const enum NET_EVENT event){
         case NET_DISCONNECT:{
             char *ptr;
             h->url=NULL;
-            NetPoolEmit(NetUnitPool(u),0);
+            NetPoolAsync(NetUnitPool(u),NULL);
             if( h->data && (ptr=strstr(h->data+sizeof(KLS_t_URL_DATA),"\r\n\r\n")) ){
                 KLS_t_URL_DATA *ans=h->data;
                 ptr[2]=ptr[3]=0;
