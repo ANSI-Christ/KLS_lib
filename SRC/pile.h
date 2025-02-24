@@ -144,8 +144,7 @@ void *pile_request(void * const pile,size_t size){
     if(_pile_is_init(pile)){
         struct _pile_node **n;
         struct _pile_header * const h=(struct _pile_header*)pile;
-        const unsigned char align=size%sizeof(void*);
-        if(align) size+=sizeof(void*)-align;
+        size = (size + sizeof(void *) - 1) & ~(sizeof(void *) - 1);
         if( (n=_pile_find(h,size)) )
             return _pile_occupy(n,size);
     } return NULL;
