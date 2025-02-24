@@ -194,21 +194,18 @@ void KLS_memmove(void *to,const void *from,KLS_size size){
     _KLS_memmove_ft(to+size,from+size,size/sizeof(size),size & (sizeof(size)-1));
 }
 
-void KLS_swap(void *var1,void *var2,KLS_size size){
-    union{void *_; unsigned char *c; KLS_size *i;} a={var1}, b={var2};
-    unsigned char bytes=size & (sizeof(*a.i)-1);
-    size/=sizeof(*a.i);
-    while(size){
-        *a.i^=*b.i;
-        *b.i^=*a.i;
-        *a.i^=*b.i;
-        ++a.i; ++b.i; --size;
+void KLS_swap(void * const a,void * const b,const KLS_size size){
+    const KLS_size blocks=size/sizeof(size);
+    KLS_size i=0;
+    for (;i<blocks;++i) {
+        const KLS_size c=((const KLS_size*)a)[i];
+        ((size_t*)a)[i]=((const KLS_size*)b)[i];
+        ((size_t*)b)[i]=c;
     }
-    while(bytes){
-        *a.c^=*b.c;
-        *b.c^=*a.c;
-        *a.c^=*b.c;
-        ++a.c; ++b.c; --bytes;
+    for (i*=sizeof(size);i<size;++i) {
+        const unsigned char c=((const unsigned char*)a)[i];
+        ((unsigned char*)a)[i]=((const unsigned char*)b)[i];
+        ((unsigned char*)b)[i]=c;
     }
 }
 

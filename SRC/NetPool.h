@@ -127,7 +127,7 @@ enum NET_ENDIAN NetEndian(void);
 #define NetEndian() ((const union{unsigned char _; enum NET_ENDIAN e;}){1}).e
 #define NetViewHost(_p_) NetViewNet(_p_)
 #define NetViewNet(_p_) do{\
-    struct static_assert_bad_type_##__LINE__{char _1[sizeof((_p_)[0]<=16) && sizeof((_p_)[0]>1) ? 1 : -1], _2[sizeof((_p_)[0]+=1)];};\
+    struct static_assert_bad_type_##__LINE__{char _1[(sizeof((_p_)[0]<=16) && sizeof((_p_)[0])>1) ? 1 : -1], _2[sizeof((_p_)[0]+=0.1)];};\
     if(NetEndian()==NET_LTL)\
         switch(sizeof(*(_p_))){\
             case 2:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
