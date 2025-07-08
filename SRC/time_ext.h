@@ -9,6 +9,19 @@
 #include <time.h>
 #include <pthread.h>
 
+#ifndef CLOCK_REALTIME
+    #define CLOCK_REALTIME 0
+    #define _TE_NO_CLOCK_ID
+#endif
+
+#ifndef CLOCK_MONOTONIC
+    #define CLOCK_MONOTONIC 1
+#endif
+
+#ifdef _TE_NO_CLOCK_ID
+    int clock_gettime(clockid_t clockid,struct timespec *tp);
+#endif
+
 
 
 struct datetime{
@@ -111,6 +124,25 @@ int timezone_current(void){
 int timezone_current(void){
     tzset(); return -(int)timezone;
 }
+
+    #ifdef _TE_NO_CLOCK_ID
+
+#include <sys/time.h>
+
+int clock_gettime(const clockid_t clockid,struct timespec * const tp){
+    switch(clockid){
+        case CLOCK_REALTIME:{
+            struct timeval tv;
+            gettimeofdat(&tv,NULL);
+            tp->tv_sec=tv.tv_sec;
+            tp->tv_nsec=tv.tv_usec*1000;
+            return 0;
+        }
+        default: return -1;
+    }
+}
+
+    #endif
 
 #endif
 
