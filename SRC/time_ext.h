@@ -19,6 +19,7 @@
 #endif
 
 #ifdef _TE_NO_CLOCK_ID
+    typedef int clockid_t;
     int clock_gettime(clockid_t clockid,struct timespec *tp);
 #endif
 
