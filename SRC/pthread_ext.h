@@ -557,10 +557,25 @@ unsigned int pthread_backtrace(void **array,unsigned int count){
     return c>0?c:0;
 }
 
+#ifdef _SC_NPROCESSORS_CONF
+
 unsigned int pthread_cores(void){
     const long int c=sysconf(_SC_NPROCESSORS_CONF);
     return c>1?c:1;
 }
+
+#else
+
+#include <sys/sysctl.h>
+unsigned int pthread_cores(void){
+    int cores=1; size_t len=sizeof(cores);
+    int mib[2]={CTL_HW,HW_NCPU};
+    if(sysctl(mib,2,&cores,&len,NULL,0))
+        return 1;
+    return cores>1?cores:1;
+}
+
+#endif
 
 int pthread_signal_resume=SIGCONT;
 
