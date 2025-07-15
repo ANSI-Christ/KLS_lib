@@ -57,7 +57,7 @@ struct _pile_node{
 
 #include <stdio.h>
 
-static const char _pile_is_init(const void * const h){
+static char _pile_is_init(const void * const h){
     return h && ((const struct _pile_header*)h)->area==h;
 }
 

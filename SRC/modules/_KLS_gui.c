@@ -58,7 +58,7 @@ void _GUI_widgetLink(CLASS GUI_WIDGET *w,CLASS GUI_WIDGET *p){
 }
 
 void _GUI_widgetReorder(CLASS GUI_WIDGET *w){
-    if(w!=(void*)w->gui){
+    while(w!=(void*)w->gui){
         if(w->next){
             if(w->prev) w->prev->next=w->next;
             else w->parent->child=w->next;
@@ -68,7 +68,7 @@ void _GUI_widgetReorder(CLASS GUI_WIDGET *w){
             w->prev=w->parent->last;
             w->parent->last=w;
         }
-        _GUI_widgetReorder(w->parent);
+        w=w->parent;
     }
 }
 

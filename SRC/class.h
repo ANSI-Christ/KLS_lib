@@ -14,25 +14,26 @@
 
 #define CLASS_END(_name_,...) \
     _CLASS_ARGS_DEF(_name_)\
-    CLASS _name_{void(* const destructor)(void * const); _CLASS_LOOP(_CLASS_END(_name_))};\
-    struct M_JOIN(_,_name_){M_IF(_CLASS_ABS(_name_))(const void *M_JOIN(M_JOIN(_,M_LINE()),pad)[1][1][1],void *(* const constructor)(void * const _CLASS_ARGS_STD(_name_))); _CLASS_LOOP(_CLASS_END(_name_))};\
+    CLASS _name_{void(* const destructor)(void *); _CLASS_LOOP(_CLASS_END(_name_))};\
+    struct M_JOIN(_,_name_){M_IF(_CLASS_ABS(_name_))(const void *M_JOIN(M_JOIN(_,M_LINE()),pad)[1][1][1],void *(* const constructor)(void * _CLASS_ARGS_STD(_name_))); _CLASS_LOOP(_CLASS_END(_name_))};\
     extern const struct M_JOIN(_,_name_) *_name_(void)
 
 #define CLASS_COMPILE(_name_) \
     void M_JOIN(_dtor_,_name_)(void * const self){\
         _CLASS_LOOP(_CLASS_DESTRUCT(_name_,self))\
     }\
-    void *M_JOIN(_ctor_,_name_)(void * const self _CLASS_ARGS_VAR(_name_) ){\
+    void *M_JOIN(_ctor_,_name_)(void *self _CLASS_ARGS_VAR(_name_) ){\
+        extern void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * _CLASS_ARGS_STD(_name_) );\
         if(self){\
-            extern void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * const _CLASS_ARGS_STD(_name_) );\
             M_IF(_CLASS_EXT(_name_))(\
-                _CLASS_CLEAR(((char * const )self)+sizeof(CLASS _CLASS_EXT(_name_)),sizeof(CLASS _name_)-sizeof(CLASS _CLASS_EXT(_name_))) ,\
+                _CLASS_CLEAR(((char *)self)+sizeof(CLASS _CLASS_EXT(_name_)),sizeof(CLASS _name_)-sizeof(CLASS _CLASS_EXT(_name_))) ,\
                 _CLASS_CLEAR(self,sizeof(CLASS _name_))\
             )\
-            if( _CLASS_CAST(void*(* const)(const char,void * const _CLASS_ARGS_VAR(_name_))) (M_JOIN(_impl_,_name_)) (1,self _CLASS_ARGS_CALL(_name_,)) )\
-                *(void(**)(void*))self=M_JOIN(_dtor_,_name_);\
-            else{ M_JOIN(_dtor_,_name_)(self); return (void*)0; }\
-        } return self;\
+        }\
+        self=_CLASS_CAST(void*(*)(const char,void * _CLASS_ARGS_VAR(_name_))) (M_JOIN(_impl_,_name_)) (1,self _CLASS_ARGS_CALL(_name_,));\
+        if(self) *(void(**)(void*))self=M_JOIN(_dtor_,_name_);\
+        else{ M_JOIN(_dtor_,_name_)(self); return (void*)0; }\
+        return self;\
     }\
     const struct M_JOIN(_,_name_) *_name_(void){\
         typedef union { void *ctor; struct M_JOIN(_,_name_) ret[1]; struct{char _[sizeof(struct M_JOIN(_,_name_))];} data; } M_JOIN(_t_u,_name_);\
@@ -48,7 +49,7 @@
             }\
         } return c.ret;\
     }\
-    void *M_JOIN(_impl_,_name_)(const char M_JOIN(M_JOIN(_,M_LINE()),ctr),CLASS _name_ * const self _CLASS_ARGS_STD(_name_) ){\
+    void *M_JOIN(_impl_,_name_)(const char M_JOIN(M_JOIN(_,M_LINE()),ctr),CLASS _name_ *self _CLASS_ARGS_STD(_name_) ){\
         if(!M_JOIN(M_JOIN(_,M_LINE()),ctr)){_CLASS_DTR(_name_)}\
         if(M_JOIN(M_JOIN(_,M_LINE()),ctr)){_CLASS_SUPER(_name_) {_CLASS_CTR_BODY(_name_)} _CLASS_COMPILE
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -140,7 +141,7 @@
 #define _CLASS_COMPILE(...) {M_FOREACH(__CLASS_CTR_BODY,-,__VA_ARGS__)}}else{M_FOREACH(__CLASS_DTR,-,__VA_ARGS__)}return self; (void)self;}
 
 #define _CLASS_CAST(_type_) ( (_type_) __CLASS_CAST
-#define __CLASS_CAST(_ptr_) ({ const union{const void * const _; void *p;} M_JOIN(_ccst,M_LINE())={(const void * const)(_ptr_)}; M_JOIN(_ccst,M_LINE()).p; }) )
+#define __CLASS_CAST(_ptr_) ({ const union{const void * const _; void *p;} M_JOIN(_ccst,M_LINE())={(const void *)(_ptr_)}; M_JOIN(_ccst,M_LINE()).p; }) )
 
 #define _CLASS_CLEAR(_v_,_s_) \
     if(_s_){\
@@ -154,14 +155,14 @@
 
 #define _CLASS_SUPER(_name_) \
     M_WHEN(_CLASS_EXT(_name_))(\
-        extern void *M_JOIN(_ctor_,_CLASS_EXT(_name_))(void * const _CLASS_ARGS_VAR(_CLASS_EXT(_name_)));\
-        void *(* const super)(void * const _CLASS_ARGS_STD(_CLASS_EXT(_name_)))=_CLASS_CAST(void *(* const)(void * const _CLASS_ARGS_STD(_CLASS_EXT(_name_))))(M_JOIN(_ctor_,_CLASS_EXT(_name_)));\
+        extern void *M_JOIN(_ctor_,_CLASS_EXT(_name_))(void * _CLASS_ARGS_VAR(_CLASS_EXT(_name_)));\
+        void *(* const super)(void * _CLASS_ARGS_STD(_CLASS_EXT(_name_)))=_CLASS_CAST(void *(*)(void * _CLASS_ARGS_STD(_CLASS_EXT(_name_))))(M_JOIN(_ctor_,_CLASS_EXT(_name_)));\
     )
 
 #define __CLASS_DESTRUCT() _CLASS_DESTRUCT
 #define _CLASS_DESTRUCT(_name_,_self_) \
-    {extern void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * const _CLASS_ARGS_STD(_name_) );\
-    _CLASS_CAST(void(* const)(const char,void * const)) (M_JOIN(_impl_,_name_)) (0,_self_);}\
+    {extern void *M_JOIN(_impl_,_name_)(const char,CLASS _name_ * _CLASS_ARGS_STD(_name_) );\
+    _CLASS_CAST(void(*)(const char,void *)) (M_JOIN(_impl_,_name_)) (0,_self_);}\
     M_WHEN(_CLASS_EXT(_name_))( M_OBSTRUCT(__CLASS_DESTRUCT)()(_CLASS_EXT(_name_),_self_) )
 
 #define __CLASS_END() _CLASS_END
