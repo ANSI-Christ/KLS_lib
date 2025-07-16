@@ -19,7 +19,7 @@
     extern const struct M_JOIN(_,_name_) *_name_(void)
 
 #define CLASS_COMPILE(_name_) \
-    void M_JOIN(_dtor_,_name_)(void * const self){\
+    void M_JOIN(_dtor_,_name_)(void *self){\
         _CLASS_LOOP(_CLASS_DESTRUCT(_name_,self))\
     }\
     void *M_JOIN(_ctor_,_name_)(void *self _CLASS_ARGS_VAR(_name_) ){\
@@ -29,12 +29,12 @@
                 _CLASS_CLEAR(((char *)self)+sizeof(CLASS _CLASS_EXT(_name_)),sizeof(CLASS _name_)-sizeof(CLASS _CLASS_EXT(_name_))) ,\
                 _CLASS_CLEAR(self,sizeof(CLASS _name_))\
             )\
-        }\
-        self=_CLASS_CAST(void*(*)(const char,void * _CLASS_ARGS_VAR(_name_))) (M_JOIN(_impl_,_name_)) (1,self _CLASS_ARGS_CALL(_name_,));\
-        if(self) *(void(**)(void*))self=M_JOIN(_dtor_,_name_);\
-        else{ M_JOIN(_dtor_,_name_)(self); return (void*)0; }\
+        }{\
+        void * const ret=_CLASS_CAST(void*(*)(const char,void * _CLASS_ARGS_VAR(_name_))) (M_JOIN(_impl_,_name_)) (1,self _CLASS_ARGS_CALL(_name_,));\
+        if(ret){ self=ret; *(void(**)(void*))self=M_JOIN(_dtor_,_name_); }\
+        else if(self){ M_JOIN(_dtor_,_name_)(self); return (void*)0; }\
         return self;\
-    }\
+    }}\
     const struct M_JOIN(_,_name_) *_name_(void){\
         typedef union { void *ctor; struct M_JOIN(_,_name_) ret[1]; struct{char _[sizeof(struct M_JOIN(_,_name_))];} data; } M_JOIN(_t_u,_name_);\
         static M_JOIN(_t_u,_name_) c={(void*)1};\
