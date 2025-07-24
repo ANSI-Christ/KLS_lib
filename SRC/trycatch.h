@@ -59,8 +59,8 @@ struct _TRYCATCH *_TryCatch(void);
         M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(\
             M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->data=malloc(sizeof(_type_))) ){\
                 struct M_JOIN(_tc,M_LINE()){char _[sizeof(_type_)];};\
-                const struct{_type_ _;} _2_={__VA_ARGS__};\
-                *((struct M_JOIN(_tc,M_LINE())*)_1_->data)=*(const struct M_JOIN(_tc,M_LINE())*)&_2_;\
+                const union{struct{_type_ _;}_; struct M_JOIN(_tc,M_LINE()) data;} _2_={{__VA_ARGS__}};\
+                *((struct M_JOIN(_tc,M_LINE())*)_1_->data)=_2_.data;\
                 longjmp(*_1_->jmp,1);\
             }) , \
             M_EXTRACT( longjmp(*_1_->jmp,1); )\
