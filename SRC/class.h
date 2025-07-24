@@ -41,7 +41,7 @@
         if(c.ctor==(void*)1){\
             M_WHEN(_CLASS_EXT(_name_))( _CLASS_EXT(_name_)(); )\
             {\
-                M_JOIN(_t_u,_name_) tmp; _CLASS_ARGS_UNION(_name_) zero={0};\
+                M_JOIN(_t_u,_name_) tmp={(void*)0}; _CLASS_ARGS_UNION(_name_) zero={0};\
                 if( M_JOIN(_ctor_,_name_)(&tmp _CLASS_ARGS_CALL(_name_,zero)) )\
                     M_JOIN(_dtor_,_name_)(&tmp);\
                 tmp.ctor=c.ctor; c.data=tmp.data; if(0)(void)zero;\
