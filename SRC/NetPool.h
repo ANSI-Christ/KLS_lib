@@ -300,6 +300,8 @@ static int _NetSocketError(NetSocket s){
 
 #if defined(_POSIX_VERSION) && (_POSIX_VERSION >= 200112L)
     #include <poll.h>
+#elif defined(NET_POLL_HEADER)
+    #include NET_POLL_HEADER
 #else
     #include <sys/select.h>
 #endif
