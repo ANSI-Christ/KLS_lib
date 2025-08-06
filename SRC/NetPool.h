@@ -293,18 +293,15 @@ static int _NetSocketError(NetSocket s){
 
 #else /* end __WIN32 */
 
+#ifndef NET_POLL_HEADER
+    #define NET_POLL_HEADER <poll.h>
+#endif
+
 #include <netdb.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
-
-#if defined(_POSIX_VERSION) && (_POSIX_VERSION >= 200112L)
-    #include <poll.h>
-#elif defined(NET_POLL_HEADER)
-    #include NET_POLL_HEADER
-#else
-    #include <sys/select.h>
-#endif
+#include NET_POLL_HEADER
 
 static int _NetConfig(const char on){return 0;(void)on;}
 
