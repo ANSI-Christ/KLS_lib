@@ -293,12 +293,16 @@ static int _NetSocketError(NetSocket s){
 
 #else /* end __WIN32 */
 
-/* #include <sys/select.h> */
-#include <poll.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
+
+#if defined(_POSIX_VERSION) && (_POSIX_VERSION >= 200112L)
+    #include <poll.h>
+#else
+    #include <sys/select.h>
+#endif
 
 static int _NetConfig(const char on){return 0;(void)on;}
 
