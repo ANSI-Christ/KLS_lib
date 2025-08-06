@@ -293,6 +293,7 @@ static int _NetSocketError(NetSocket s){
 
 #else /* end __WIN32 */
 
+/* #include <sys/select.h> */
 #include <poll.h>
 #include <netdb.h>
 #include <fcntl.h>
