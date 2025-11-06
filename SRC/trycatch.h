@@ -23,8 +23,8 @@ extern const struct EXCEPTION_INFO{
 
 #define TRY(...)     if( _TRY(__VA_ARGS__) );else for(;;THROW()) if(!5);
 #define CATCH(...)   M_OVERLOAD(_CATCH,__VA_ARGS__)(__VA_ARGS__)
-#define FINALLY(...) if(_TryCatch(0)->final){ _EXCEPTION_SAVE _5tc_->final=0; do{__VA_ARGS__}while(0); _EXCEPTION_RESTORE }
-#define THROW(...)   M_IF(M_COUNT(__VA_ARGS__))(_THROW1,_THROW0)(__VA_ARGS__)
+#define FINALLY(...) do{ _EXCEPTION_LOAD if(_5tc_->final){ _EXCEPTION_SAVE _5tc_->final=0; do{__VA_ARGS__}while(0); _EXCEPTION_RESTORE }}while(0);
+#define THROW(...)   M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(_THROW1,_THROW0)(__VA_ARGS__)
 #define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
 
 extern void(*TryCatchSignal)(void);     /* by default nothing  */
@@ -36,12 +36,16 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 struct _TRYCATCH{ jmp_buf *jmp; struct EXCEPTION_INFO info; void *data; char buffer[95], final;};
 struct _TRYCATCH *_TryCatch(char);
 #define EXCEPTION ((const struct EXCEPTION_INFO*)((const struct _EXCEPTION_DONT_EXISTS*)_6tc_))
-#define _EXCEPTION_SAVE struct _EXCEPTION_DONT_EXISTS{char _;}; struct _TRYCATCH * const _5tc_=_TryCatch(0); const struct EXCEPTION_INFO _6tc_[1]={_5tc_->info};
+#define _EXCEPTION_LOAD struct _TRYCATCH * const _5tc_=_TryCatch(0);
+#define _EXCEPTION_SAVE struct _EXCEPTION_DONT_EXISTS{char _;}; const struct EXCEPTION_INFO _6tc_[1]={_5tc_->info};
 #define _EXCEPTION_RESTORE _5tc_->info= _6tc_[0];
-#define _CATCH(...) do{__VA_ARGS__}while(0); _5tc_->final=1; _EXCEPTION_RESTORE break;}
-#define _CATCH0() else{ _EXCEPTION_SAVE _CATCH
-#define _CATCH1(_type_) else if( !strcmp(_TryCatch(0)->info.type,M_STRING(_type_)) ) { _EXCEPTION_SAVE _CATCH
-#define _CATCH2(_type_,_var_) else if( !strcmp(_TryCatch(0)->info.type,M_STRING(_type_)) ) { _EXCEPTION_SAVE _type_ _var_= *(_type_*)(_5tc_->data); _CATCH
+#define _CATCH0() else{ _EXCEPTION_LOAD _CATCH_ELSE
+#define _CATCH1(_type_) _CATCH_CMP(_type_) _CATCH_ELIF
+#define _CATCH2(_type_,_var_) _CATCH_CMP(_type_) _type_ _var_= *(_type_*)(_5tc_->data); _CATCH_ELIF
+#define _CATCH_CMP(_type_) else if( ({ _EXCEPTION_LOAD if(!strcmp(_5tc_->info.type,M_STRING(_type_))){
+#define _CATCH_ELIF(...) _CATCH_DO(__VA_ARGS__) } 0;}) )break;
+#define _CATCH_ELSE(...) _CATCH_DO(__VA_ARGS__) }
+#define _CATCH_DO(...) do{ _EXCEPTION_SAVE do{__VA_ARGS__}while(0); _5tc_->final=1; _EXCEPTION_RESTORE }while(0); break;
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
     struct _TRYCATCH * const _1_=_TryCatch(0);\
