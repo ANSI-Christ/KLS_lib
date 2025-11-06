@@ -78,7 +78,7 @@ struct _TRYCATCH *_TryCatch(char);
     _4tc_=!setjmp(_1tc_);\
     if(_4tc_) do{__VA_ARGS__}while(!5);\
     _3tc_->jmp=_2tc_;\
-    _3tc_->final=!_4tc_;\
+    _3tc_->final=0;\
     _4tc_;\
 })
 
