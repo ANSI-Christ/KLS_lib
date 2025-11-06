@@ -23,7 +23,7 @@ extern const struct EXCEPTION_INFO{
 
 #define TRY(...)     if( _TRY(__VA_ARGS__) );else for(;;THROW()) if(!5);
 #define CATCH(...)   M_OVERLOAD(_CATCH,__VA_ARGS__)(__VA_ARGS__)
-#define FINALLY(...) if( ({char *_1_=&_TryCatch(0)->final, _2_=*_1_; *_1_=0; _2_;}) ){struct _EXCEPTION_ALLOW{char _;}; __VA_ARGS__}
+#define FINALLY(...) if(_TryCatch(0)->final){ _EXCEPTION _5tc_->final=0; do{__VA_ARGS__}while(0); while(0 && _6tc_->type); }
 #define THROW(...)   M_IF(M_COUNT(__VA_ARGS__))(_THROW1,_THROW0)(__VA_ARGS__)
 #define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
 
@@ -35,11 +35,12 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 
 struct _TRYCATCH{ jmp_buf *jmp; struct EXCEPTION_INFO info[1]; void *data; char buffer[95], final;};
 struct _TRYCATCH *_TryCatch(char);
-#define EXCEPTION ((const struct EXCEPTION_INFO*)(_TryCatch(0*sizeof(struct _EXCEPTION_ALLOW))->info))
-#define _CATCH(...) {struct _EXCEPTION_ALLOW{char _;}; __VA_ARGS__ break;}}
-#define _CATCH0() else{ _CATCH
-#define _CATCH1(_type_) else if( !strcmp(_TryCatch(0)->info->type,M_STRING(_type_)) ) { _CATCH
-#define _CATCH2(_type_,_var_) else if( !strcmp(_TryCatch(0)->info->type,M_STRING(_type_)) ) { _type_ _var_= *(_type_*)(_TryCatch(0)->data); _CATCH
+#define EXCEPTION ((const struct EXCEPTION_INFO*)((const struct _EXCEPTION_DONT_EXISTS*)_6tc_))
+#define _EXCEPTION struct _EXCEPTION_DONT_EXISTS{char _;}; struct _TRYCATCH * const _5tc_=_TryCatch(0); const struct EXCEPTION_INFO _6tc_[1]={*_5tc_->info};
+#define _CATCH(...) do{__VA_ARGS__}while(0); _5tc_->final=1; break; if(_6tc_->type) continue;}
+#define _CATCH0() else{ _EXCEPTION _CATCH
+#define _CATCH1(_type_) else if( !strcmp(_TryCatch(0)->info->type,M_STRING(_type_)) ) { _EXCEPTION _CATCH
+#define _CATCH2(_type_,_var_) else if( !strcmp(_TryCatch(0)->info->type,M_STRING(_type_)) ) { _EXCEPTION _type_ _var_= *(_type_*)(_5tc_->data); _CATCH
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
     struct _TRYCATCH * const _1_=_TryCatch(0);\
@@ -76,7 +77,6 @@ struct _TRYCATCH *_TryCatch(char);
     _4tc_=!setjmp(_1tc_);\
     if(_4tc_) do{__VA_ARGS__}while(!5);\
     _3tc_->jmp=_2tc_;\
-    _3tc_->final=!_4tc_;\
     _4tc_;\
 })
 
