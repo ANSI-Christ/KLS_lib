@@ -21,7 +21,7 @@ extern const struct EXCEPTION_INFO{
     const char *where;
 } * const EXCEPTION;
 
-#define TRY(...)     for(;;THROW()) if( _TRY(__VA_ARGS__) ) break;
+#define TRY(...)     for(;_TRY(__VA_ARGS__);THROW())if(!1);
 #define CATCH(...)   M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(_CATCH1,_CATCH0)(__VA_ARGS__)
 #define THROW(...)   M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(_THROW1,_THROW0)(__VA_ARGS__)
 #define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
@@ -37,8 +37,8 @@ struct _TRYCATCH *_TryCatch(char);
 #define EXCEPTION ((const struct EXCEPTION_INFO*)((const struct _EXCEPTION_DONT_EXISTS*)_5tc_->info))
 #define _CATCH0() else{ struct _TRYCATCH * const _5tc_=_TryCatch(0); _CATCH_ELSE
 #define _CATCH1(_type_,...) else if( ({ struct _TRYCATCH * const _5tc_=_TryCatch(0); if(!strcmp(_5tc_->info->type,M_STRING(_type_))){ M_WHEN(M_IS_ARG(M_PEAK(__VA_ARGS__)))( _type_ __VA_ARGS__= *(_type_*)(_5tc_->data); ) _CATCH_ELIF
-#define _CATCH_DO(...) do{ struct _EXCEPTION_DONT_EXISTS{char _;}; __VA_ARGS__ }while(!1); break;
-#define _CATCH_ELIF(...) _CATCH_DO(__VA_ARGS__) } 0;}) )break;
+#define _CATCH_DO(...) do{ struct _EXCEPTION_DONT_EXISTS{char _;}; __VA_ARGS__ }while(!1); break; if(_5tc_->jmp) continue;
+#define _CATCH_ELIF(...) _CATCH_DO(__VA_ARGS__) } 0;}) );
 #define _CATCH_ELSE(...) _CATCH_DO(__VA_ARGS__) }
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
@@ -73,10 +73,9 @@ struct _TRYCATCH *_TryCatch(char);
     if(!_3tc_){puts("\n\nTRY FAULT at [" _THROW_INFO "]\n");TryCatchTerminate();}\
     _2tc_=_3tc_->jmp;\
     _3tc_->jmp=&_1tc_;\
-    _4tc_=!setjmp(_1tc_);\
-    if(_4tc_) do{__VA_ARGS__}while(!5);\
-    _3tc_->jmp=_2tc_;\
-    _4tc_;\
+    _4tc_=setjmp(_1tc_);\
+    if(!_4tc_) do{__VA_ARGS__}while(!5);\
+    _3tc_->jmp=_2tc_; _4tc_;\
 })
 
 #endif /* TRY_CATCH_H */
