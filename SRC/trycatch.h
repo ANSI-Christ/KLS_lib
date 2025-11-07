@@ -21,7 +21,7 @@ extern const struct EXCEPTION_INFO{
     const char *where;
 } * const EXCEPTION;
 
-#define TRY(...)     for(;;THROW())if( _TRY(__VA_ARGS__) ){break;}
+#define TRY(...)     for(;;THROW()) if( _TRY(__VA_ARGS__) ) break;
 #define CATCH(...)   M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(_CATCH1,_CATCH0)(__VA_ARGS__)
 #define THROW(...)   M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(_THROW1,_THROW0)(__VA_ARGS__)
 #define DEBUG(...)   TRY(__VA_ARGS__)CATCH()(printf("\nDEBUG[%s:%d] %s at %s\n",M_FILE(),M_LINE(),EXCEPTION->type,EXCEPTION->where); getchar();)
