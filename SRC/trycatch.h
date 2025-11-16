@@ -44,7 +44,7 @@ struct _TRYCATCH *_TryCatch(char);
         if(_1_->info->type){\
             if(_1_->jmp) longjmp(*_1_->jmp,1);\
             printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->info->type,_1_->info->where);\
-        }else puts("\nterminate called after throwing at [" _THROW_INFO "]\n");\
+        }else puts("\nterminate called after throwing without an active excepion at [" _THROW_INFO "]\n");\
     }else puts("\nterminate called after throwing at [" _THROW_INFO "]\n");\
     TryCatchTerminate();\
 })
@@ -130,7 +130,7 @@ struct _TRYCATCH *_TryCatch(const char alloc){
         if(pthread_setspecific(_TryCatchKey,s)){
             free(s); s=NULL;
         }else{
-            s->jmp=NULL; s->data=s->buffer;
+            s->jmp=NULL; s->info->type=NULL; s->data=s->buffer;
             if(TryCatchSignal) TryCatchSignal();
         }
     }
