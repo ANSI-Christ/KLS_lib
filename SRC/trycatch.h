@@ -40,12 +40,10 @@ struct _TRYCATCH *_TryCatch(char);
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
     struct _TRYCATCH * const _1_=_TryCatch(0);\
-    if(_1_){\
-        if(_1_->info->type){\
-            if(_1_->jmp) longjmp(*_1_->jmp,1);\
-            printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->info->type,_1_->info->where);\
-        }else puts("\nterminate called after throwing without an active excepion at [" _THROW_INFO "]\n");\
-    }else puts("\nterminate called after throwing at [" _THROW_INFO "]\n");\
+    if(_1_ && _1_->info->type){\
+        if(_1_->jmp) longjmp(*_1_->jmp,1);\
+        printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->info->type,_1_->info->where);\
+    }else puts("\nterminate called after throwing without an active excepion at [" _THROW_INFO "]\n");\
     TryCatchTerminate();\
 })
 #define _THROW1(_type_,...) ({\
