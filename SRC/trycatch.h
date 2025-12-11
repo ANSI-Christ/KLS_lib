@@ -104,7 +104,6 @@ static unsigned char _TryCatchInit;
 
 static void _TryCatchDeleter(struct _TRYCATCH *s){
     if(s){
-        pthread_setspecific(_TryCatchKey,NULL);
         if(s->data!=s->buffer) free(s->data);
         free(s);
     }
