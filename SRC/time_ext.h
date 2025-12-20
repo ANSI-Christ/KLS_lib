@@ -134,7 +134,7 @@ int clock_gettime(const clockid_t clockid,struct timespec * const tp){
     switch(clockid){
         case CLOCK_REALTIME:{
             struct timeval tv;
-            gettimeofdat(&tv,NULL);
+            gettimeofday(&tv,NULL);
             tp->tv_sec=tv.tv_sec;
             tp->tv_nsec=tv.tv_usec*1000;
             return 0;
