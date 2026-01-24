@@ -312,23 +312,26 @@ void pthread_pool_destroy_later(pthread_pool_t *pool){_pthread_pool_destroy(pool
 void pthread_pool_wait(pthread_pool_t pool){
     if(!pool) return;
     pthread_mutex_lock(pool->mtx);
-    pthread_cond_signal(pool->cond);
-    while(pthread_cond_wait(pool->cond+1,pool->mtx));
+    while(pool->busy || pool->size) pthread_cond_wait(pool->cond+1,pool->mtx);
     pthread_mutex_unlock(pool->mtx);
 }
 
 int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *abstime){
     if(pool){
-        int err=ETIMEDOUT;
+        int err=0;
         pthread_mutex_lock(pool->mtx);
-        pthread_cond_signal(pool->cond);
+        while(pool->busy || pool->size)
+            switch(pthread_cond_timedwait(pool->cond+1,pool->mtx,abstime)){
+                case -1:
+                    switch(errno){
+                        case EINVAL: err=EINVAL; goto _mark;
+                        case ETIMEDOUT: err=ETIMEDOUT; goto _mark;
+                    }
+                    break;
+                case EINVAL: err=EINVAL; goto _mark;
+                case ETIMEDOUT: err=ETIMEDOUT; goto _mark;
+            }
 _mark:
-        switch(pthread_cond_timedwait(pool->cond+1,pool->mtx,abstime)){
-            case -1: if(errno!=ETIMEDOUT) goto _mark; break;
-            case 0: err=0; break;
-            case ETIMEDOUT: break;
-            default: goto _mark;
-        }
         pthread_mutex_unlock(pool->mtx);
         return err;
     } return EINVAL;
