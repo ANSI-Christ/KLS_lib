@@ -127,7 +127,10 @@ typedef struct __pthread_pool_t{
     _pthread_pool_queue_t queue[1];
 } * const _pthread_pool_t;
 
-
+typedef struct{
+    pthread_pool_t p;
+    unsigned int i;
+}_pthread_pool_initializer_t;
 
 static void _pthread_pool_push(_pthread_pool_t p,_pthread_pool_task_t * const t,unsigned char prio){
     if(prio>p->peak) p->peak=prio;
@@ -173,19 +176,14 @@ static void _pthread_pool_clear(_pthread_pool_task_t *t,void(* const del)(void*)
     }
 }
 
-static unsigned int _pthread_pool_index(const _pthread_pool_t p){
-    unsigned int i=p->count;
-    const pthread_t tid=pthread_self(), * const tids=p->tid;
-    while(i && !pthread_equal(tid,tids[--i]));
-    return i;
-}
-
-static void *_pthread_pool_worker(_pthread_pool_t p){
-    const unsigned int index=_pthread_pool_index(p);
+static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
+    _pthread_pool_t p=arg->p;
+    const unsigned int index=arg->i;
     unsigned char i, sleep=0, busy=0;
     const struct timespec millisec[1]={{0,1000*1000}};
     void(* const del)(void*)=p->deallocator;
     _pthread_pool_task_t *t[4];
+    del(arg);
 
     while('0'){
         pthread_mutex_lock(p->mtx);
@@ -277,10 +275,16 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,const unsigned char pri
             p->tid=(pthread_t*)(p->queue+1+prio);
             memset(p->queue,0,size);
 
-            while(p->count<count)
-                if(pthread_create(p->tid+p->count++,attr,(void*(*)(void*))_pthread_pool_worker,p)){
-                    --p->count; pthread_pool_destroy(&p); break;
+            for(;p->count<count;++p->count){
+                _pthread_pool_initializer_t * const _i=(_pthread_pool_initializer_t*)allocator(sizeof(*_i));
+                if(!_i){
+                    pthread_pool_destroy(&p); break;
                 }
+                _i->p=p; _i->i=p->count;
+                if(pthread_create(p->tid+p->count,attr,(void*(*)(void*))_pthread_pool_worker,_i)){
+                    deallocator(_i); pthread_pool_destroy(&p); break;
+                }
+            }
             break;
         }
         pthread_attr_destroy(attr);
