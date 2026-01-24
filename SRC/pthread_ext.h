@@ -56,8 +56,8 @@ void pthread_pool_clear(pthread_pool_t pool);
 void pthread_pool_destroy(pthread_pool_t *pool);
 void pthread_pool_destroy_later(pthread_pool_t *pool);
 
-void *pthread_pool_task(pthread_pool_t pool,void(*task)(void *args,unsigned int index,pthread_pool_t pool),...);
-void *pthread_pool_task_prio(pthread_pool_t pool,unsigned char prio,void(*task)(void *args,unsigned int index,pthread_pool_t pool),...);
+void *pthread_pool_task(pthread_pool_t pool,void(*task)(pthread_pool_t pool,void *args,unsigned int index),...);
+void *pthread_pool_task_prio(pthread_pool_t pool,unsigned char prio,void(*task)(pthread_pool_t pool,void *args,unsigned int index),...);
 
 unsigned int pthread_pool_count(const pthread_pool_t pool);
 
@@ -109,7 +109,7 @@ extern int nanosleep(const struct timespec*,struct timespec*);
 
 typedef struct __pthread_pool_task_t{
     struct __pthread_pool_task_t *next;
-    void (*f)(void *args,unsigned int index,void *pool);
+    void (*f)(void *p,void *a,unsigned int i);
 }_pthread_pool_task_t;
 
 typedef struct{
@@ -168,6 +168,7 @@ static _pthread_pool_task_t *_pthread_pool_swop(_pthread_pool_t p){
 static void _pthread_pool_clear(_pthread_pool_task_t *t,void(* const del)(void*)){
     while(t){
         _pthread_pool_task_t * const n=t->next;
+        t->f(NULL,t+1,-1);
         del(t); t=n;
     }
 }
@@ -201,7 +202,7 @@ _mark:
             pthread_mutex_unlock(p->mtx);
 
             for(i=0;i<=c;++i){
-                t[i]->f(t[i]+1,index,p);
+                t[i]->f(p,t[i]+1,index);
                 del(t[i]);
             }
             sleep=64;
@@ -317,7 +318,7 @@ void pthread_pool_wait(pthread_pool_t pool){
 }
 
 int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *abstime){
-    if(pool){
+    if(pool && abstime){
         int err=0;
         pthread_mutex_lock(pool->mtx);
         while(pool->busy || pool->size)
