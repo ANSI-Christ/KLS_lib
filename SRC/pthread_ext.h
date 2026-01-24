@@ -165,7 +165,7 @@ static _pthread_pool_task_t *_pthread_pool_swop(_pthread_pool_t p){
     return t;
 }
 
-static void *_pthread_pool_clear(_pthread_pool_task_t *t,void(* const del)(void*)){
+static void _pthread_pool_clear(_pthread_pool_task_t *t,void(* const del)(void*)){
     while(t){
         _pthread_pool_task_t * const n=t->next;
         del(t); t=n;
