@@ -147,10 +147,29 @@ static _pthread_pool_task_t *_pthread_pool_pop(_pthread_pool_t p){
     } return t;
 }
 
-static void _pthread_pool_clear(_pthread_pool_t p){
-    void(* const del)(void*)=p->deallocator;
-    _pthread_pool_task_t *t; while( (t=_pthread_pool_pop(p)) ) del(t);
-    p->size=0;
+static _pthread_pool_task_t *_pthread_pool_swop(_pthread_pool_t p){
+    _pthread_pool_queue_t * const q=p->queue+p->peak;
+    _pthread_pool_task_t * const t=q->first;
+    if(t){
+        while(p->peak){
+            _pthread_pool_queue_t * const i=p->queue+(--p->peak);
+            if(i->first){
+                q->last->next=i->first;
+                q->last=i->last;
+                i->first=i->last=NULL;
+            }
+        }
+        p->size=0;
+        q->first=q->last=NULL;
+    }
+    return t;
+}
+
+static void *_pthread_pool_clear(_pthread_pool_task_t *t,void(* const del)(void*)){
+    while(t){
+        _pthread_pool_task_t * const n=t->next;
+        del(t); t=n;
+    }
 }
 
 static unsigned int _pthread_pool_index(const _pthread_pool_t p){
@@ -282,7 +301,7 @@ static void _pthread_pool_destroy(pthread_pool_t *pool,const char die){
         pthread_mutex_destroy(p->mtx);
         pthread_cond_destroy(p->cond);
         pthread_cond_destroy(p->cond+1);
-        _pthread_pool_clear(p);
+        _pthread_pool_clear(_pthread_pool_swop(p),p->deallocator);
         p->deallocator(*pool); *pool=NULL;
     }
 }
@@ -330,9 +349,11 @@ void *_pthread_pool_task(void *t,const void * const task,const unsigned int size
 
 void pthread_pool_clear(pthread_pool_t pool){
     if(pool){
+        _pthread_pool_task_t *t;
         pthread_mutex_lock(pool->mtx);
-        _pthread_pool_clear(pool);
+        t=_pthread_pool_swop(pool);
         pthread_mutex_unlock(pool->mtx);
+        _pthread_pool_clear(t,pool->deallocator);
     }
 }
 
