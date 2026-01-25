@@ -51,10 +51,12 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,unsigned char prio,unsi
 
 int pthread_pool_timedwait(pthread_pool_t pool,const struct timespec *abstime);
 
+
 void pthread_pool_wait(pthread_pool_t pool);
 void pthread_pool_clear(pthread_pool_t pool);
 void pthread_pool_destroy(pthread_pool_t *pool);
 void pthread_pool_destroy_later(pthread_pool_t *pool);
+void pthread_pool_banch(pthread_pool_t pool,unsigned char count);
 
 void *pthread_pool_task(pthread_pool_t pool,void(*task)(pthread_pool_t pool,void *args,unsigned int index),...);
 void *pthread_pool_task_prio(pthread_pool_t pool,unsigned char prio,void(*task)(pthread_pool_t pool,void *args,unsigned int index),...);
@@ -123,7 +125,7 @@ typedef struct __pthread_pool_t{
     void(*deallocator)(void*);
     pthread_t *tid;
     unsigned int count, busy, size;
-    unsigned char die, peak, max;
+    unsigned char die, peak, max, banch;
     _pthread_pool_queue_t queue[1];
 } * const _pthread_pool_t;
 
@@ -179,10 +181,11 @@ static void _pthread_pool_clear(_pthread_pool_task_t *t,void(* const del)(void*)
 static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
     _pthread_pool_t p=arg->p;
     const unsigned int index=arg->i;
-    unsigned char i, sleep=0, busy=0;
-    const struct timespec millisec[1]={{0,1000*1000}};
     void(* const del)(void*)=p->deallocator;
-    _pthread_pool_task_t *t[4];
+    _pthread_pool_task_t *t,*i;
+    const struct timespec millisec[1]={{0,1000*1000}};
+    unsigned char sleep=0, busy=0;
+
     del(arg);
 
     while('0'){
@@ -190,29 +193,31 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
 _mark:
         if(p->die==1)
             break;
-        if( (t[0]=_pthread_pool_pop(p)) ){
-            const unsigned int s=(--p->size)/p->count;
-            const unsigned char c=(s>3?3:s);
-            for(i=0,p->size-=c; i<c;)
-                t[++i]=_pthread_pool_pop(p);
+        if( (t=_pthread_pool_pop(p)) ){
+            unsigned int c=(--p->size)/p->count;
+            if(c>p->banch) c=p->banch;
+            for(i=t,p->size-=c;c;--c) i=i->next=_pthread_pool_pop(p);
             if(!busy){busy=1; ++p->busy;}
 
             pthread_mutex_unlock(p->mtx);
 
-            for(i=0;i<=c;++i){
-                t[i]->f(p,t[i]+1,index);
-                del(t[i]);
-            }
+            i->next=NULL;
+            do{
+                i=t->next;
+                t->f(p,t+1,index);
+                del(t); t=i;
+            }while(t);
+
             sleep=64;
             continue;
         }
-        if(p->die)
-            break;
         if(busy){
             busy=0; --p->busy;
         }
         if(!p->busy)
             pthread_cond_broadcast(p->cond+1);
+        if(p->die)
+            break;
         if(!sleep){
             pthread_cond_wait(p->cond,p->mtx);
             goto _mark;
@@ -268,6 +273,7 @@ pthread_pool_t pthread_pool_create_ex(unsigned int count,const unsigned char pri
             }
 
             p->max=prio;
+            p->banch=3;
             p->die=p->peak=0;
             p->count=p->size=p->busy=0;
             p->allocator=allocator;
@@ -313,6 +319,14 @@ static void _pthread_pool_destroy(pthread_pool_t *pool,const char die){
 
 void pthread_pool_destroy(pthread_pool_t *pool){_pthread_pool_destroy(pool,1);}
 void pthread_pool_destroy_later(pthread_pool_t *pool){_pthread_pool_destroy(pool,2);}
+
+void pthread_pool_banch(pthread_pool_t pool,unsigned char count){
+    if(!pool) return;
+    if(count) --count;
+    pthread_mutex_lock(pool->mtx);
+    pool->banch=count;
+    pthread_mutex_unlock(pool->mtx);
+}
 
 void pthread_pool_wait(pthread_pool_t pool){
     if(!pool) return;
