@@ -285,7 +285,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
 
 void pthread_pool_destroy(pthread_pool_t * const p,const unsigned char now,const unsigned char async){
     if(p){
-        unsigned int i=1|(now<<1)|(async<<2);
+        unsigned int i=1|((now!=0)<<1)|((async!=0)<<2);
         pthread_mutex_lock(p->mtx);
         p->ctrl|=i; pthread_cond_broadcast(p->cond);
         pthread_mutex_unlock(p->mtx);
