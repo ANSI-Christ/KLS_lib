@@ -54,9 +54,8 @@ int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
-void pthread_pool_destroy(pthread_pool_t *pool);
-void pthread_pool_destroy_later(pthread_pool_t *pool);
 void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
+void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now,unsigned char async);
 
 void *pthread_pool_task(pthread_pool_t *pool,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
 void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
@@ -152,6 +151,13 @@ static _pthread_pool_task_t *_pthread_pool_pop(pthread_pool_t * const p){
     } return t;
 }
 
+static void _pthread_pool_release(pthread_pool_t * const p){
+    pthread_mutex_destroy(p->mtx);
+    pthread_cond_destroy(p->cond);
+    pthread_cond_destroy(p->cond+1);
+    p->deallocator(p);
+}
+
 static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
     pthread_pool_t * const p=arg->p;
     const unsigned int index=arg->i;
@@ -201,7 +207,13 @@ _mark:
         sleep>>=1;
 
     }
+    busy=p->ctrl & 4;
+    sleep=busy && !--p->count;
+
     pthread_mutex_unlock(p->mtx);
+
+    if(busy) pthread_detach(pthread_self());
+    if(sleep) _pthread_pool_release(p);
     return NULL;
 }
 
@@ -257,11 +269,11 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             for(;p->count<count;++p->count){
                 _pthread_pool_initializer_t * const _i=(_pthread_pool_initializer_t*)allocator(sizeof(*_i));
                 if(!_i){
-                    pthread_pool_destroy(p); p=NULL; break;
+                    pthread_pool_destroy(p,1,0); p=NULL; break;
                 }
                 _i->p=p; _i->i=p->count;
                 if(pthread_create(p->tid+p->count,attr,(void*(*)(void*))_pthread_pool_worker,_i)){
-                    deallocator(_i); pthread_pool_destroy(p); p=NULL; break;
+                    deallocator(_i); pthread_pool_destroy(p,1,0); p=NULL; break;
                 }
             }
             break;
@@ -271,24 +283,17 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     } return NULL;
 }
 
-static void _pthread_pool_destroy(pthread_pool_t * const p,const unsigned char flags){
+void pthread_pool_destroy(pthread_pool_t * const p,const unsigned char now,const unsigned char async){
     if(p){
-        unsigned int i=p->count;
+        unsigned int i=1|(now<<1)|(async<<2);
         pthread_mutex_lock(p->mtx);
-        p->ctrl|=flags; pthread_cond_broadcast(p->cond);
+        p->ctrl|=i; pthread_cond_broadcast(p->cond);
         pthread_mutex_unlock(p->mtx);
-
-        while(i) pthread_join(p->tid[--i],NULL);
-
-        pthread_mutex_destroy(p->mtx);
-        pthread_cond_destroy(p->cond);
-        pthread_cond_destroy(p->cond+1);
-        p->deallocator(p);
+        if(async) return;
+        for(i=p->count;i;) pthread_join(p->tid[--i],NULL);
+        _pthread_pool_release(p);
     }
 }
-
-void pthread_pool_destroy(pthread_pool_t * const p){_pthread_pool_destroy(p,3);}
-void pthread_pool_destroy_later(pthread_pool_t * const p){_pthread_pool_destroy(p,1);}
 
 void pthread_pool_wait(pthread_pool_t * const p){
     if(!p) return;
