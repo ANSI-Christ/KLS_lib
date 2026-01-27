@@ -156,19 +156,22 @@ static _pthread_pool_task_t *_pthread_pool_pop(pthread_pool_t * const p){
 
 static void _pthread_pool_reject(pthread_pool_t * const p){
     if(p->size){
-        const unsigned int max=p->max;
-        unsigned int i=p->peak-(p->peak==max);
-        _pthread_pool_queue_t * const m=p->queue+max;
-        for(;i<max;--i){
-            _pthread_pool_queue_t * const q=p->queue+i;
-            if(q->first){
-                if(m->last) m->last->next=q->first;
-                else m->first=q->first;
-                m->last=q->last;
+        unsigned int c=p->peak;
+        _pthread_pool_queue_t * const q=p->queue+c;
+        while(c){
+            _pthread_pool_queue_t * const i=p->queue+(--c);
+            if(i->first){
+                q->last->next=i->first;
+                q->last=i->last;
+                i->first=i->last=NULL;
             }
         }
-        p->reject=m->last;
-        p->peak=p->max;
+        p->reject=q->last;
+        if(p->peak!=p->max){
+            _pthread_pool_queue_t * const m=p->queue+(p->peak=p->max);
+            m->first=q->first; m->last=q->last;
+            q->first=q->last=NULL;
+        }
     }
 }
 
