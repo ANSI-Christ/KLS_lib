@@ -68,6 +68,7 @@ void timespec_current(struct timespec *t);
 void timespec_normalize(struct timespec *t);
 void timespec_runtime(struct timespec *t,...);
 void timespec_change(struct timespec *t,long sec,long nanosec);
+void timespec_future(struct timespec *t,unsigned long sec,unsigned long nanosec);
 
 double timespec_seconds(const struct timespec *t);
 double timespec_milliseconds(const struct timespec *t);
@@ -90,6 +91,11 @@ void sleepf(double sec);
 
 extern int nanosleep(const struct timespec*,struct timespec*);
 #define timespec_current(_t_) clock_gettime(CLOCK_REALTIME,(_t_))
+#define timespec_future(_t_,_s_,_ns_) do{\
+    struct timespec * const _1_=(_t_);\
+    timespec_current(_1_);\
+    timespec_change(_1_,(_s_),(_ns_));\
+}while(0)
 #define timespec_runtime(_t_,...) do{\
     struct timespec _rt1[1], * const _rt2=(_t_);\
     timespec_current(_rt1); {__VA_ARGS__} timespec_current(_rt2);\
