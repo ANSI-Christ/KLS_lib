@@ -353,14 +353,17 @@ CLASS_COMPILE(GUI_WIDGET)(
 
 void _GUI_setFps(CLASS GUI *self,KLS_byte fps){
     if(fps){
-        timer_init(&self->timer,(void*)self->update,self);
+        timer_init(&self->timer,self->update,self);
         self->tout=1000/fps;
     }else timer_close(&self->timer);
 }
 
 int _GUI_objService(CLASS GUI *gui){
     int e;
-    timer_start(&gui->timer,gui->tout,0,NULL,NULL);
+    {struct timespec timeout[1];
+    timespec_current(timeout);
+    timespec_change(timeout,gui->tout/100,gui->tout%1000);
+    timer_start(&gui->timer,timeout,NULL,NULL);}
     e=GUI_displayEvent(&gui->display);
     timer_stop(&gui->timer);
     if(e & (GUI_EVENT_PRESS|GUI_EVENT_RELEASE|GUI_EVENT_CURSOR|GUI_EVENT_WHEEL|GUI_EVENT_UPDATE)){
@@ -376,8 +379,9 @@ int _GUI_objService(CLASS GUI *gui){
     return e;
 }
 
-void _GUI_objInterrupt(CLASS GUI *gui){
+int _GUI_objInterrupt(CLASS GUI *gui){
     GUI_displayInterrupt(&gui->display);
+    return 0;
 }
 
 void _GUI_objFps(CLASS GUI *self){
