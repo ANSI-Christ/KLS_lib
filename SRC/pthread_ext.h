@@ -82,16 +82,22 @@ void pthread_channel_close(pthread_channel_t *channel);
 
 
 
-#define _PTHREAD_STRUCT(...) struct{union{void *_; struct{M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;} *cmp;} p; void *f; M_FOREACH(__PTHREAD_STRUCT,-,__VA_ARGS__) char size;}
-#define __PTHREAD_STRUCT(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
-#define _PTHREAD_TASK(_id_,_pr_,_f_,...) ({\
-    const _PTHREAD_STRUCT(__VA_ARGS__) M_JOIN(_pt_,M_LINE())={{NULL},(void*)(_f_),__VA_ARGS__};\
-    M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(*M_JOIN(_pt_,M_LINE()).p.cmp,size) == M_OFFSETOF(M_JOIN(_pt_,M_LINE()),size), pthread_pool_task_bad_align_of_arguments);\
-    _pthread_pool_task(_id_,&M_JOIN(_pt_,M_LINE()),M_OFFSETOF(M_JOIN(_pt_,M_LINE()),size),(_pr_));\
+#define _PTHREAD_SETUP(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _0_->M_JOIN(_,_index_)=(__VA_ARGS__); )
+#define _PTHREAD_FIELD(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
+#define _PTHREAD_TASK(_1_,_2_,_3_,...) ({\
+    void * const _f_=(_3_);\
+    pthread_pool_t * const _p_=(_1_);\
+    struct _pthread_pool_task_size{void *n,*f; M_FOREACH(_PTHREAD_FIELD,_t_,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? _pthread_pool_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
+    if(_t_){\
+        struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
+        M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(struct _pthread_pool_task_args,size) == M_OFFSETOF(struct _pthread_pool_task_size,size) , pthread_pool_task_bad_align_of_arguments);\
+        _t_->n=NULL; _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) _pthread_pool_task_run(_p_,_t_,(_2_));\
+    } _t_;\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
-void *_pthread_pool_task(void *pool,const void * const task,const unsigned int size,unsigned char prio);
+void _pthread_pool_task_run(pthread_pool_t *,void *,unsigned char);
+void *_pthread_pool_task_alloc(const pthread_pool_t *p,unsigned int);
 extern int nanosleep(const struct timespec*,struct timespec*);
 
 #endif /* PTHREAD_EXT_H */
@@ -369,17 +375,16 @@ _mark:
     #undef _CASE_ERR
 }
 
-void *_pthread_pool_task(void *t,const void * const task,const unsigned int size,unsigned char prio){
-    pthread_pool_t * const p=(pthread_pool_t*)t;
-    if( p && !p->ctrl && ((void**)task)[1] && (t=p->allocator(size)) ){
-        memcpy(t,task,size);
-        if(prio>p->max) prio=p->max;
-        pthread_mutex_lock(p->mtx);
-        _pthread_pool_push(p,(_pthread_pool_task_t*)t,prio);
-        pthread_cond_signal(p->cond);
-        pthread_mutex_unlock(p->mtx);
-        return t;
-    } return NULL;
+void *_pthread_pool_task_alloc(const pthread_pool_t * const p,const unsigned int size){
+    return p->ctrl ? NULL : p->allocator(size);
+}
+
+void _pthread_pool_task_run(pthread_pool_t * const p,void * const t,unsigned char prio){
+    if(prio>p->max) prio=p->max;
+    pthread_mutex_lock(p->mtx);
+    _pthread_pool_push(p,(_pthread_pool_task_t*)t,prio);
+    pthread_cond_signal(p->cond);
+    pthread_mutex_unlock(p->mtx);
 }
 
 void pthread_pool_banch(pthread_pool_t * const p,unsigned char count){
