@@ -81,9 +81,13 @@ void pthread_channel_close(pthread_channel_t *channel);
 
 
 
-
+#if 1
+#define _PTHREAD_SETUP(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( do{ const union _pthread_pool_task_arg{M_TYPEOF(__VA_ARGS__) _; struct{ char _[sizeof(M_TYPEOF(__VA_ARGS__))];} x;} _1_={__VA_ARGS__}; ((union _pthread_pool_task_arg*)&_0_->M_JOIN(_,_index_))->x=_1_.x; }while(0); )
+#define _PTHREAD_FIELD(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( union{M_TYPEOF(__VA_ARGS__) _;char __;} M_JOIN(_,_index_); )
+#else
 #define _PTHREAD_SETUP(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _0_->M_JOIN(_,_index_)=(__VA_ARGS__); )
 #define _PTHREAD_FIELD(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
+#endif
 #define _PTHREAD_TASK(_1_,_2_,_3_,...) ({\
     void * const _f_=(_3_);\
     pthread_pool_t * const _p_=(_1_);\
