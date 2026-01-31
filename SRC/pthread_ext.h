@@ -79,19 +79,14 @@ void pthread_channel_close(pthread_channel_t *channel);
 
 
 
-
-
-#if 1
-#define _PTHREAD_SETUP(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( do{ const union _pthread_pool_task_arg{M_TYPEOF(__VA_ARGS__) _; struct{ char _[sizeof(M_TYPEOF(__VA_ARGS__))];} x;} _1_={__VA_ARGS__}; ((union _pthread_pool_task_arg*)&_0_->M_JOIN(_,_index_))->x=_1_.x; }while(0); )
-#define _PTHREAD_FIELD(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( union{M_TYPEOF(__VA_ARGS__) _;char __;} M_JOIN(_,_index_); )
-#else
-#define _PTHREAD_SETUP(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( _0_->M_JOIN(_,_index_)=(__VA_ARGS__); )
-#define _PTHREAD_FIELD(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_TYPEOF(__VA_ARGS__) M_JOIN(_,_index_); )
-#endif
+#define _PTHREAD_SETUP(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( do{ union _pthread_pool_task_arg{M_TYPEOF(__VA_ARGS__) _; struct{char _[sizeof(M_TYPEOF(__VA_ARGS__))];} x;}; ((union _pthread_pool_task_arg*)_0_->M_JOIN(_,_index_).x)->x=((const union _pthread_pool_task_arg*)&M_JOIN(_a,_index_).x)->x; }while(0); )
+#define _PTHREAD_FIELD(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( union{M_TYPEOF(__VA_ARGS__) _;char x[1];} M_JOIN(_,_index_); )
+#define _PTHREAD_ARGUM(_index_,_0_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( const struct{M_TYPEOF(__VA_ARGS__) x;} M_JOIN(_a,_index_)={__VA_ARGS__}; )
 #define _PTHREAD_TASK(_1_,_2_,_3_,...) ({\
     void * const _f_=(_3_);\
     pthread_pool_t * const _p_=(_1_);\
-    struct _pthread_pool_task_size{void *n,*f; M_FOREACH(_PTHREAD_FIELD,_t_,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? _pthread_pool_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
+    M_FOREACH(_PTHREAD_ARGUM,-,__VA_ARGS__)\
+    struct _pthread_pool_task_size{void *n,*f; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? _pthread_pool_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
     if(_t_){\
         struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
         M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(struct _pthread_pool_task_args,size) == M_OFFSETOF(struct _pthread_pool_task_size,size) , pthread_pool_task_bad_align_of_arguments);\
