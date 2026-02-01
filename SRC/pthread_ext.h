@@ -8,36 +8,14 @@
 
 #include <pthread.h>
 #include <stddef.h>
-#include <signal.h>
 #include "macro.h"
-
-
-
-extern int pthread_signal_resume;
-extern int pthread_signal_pause;
-
-int pthread_signal_getmode(int sig);
-
-void pthread_signal_setmode(int sig,int mode);
-void pthread_signal_send(pthread_t tid,int sig);
-
-void *pthread_signal_handler(int sig,void(*handler)(int sig));
-
-const char *pthread_signal_name(int sig);
-
-
-
-void pthread_pause(pthread_t tid);
-void pthread_resume(pthread_t tid);
-void pthread_pausable(unsigned char pausable);
 
 
 
 int pthread_policy_set(pthread_t tid,int policy,int priority);
 int pthread_policy_get(pthread_t tid,int *policy,int *priority);
+
 const char *pthread_policy_name(int policy);
-
-
 
 unsigned int pthread_cores(void);
 unsigned int pthread_backtrace(void **array,unsigned int count);
@@ -98,7 +76,7 @@ void pthread_channel_close(pthread_channel_t *channel);
 void _pthread_pool_task_run(pthread_pool_t *,void *,unsigned char);
 void *_pthread_pool_task_alloc(const pthread_pool_t *p,unsigned int);
 extern int nanosleep(const struct timespec*,struct timespec*);
-
+extern int pthread_kill(pthread_t,int);
 #endif /* PTHREAD_EXT_H */
 
 
@@ -411,7 +389,7 @@ const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
 #undef NOMINMAX
 
 int pthread_channel_open(pthread_channel_t * const channel){
-    if(channel) return CreatePipe(channel->r,channel->w,NULL,0)-1;
+    if(channel) return CreatePipe(&channel->r->p,&channel->w->p,NULL,0)-1;
     return -1;
 }
 
@@ -423,8 +401,9 @@ void pthread_channel_close(pthread_channel_t * const channel){
     }
 }
 
-int pthread_channel_push(pthread_channel_t * const channel,const void *data,int size){
-    if(channel && channel->r->p && data && size>0 && WriteFile(channel->w->p,data,size,&size,NULL)) return size;
+int pthread_channel_push(pthread_channel_t * const channel,const void *data,const int size){
+    DWORD count;
+    if(channel && channel->r->p && data && size>0 && WriteFile(channel->w->p,data,size,&count,NULL)) return size;
     return -1;
 }
 
@@ -432,7 +411,7 @@ int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
     if(channel && channel->r->p && data){
         char *p=(char*)data;
         while(size>0){
-            int bytes;
+            DWORD bytes;
             ReadFile(channel->r->p,p,size,&bytes,NULL);
             if(bytes>0){
                 size-=bytes;
@@ -447,7 +426,7 @@ int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
 M_FOREACH(_pthread_iter,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
 #undef _pthread_iter
 
-static void *_pthread_raise_func(int sig){
+static void *_pthread_raise_func(const int sig){
 #define _pthread_iter(_1_,_2_,_sig_) case _sig_:return _pthread_raise_##_sig_;
     switch(sig){
         M_FOREACH(_pthread_iter,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
@@ -500,7 +479,7 @@ static void *_CtxCtrlRegf(CONTEXT *c){
 #define _CtxCtrlReg(_1_) _CtxCtrlRegf(&_1_)
 #endif
 
-void pthread_signal_send(pthread_t tid,int sig){
+int _pthread_kill_win(pthread_t tid,const int sig){
     void *f=_pthread_raise_func(sig);
     if(f){
         CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
@@ -512,15 +491,8 @@ void pthread_signal_send(pthread_t tid,int sig){
         c.ContextFlags=CONTEXT_ALL;
         GetThreadContext(p,&c);
         ResumeThread(p);
-    }
-}
-
-int pthread_signal_getmode(int sig){
-    return SIG_UNBLOCK;(void)sig;
-}
-
-void pthread_signal_setmode(int sig,int mode){
-    return; (void)sig;(void)mode;
+        return 0;
+    } return -1;
 }
 
 unsigned int pthread_backtrace(void **array,unsigned int count){
@@ -532,8 +504,6 @@ unsigned int pthread_cores(void){
     SYSTEM_INFO sys; GetSystemInfo(&sys);
     return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
 }
-
-int pthread_signal_resume=SIGBREAK;
 
 #else /* end __WIN32 */
 
@@ -589,26 +559,6 @@ int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
     } return -1;
 }
 
-
-void pthread_signal_send(pthread_t tid,int sig){
-    pthread_kill(tid,sig);
-}
-
-int pthread_signal_getmode(int sig){
-    sigset_t s[1];
-    sigemptyset(s);
-    pthread_sigmask(0,NULL,s);
-    return sigismember(s,sig) ? SIG_UNBLOCK : SIG_BLOCK;
-}
-
-void pthread_signal_setmode(int sig,int mode){
-    sigset_t s[1];
-    sigemptyset(s);
-    sigaddset(s,sig);
-    pthread_sigmask(mode,s,NULL);
-    return;
-}
-
 extern int backtrace(void**,int);
 
 unsigned int pthread_backtrace(void **array,unsigned int count){
@@ -636,66 +586,7 @@ unsigned int pthread_cores(void){
 
 #endif
 
-int pthread_signal_resume=SIGCONT;
-
 #endif /* end not __WIN32 */
-
-int pthread_signal_pause=SIGINT;
-
-static pthread_key_t _pthreadKey;
-static unsigned char _pthreadStatus=0;
-static pthread_once_t _pthreadOnce=PTHREAD_ONCE_INIT;
-
-static void _pthread_fini(void){
-    if(_pthreadStatus) pthread_key_delete(_pthreadKey);
-}
-
-static void _pthread_init(void){
-    if(!pthread_key_create(&_pthreadKey,NULL)){
-        extern int atexit(void(*)(void));
-        _pthreadStatus=1 | ((pthread_signal_getmode(pthread_signal_resume)==SIG_BLOCK)<<2) | ((pthread_signal_getmode(pthread_signal_pause)==SIG_BLOCK)<<1);
-        atexit(_pthread_fini);
-    }
-}
-
-static void _pthread_holder(int sig){
-    pthread_signal_handler(sig,_pthread_holder);
-    pthread_signal_setmode(sig,SIG_UNBLOCK);
-    if(sig==pthread_signal_pause){
-        static const struct timespec t[1]={{1,0}};
-        const char * const p=(const char*)pthread_getspecific(_pthreadKey);
-        pthread_setspecific(_pthreadKey,p+1);
-        if(!p) while(pthread_getspecific(_pthreadKey)) nanosleep(t,NULL);
-        return;
-    }
-    pthread_setspecific(_pthreadKey, ((char*)pthread_getspecific(_pthreadKey))-1 );
-}
-
-void pthread_pausable(unsigned char pausable){
-    if(_pthreadStatus || (!pthread_once(&_pthreadOnce,_pthread_init) && _pthreadStatus)){
-        if(pausable){
-            pthread_signal_handler(pthread_signal_pause,_pthread_holder);
-            pthread_signal_handler(pthread_signal_resume,_pthread_holder);
-            pthread_signal_setmode(pthread_signal_pause,SIG_UNBLOCK);
-            pthread_signal_setmode(pthread_signal_resume,SIG_UNBLOCK);
-        }else{
-            pthread_signal_setmode(pthread_signal_pause,(_pthreadStatus&2)?SIG_BLOCK:SIG_UNBLOCK);
-            pthread_signal_setmode(pthread_signal_resume,(_pthreadStatus&4)?SIG_BLOCK:SIG_UNBLOCK);
-            pthread_signal_handler(pthread_signal_pause,SIG_DFL);
-            pthread_signal_handler(pthread_signal_resume,SIG_DFL);
-        }
-    }
-}
-
-void pthread_pause(pthread_t tid){
-    if(_pthreadStatus || (!pthread_once(&_pthreadOnce,_pthread_init) && _pthreadStatus))
-        pthread_signal_send(tid,pthread_signal_pause);
-}
-
-void pthread_resume(pthread_t tid){
-    if(_pthreadStatus || (!pthread_once(&_pthreadOnce,_pthread_init) && _pthreadStatus))
-        pthread_signal_send(tid,pthread_signal_resume);
-}
 
 static int _pthread_policy_checked(const int pol,const int pri){
 #ifdef _POSIX_PRIORITY_SCHEDULING
@@ -741,136 +632,11 @@ const char *pthread_policy_name(int policy){
     return "unknown";
 }
 
-void *pthread_signal_handler(int sig,void(*handler)(int sig)){
-    return (void*)signal(sig,handler);
-}
-
-const char *pthread_signal_name(int sig){
-    #define _PSIG_CASE(_1_) case _1_: return #_1_
-    switch(sig){
-        #ifdef SIGHUP
-        _PSIG_CASE(SIGHUP);
-        #endif
-        #ifdef SIGINT
-        _PSIG_CASE(SIGINT);
-        #endif
-        #ifdef SIGQUIT
-        _PSIG_CASE(SIGQUIT);
-        #endif
-        #ifdef SIGILL
-        _PSIG_CASE(SIGILL);
-        #endif
-        #ifdef SIGTRAP
-        _PSIG_CASE(SIGTRAP);
-        #endif
-        #ifdef SIGABRT
-        _PSIG_CASE(SIGABRT);
-        #endif
-        #ifdef SIGEMT
-        _PSIG_CASE(SIGEMT);
-        #endif
-        #ifdef SIGFPE
-        _PSIG_CASE(SIGFPE);
-        #endif
-        #ifdef SIGKILL
-        _PSIG_CASE(SIGKILL);
-        #endif
-        #ifdef SIGBUS
-        _PSIG_CASE(SIGBUS);
-        #endif
-        #ifdef SIGSEGV
-        _PSIG_CASE(SIGSEGV);
-        #endif
-        #ifdef SIGSYS
-        _PSIG_CASE(SIGSYS);
-        #endif
-        #ifdef SIGPIPE
-        _PSIG_CASE(SIGPIPE);
-        #endif
-        #ifdef SIGALRM
-        _PSIG_CASE(SIGALRM);
-        #endif
-        #ifdef SIGTERM
-        _PSIG_CASE(SIGTERM);
-        #endif
-        #ifdef SIGUSR1
-        _PSIG_CASE(SIGUSR1);
-        #endif
-        #ifdef SIGUSR2
-        _PSIG_CASE(SIGUSR2);
-        #endif
-        #ifdef SIGCHLD
-        _PSIG_CASE(SIGCHLD);
-        #endif
-        #ifdef SIGPWR
-        _PSIG_CASE(SIGPWR);
-        #endif
-        #ifdef SIGWINCH
-        _PSIG_CASE(SIGWINCH);
-        #endif
-        #ifdef SIGURG
-        _PSIG_CASE(SIGURG);
-        #endif
-        #ifdef SIGPOLL
-        _PSIG_CASE(SIGPOLL);
-        #endif
-        #ifdef SIGSTOP
-        _PSIG_CASE(SIGSTOP);
-        #endif
-        #ifdef SIGTSTP
-        _PSIG_CASE(SIGTSTP);
-        #endif
-        #ifdef SIGCONT
-        _PSIG_CASE(SIGCONT);
-        #endif
-        #ifdef SIGTTIN
-        _PSIG_CASE(SIGTTIN);
-        #endif
-        #ifdef SIGTTOU
-        _PSIG_CASE(SIGTTOU);
-        #endif
-        #ifdef SIGVTALRM
-        _PSIG_CASE(SIGVTALRM);
-        #endif
-        #ifdef SIGPROF
-        _PSIG_CASE(SIGPROF);
-        #endif
-        #ifdef SIGXCPU
-        _PSIG_CASE(SIGXCPU);
-        #endif
-        #ifdef SIGXFSZ
-        _PSIG_CASE(SIGXFSZ);
-        #endif
-        #ifdef SIGWAITING
-        _PSIG_CASE(SIGWAITING);
-        #endif
-        #ifdef SIGLWP
-        _PSIG_CASE(SIGLWP);
-        #endif
-        #ifdef SIGFREEZE
-        _PSIG_CASE(SIGFREEZE);
-        #endif
-        #ifdef SIGTHAW
-        _PSIG_CASE(SIGTHAW);
-        #endif
-        #ifdef SIGCANCEL
-        _PSIG_CASE(SIGCANCEL);
-        #endif
-        #ifdef SIGLOST
-        _PSIG_CASE(SIGLOST);
-        #endif
-        #ifdef SIGXRES
-        _PSIG_CASE(SIGXRES);
-        #endif
-        #ifdef SIGJVM1
-        _PSIG_CASE(SIGJVM1);
-        #endif
-        #ifdef SIGJVM2
-        _PSIG_CASE(SIGJVM2);
-        #endif
-    }
-    return "???";
-    #undef PSIG_CASE
-}
-
 #endif /*PTHREAD_EXT_IMPL*/
+
+#ifdef __WIN32
+    int _pthread_kill_win(pthread_t,int);
+    #ifndef pthread_kill
+        #define pthread_kill _pthread_kill_win
+    #endif
+#endif
