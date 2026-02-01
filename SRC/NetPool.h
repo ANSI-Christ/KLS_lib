@@ -249,7 +249,7 @@ static int socketpair(int family,int type,int protocol,SOCKET sock[2]){
 
 #ifdef POLLIN
 static int poll(struct pollfd * const p,const int c,const int t){
-    const int count=WSApoll(p,c,t);
+    const int count=WSAPoll(p,c,t);
     if(count<0) _NET_LAST_ERROR();
     return count;
 }
