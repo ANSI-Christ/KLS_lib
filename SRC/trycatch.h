@@ -34,6 +34,11 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+#ifdef __WIN32
+#ifndef TRY_CATCH_NO_SIGJMP
+#define TRY_CATCH_NO_SIGJMP
+#endif
+#endif
 #ifdef TRY_CATCH_NO_SIGJMP
 #define _TC_BUF      jmp_buf
 #define _TC_SAV(_1_) setjmp(_1_)
