@@ -45,7 +45,7 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 #define _TC_JMP(_1_) longjmp((_1_),1)
 #else
 #define _TC_BUF      sigjmp_buf
-#define _TC_SAV(_1_) sigsetjmp(_1_,1)
+#define _TC_SAV(_1_) sigsetjmp(_1_,TryCatchSignal!=NULL)
 #define _TC_JMP(_1_) siglongjmp((_1_),1)
 #endif
 struct _TRYCATCH{ _TC_BUF *jmp; struct EXCEPTION_INFO info[1]; void *data; char buffer[96];};
@@ -78,7 +78,7 @@ struct _TRYCATCH *_TryCatch(char);
 #define __TRY(_decl_,...) ({\
     _TC_BUF _2tc_, *_3tc_;\
     _decl_;\
-    char _4tc_;\
+    int _4tc_;\
     if(!_1tc_){puts("\n\nTRY FAULT at [" _THROW_INFO "]\n");TryCatchTerminate();}\
     _3tc_=_1tc_->jmp;\
     _1tc_->jmp=&_2tc_;\
