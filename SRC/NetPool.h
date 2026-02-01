@@ -161,7 +161,7 @@ enum NET_ENDIAN NetEndian(void);
 #include <errno.h>
 #include <time.h>
 
-#ifdef __WIN32
+#ifdef _WIN32
 
 #define FD_SETSIZE 1024
 #define NOMINMAX
@@ -291,7 +291,7 @@ static int _NetSocketError(NetSocket s){
     return _NetErrnoTranslate(e);
 }
 
-#else /* end __WIN32 */
+#else /* end _WIN32 */
 
 #ifndef NET_POLL_HEADER
     #define NET_POLL_HEADER <poll.h>
@@ -336,7 +336,7 @@ static int _NetSocketError(NetSocket s){
     return e;
 }
 
-#endif /* end else __WIN32*/
+#endif /* end else _WIN32*/
 
 #ifndef MSG_NOSIGNAL
     #define MSG_NOSIGNAL 0
@@ -791,7 +791,7 @@ static void _NetChecks(NetPool * const p){
                     errno=ETIMEDOUT;
                     n->u->handler(n->u,NET_ERROR);
                 }break;
-#ifndef __WIN32
+#ifndef _WIN32
             case NET_CONNECTED:
                 if(n->ctrl!=INVALID_SOCKET){
                     switch(_NetSocketError(n->ctrl)){

@@ -116,7 +116,7 @@ extern int _timer_start(void*,const struct timespec *,void*,const void*);
 #include <errno.h>
 #include <stdio.h>
 
-#ifdef __WIN32
+#ifdef _WIN32
 
 #define NOMINMAX
 #include <windows.h>

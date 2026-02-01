@@ -3,7 +3,7 @@
     #include _KLS_OS_DEP_HEADER
 #endif
 
-#ifdef __WIN32
+#ifdef _WIN32
     #include "./os_dep/_KLS_libWin.h"
 #endif
 

@@ -382,7 +382,7 @@ const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
 
 #undef _pthread_pool_tids
 
-#ifdef __WIN32
+#ifdef _WIN32
 
 #define NOMINMAX
 #include <windows.h>
@@ -505,7 +505,7 @@ unsigned int pthread_cores(void){
     return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
 }
 
-#else /* end __WIN32 */
+#else /* end _WIN32 */
 
 static int _pthread_pipe(int fd[2]){
     struct _pipe_t{long fd[2];} s={{-1,-1}};
@@ -586,7 +586,7 @@ unsigned int pthread_cores(void){
 
 #endif
 
-#endif /* end not __WIN32 */
+#endif /* end not _WIN32 */
 
 static int _pthread_policy_checked(const int pol,const int pri){
 #ifdef _POSIX_PRIORITY_SCHEDULING
@@ -634,7 +634,7 @@ const char *pthread_policy_name(int policy){
 
 #endif /*PTHREAD_EXT_IMPL*/
 
-#ifdef __WIN32
+#ifdef _WIN32
     int _pthread_kill_win(pthread_t,int);
     #ifndef pthread_kill
         #define pthread_kill _pthread_kill_win
