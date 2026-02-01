@@ -181,7 +181,6 @@ enum NET_ENDIAN NetEndian(void);
     #define WSAEAGAIN EAGAIN
 #endif
 
-
 static int _NetConfig(const char on){
     if(on){
         WSADATA w;
@@ -200,12 +199,6 @@ static int _NetErrnoTranslate(const int e){
 
 #define _NET_LAST_ERROR() (errno=_NetErrnoTranslate(WSAGetLastError()))
 #define _NET_LAST_ERROR_IF(_cond_) if(_cond_) _NET_LAST_ERROR()
-
-#ifdef POLLIN
-static int poll(struct pollfd * const p,const int c,const int t){
-    return WSApoll(p,c,t);
-}
-#endif
 
 static int socketpair_udp(struct addrinfo* addr_info,SOCKET sock[2]){
     SOCKET client=INVALID_SOCKET, server;
@@ -265,7 +258,7 @@ static int poll(struct pollfd * const p,const int c,const int t){
 typedef SOCKET NetSocket;
 
 static void _NetSocketShutdown(NetSocket s){
-    shutdown(s,SHUT_RDWR);
+    shutdown(s,SD_BOTH);
 }
 
 static void _NetSocketDestroy(NetSocket * const s){
