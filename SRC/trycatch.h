@@ -14,7 +14,6 @@
 #include "macro.h"
 
 /* if the compiler does not support the declaration in a loop, then compile with the flag -DTRY_CATCH_NO_LOOP_DECL */
-/* if you want use sigsetjmp / siglongjmp, then compile with the flag -DTRY_CATCH_SIGSETJMP */
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
@@ -34,23 +33,15 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-#ifdef TRY_CATCH_SIGSETJMP
-#define _TC_BUF      sigjmp_buf
-#define _TC_SAV(_1_) sigsetjmp(_1_,TryCatchSignal!=NULL)
-#define _TC_JMP(_1_) siglongjmp((_1_),1)
-#else
-#define _TC_BUF      jmp_buf
-#define _TC_SAV(_1_) setjmp(_1_)
-#define _TC_JMP(_1_) longjmp((_1_),1)
-#endif
-struct _TRYCATCH{ _TC_BUF *jmp; struct EXCEPTION_INFO info[1]; void *data; char buffer[96];};
+
+struct _TRYCATCH{ jmp_buf *jmp; struct EXCEPTION_INFO info[1]; void *data; char buffer[96];};
 struct _TRYCATCH *_TryCatch(char);
 #define EXCEPTION ((const struct EXCEPTION_INFO*)((const struct _EXCEPTION_DONT_EXISTS*)_1tc_->info))
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
 #define _THROW0() ({\
     struct _TRYCATCH * const _1_=_TryCatch(0);\
     if(_1_ && _1_->info->type){\
-        if(_1_->jmp) _TC_JMP(*_1_->jmp);\
+        if(_1_->jmp) longjmp(*_1_->jmp,1);\
         printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->info->type,_1_->info->where);\
     }else puts("\nterminate called after throwing without an active excepion at [" _THROW_INFO "]\n");\
     TryCatchTerminate();\
@@ -63,21 +54,21 @@ struct _TRYCATCH *_TryCatch(char);
         M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(\
             M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->data=malloc(sizeof(_type_))) ){\
                 const union{struct{_type_ _;}_; struct{char _[sizeof(_type_)];} data,*pdata; void *p;} _2_={{__VA_ARGS__}}, _3_={.p=_1_->data};\
-                *_3_.pdata=_2_.data; _TC_JMP(*_1_->jmp);\
+                *_3_.pdata=_2_.data; longjmp(*_1_->jmp,1);\
             }) , \
-            M_EXTRACT( _TC_JMP(*_1_->jmp); )\
+            M_EXTRACT( longjmp(*_1_->jmp,1); )\
         )\
     }puts("\nterminate called after throwing an instance of \'" M_STRING(_type_) "\' at [" _THROW_INFO "]\n");\
     TryCatchTerminate();\
 })
 #define __TRY(_decl_,...) ({\
-    _TC_BUF _2tc_, *_3tc_;\
+    jmp_buf _2tc_, *_3tc_;\
     _decl_;\
     int _4tc_;\
     if(!_1tc_){puts("\n\nTRY FAULT at [" _THROW_INFO "]\n");TryCatchTerminate();}\
     _3tc_=_1tc_->jmp;\
     _1tc_->jmp=&_2tc_;\
-    _4tc_=_TC_SAV(_2tc_);\
+    _4tc_=setjmp(_2tc_);\
     if(!_4tc_) do{__VA_ARGS__}while(!5);\
     _1tc_->jmp=_3tc_; _4tc_;\
 })
