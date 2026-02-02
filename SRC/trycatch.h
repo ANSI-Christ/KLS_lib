@@ -14,7 +14,7 @@
 #include "macro.h"
 
 /* if the compiler does not support the declaration in a loop, then compile with the flag -DTRY_CATCH_NO_LOOP_DECL */
-/* if there are no sigsetjmp / siglongjmp, then compile with the flag -DTRY_CATCH_NO_SIGJMP */
+/* if you want use sigsetjmp / siglongjmp, then compile with the flag -DTRY_CATCH_SIGSETJMP */
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
@@ -34,12 +34,7 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-#ifndef sigsetjmp
-#ifndef TRY_CATCH_NO_SIGJMP
-#define TRY_CATCH_NO_SIGJMP
-#endif
-#endif
-#ifndef TRY_CATCH_NO_SIGJMP
+#ifdef TRY_CATCH_SIGSETJMP
 #define _TC_BUF      sigjmp_buf
 #define _TC_SAV(_1_) sigsetjmp(_1_,TryCatchSignal!=NULL)
 #define _TC_JMP(_1_) siglongjmp((_1_),1)
