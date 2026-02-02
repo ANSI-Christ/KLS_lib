@@ -34,19 +34,19 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-#ifdef _WIN32
+#ifndef sigsetjmp
 #ifndef TRY_CATCH_NO_SIGJMP
 #define TRY_CATCH_NO_SIGJMP
 #endif
 #endif
-#ifdef TRY_CATCH_NO_SIGJMP
-#define _TC_BUF      jmp_buf
-#define _TC_SAV(_1_) setjmp(_1_)
-#define _TC_JMP(_1_) longjmp((_1_),1)
-#else
+#ifndef TRY_CATCH_NO_SIGJMP
 #define _TC_BUF      sigjmp_buf
 #define _TC_SAV(_1_) sigsetjmp(_1_,TryCatchSignal!=NULL)
 #define _TC_JMP(_1_) siglongjmp((_1_),1)
+#else
+#define _TC_BUF      jmp_buf
+#define _TC_SAV(_1_) setjmp(_1_)
+#define _TC_JMP(_1_) longjmp((_1_),1)
 #endif
 struct _TRYCATCH{ _TC_BUF *jmp; struct EXCEPTION_INFO info[1]; void *data; char buffer[96];};
 struct _TRYCATCH *_TryCatch(char);
