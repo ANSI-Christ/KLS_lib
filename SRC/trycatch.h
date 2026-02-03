@@ -34,7 +34,7 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 
-struct _TRYCATCH{ jmp_buf *jmp; struct EXCEPTION_INFO info[1]; void *data; char buffer[96];};
+struct _TRYCATCH{ jmp_buf *jmp; struct EXCEPTION_INFO info[1]; void *data; union{long double ald; double ad; char c[96];}buffer[1]; };
 struct _TRYCATCH *_TryCatch(char);
 #define EXCEPTION ((const struct EXCEPTION_INFO*)((const struct _EXCEPTION_DONT_EXISTS*)_1tc_->info))
 #define _THROW_INFO M_FILE() ":" M_STRING(M_LINE())
@@ -53,8 +53,8 @@ struct _TRYCATCH *_TryCatch(char);
         if(_1_->data!=_1_->buffer){free(_1_->data); _1_->data=_1_->buffer;}\
         M_IF(M_IS_ARG(M_PEAK(__VA_ARGS__)))(\
             M_EXTRACT( if( sizeof(_type_)<=sizeof(_1_->buffer) || (_1_->data=malloc(sizeof(_type_))) ){\
-                const union{struct{_type_ _;}_; struct{char _[sizeof(_type_)];} data,*pdata; void *p;} _2_={{__VA_ARGS__}}, _3_={.p=_1_->data};\
-                *_3_.pdata=_2_.data; longjmp(*_1_->jmp,1);\
+                const union _tccast_{_type_ _; struct{char _[sizeof(_type_)];}x; } _2_={__VA_ARGS__};\
+                ((union _tccast_*)_1_->data)->x=_2_.x; longjmp(*_1_->jmp,1);\
             }) , \
             M_EXTRACT( longjmp(*_1_->jmp,1); )\
         )\
