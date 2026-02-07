@@ -163,8 +163,6 @@ KLS_byte KLS_regexCompileSet(KLS_t_REGEX_COMPILE *c){
             case '\\':
                 if(KLS_regexCompileSpecial(c)){n[i]=c->last; break;}
                 return 0;
-            case '^':
-            case '&': (n[i]=KLS_regexNode(c,KLS_REGEX_SPECIAL))->key=c->s[-1]; break;
             default: (n[i]=KLS_regexNode(c,KLS_REGEX_CHAR))->key=c->s[-1]; break;
         }
         if(n[1]){
@@ -240,7 +238,7 @@ KLS_t_REGEX *KLS_regexCompileGroup(KLS_t_REGEX_COMPILE *c){
             case '{': if(c->last!=group && KLS_regexSetRange(c,-1,-1)) continue; _RGX_ERR("bad range");
             case '[': if(KLS_regexCompileSet(c)) continue; _RGX_ERR("bad set");
             case '\\': if(KLS_regexCompileSpecial(c)) continue; _RGX_ERR("unknown special");
-            case '^': case '&': case '.': KLS_regexNode(c,KLS_REGEX_SPECIAL)->key=c->s[-1]; continue;
+            case '^': case '$': case '.': KLS_regexNode(c,KLS_REGEX_SPECIAL)->key=c->s[-1]; continue;
             default: KLS_regexNode(c,KLS_REGEX_CHAR)->key=c->s[-1]; continue;
         }
     #undef _RGX_ERR
@@ -305,7 +303,7 @@ int KLS_regexMatchSpecial(KLS_t_REGEX_FIND *f){
     switch(f->last->key){
         case '.': return 1;
         case '^': return f->s==f->begin;
-        case '&': return f->s==f->end;
+        case '$': return f->s==f->end;
         case 'u': return isupper(*f->s);
         case 'l': return islower(*f->s);
         case 'a': return isalpha(*f->s);
