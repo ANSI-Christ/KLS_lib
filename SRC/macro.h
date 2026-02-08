@@ -13,7 +13,7 @@
 #define M_FUNCTION() __func__
 
 #define M_ENDIAN_LTL (1<<0)
-#define M_ENDIAN_PDP ((sizeof(int)==4 || sizeof(long)==4)<<((sizeof(int)==4 || sizeof(long)==4)*16))
+#define M_ENDIAN_PDP (((sizeof(int)==4 || sizeof(long)==4)*1L)<<((sizeof(int)==4 || sizeof(long)==4)*16))
 #define M_ENDIAN_BIG (1L<<(((sizeof(int)<4?sizeof(long):sizeof(int))-1)*8))
 #define M_ENDIAN()   (sizeof(int)<4 ? ((const union{struct{char a,b,c,d,e,f,g,h;}_; long e;}){{1,0,0,0,0,0,0,0}}).e : ((const union{struct{char a,b,c,d,e,f,g,h;}_; int e;}){{1,0,0,0,0,0,0,0}}).e)
 

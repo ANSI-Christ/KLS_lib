@@ -33,7 +33,7 @@ enum NET_STATE{
 
 enum NET_ENDIAN{
     NET_LTL = (1<<0),
-    NET_PDP = ((sizeof(int)==4 || sizeof(long)==4)<<((sizeof(int)==4 || sizeof(long)==4)*16)),
+    NET_PDP = (((sizeof(int)==4 || sizeof(long)==4)*1L)<<((sizeof(int)==4 || sizeof(long)==4)*16)),
     NET_BIG = (1L<<(((sizeof(int)<4?sizeof(long):sizeof(int))-1)*8)) /* network byte order */
 };
 
