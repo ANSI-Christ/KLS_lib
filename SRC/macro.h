@@ -6,21 +6,16 @@
 #ifndef MACRO_H
 #define MACRO_H
 
-enum M_ENDIAN{
-    M_ENDIAN_LTL = (1<<0),
-    M_ENDIAN_PDP = (1<<16),
-    M_ENDIAN_BIG = (1<<24)
-};
-
-/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-
 #define M_CSTD _M_CSTD
 
 #define M_FILE() __FILE__
 #define M_LINE() __LINE__
 #define M_FUNCTION() __func__
-#define M_ENDIAN() ((const union{unsigned char _; enum M_ENDIAN e;}){1}).e
+
+#define M_ENDIAN_LTL (1<<0)
+#define M_ENDIAN_PDP (1<<16)
+#define M_ENDIAN_BIG (1<<24)
+#define M_ENDIAN() ((const union{unsigned char _; unsigned int e;}){1}).e
 
 #define M_TYPEOF __typeof__
 #define M_ALIGNOF(_type_) _M_ALIGNOF(_type_)
