@@ -33,8 +33,8 @@ enum NET_STATE{
 
 enum NET_ENDIAN{
     NET_LTL = (1<<0),
-    NET_PDP = (1<<16),
-    NET_BIG = (1<<24)   /* network byte order */
+    NET_PDP = ((sizeof(int)==4 || sizeof(long)==4)<<((sizeof(int)==4 || sizeof(long)==4)*16)),
+    NET_BIG = (1L<<(((sizeof(int)<4?sizeof(long):sizeof(int))-1)*8)) /* network byte order */
 };
 
 #define NET_ANY4        "0.0.0.0"
@@ -124,7 +124,7 @@ enum NET_ENDIAN NetEndian(void);
 
 
 
-#define NetEndian() ((const union{unsigned char _; enum NET_ENDIAN e;}){1}).e
+#define NetEndian() (sizeof(int)<4 ? ((const union{struct{char a,b,c,d,e,f,g,h;}_; long e;}){{1,0,0,0,0,0,0,0}}).e : ((const union{struct{char a,b,c,d,e,f,g,h;}_; int e;}){{1,0,0,0,0,0,0,0}}).e)
 #define NetViewHost(_p_) NetViewNet(_p_)
 #define NetViewNet(_p_) do{\
     struct static_assert_bad_type_##__LINE__{char _1[(sizeof((_p_)[0]<=16) && sizeof((_p_)[0])>1) ? 1 : -1], _2[sizeof((_p_)[0]+=0.1)];};\
