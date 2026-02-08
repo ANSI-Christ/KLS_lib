@@ -15,7 +15,7 @@
 #define M_ENDIAN_LTL (1<<0)
 #define M_ENDIAN_PDP (((sizeof(int)==4 || sizeof(long)==4)*1L)<<((sizeof(int)==4 || sizeof(long)==4)*16))
 #define M_ENDIAN_BIG (1L<<(((sizeof(int)<4?sizeof(long):sizeof(int))-1)*8))
-#define M_ENDIAN()   (sizeof(int)<4 ? ((const union{struct{char a,b,c,d,e,f,g,h;}_; long e;}){{1,0,0,0,0,0,0,0}}).e : ((const union{struct{char a,b,c,d,e,f,g,h;}_; int e;}){{1,0,0,0,0,0,0,0}}).e)
+#define M_ENDIAN()   (sizeof(int)<4 ? _M_ENDIAN(long) : _M_ENDIAN(int))
 
 #define M_TYPEOF __typeof__
 #define M_ALIGNOF(_type_) _M_ALIGNOF(_type_)
@@ -60,6 +60,7 @@
 #define _M_OFFSETOF(_type_,_field_) (((M_TYPEOF(sizeof(int)))(&M_ABSTRACT(_type_)->_field_)))
 #endif
 
+#define _M_ENDIAN(_1_) ((const union{char _; _1_ e;}){1}).e
 #define _M_LOOP1(...) _M_LOOP2(_M_LOOP2(_M_LOOP2(__VA_ARGS__)))
 #define _M_LOOP2(...) _M_LOOP3(_M_LOOP3(_M_LOOP3(__VA_ARGS__)))
 #define _M_LOOP3(...) _M_LOOP4(_M_LOOP4(_M_LOOP4(__VA_ARGS__)))

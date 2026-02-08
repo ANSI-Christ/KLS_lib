@@ -124,7 +124,7 @@ enum NET_ENDIAN NetEndian(void);
 
 
 
-#define NetEndian() (sizeof(int)<4 ? ((const union{struct{char a,b,c,d,e,f,g,h;}_; long e;}){{1,0,0,0,0,0,0,0}}).e : ((const union{struct{char a,b,c,d,e,f,g,h;}_; int e;}){{1,0,0,0,0,0,0,0}}).e)
+#define NetEndian() (sizeof(int)<4 ? _NetEndian(long) : _NetEndian(int))
 #define NetViewHost(_p_) NetViewNet(_p_)
 #define NetViewNet(_p_) do{\
     struct static_assert_bad_type_##__LINE__{char _1[(sizeof((_p_)[0]<=16) && sizeof((_p_)[0])>1) ? 1 : -1], _2[sizeof((_p_)[0]+=0.1)];};\
@@ -144,7 +144,7 @@ enum NET_ENDIAN NetEndian(void);
         }\
 }while(0)
 #define _NetViewSwap(_i_,_j_) _2_=_1_[_i_], _1_[_i_]=_1_[_j_], _1_[_j_]=_2_
-
+#define _NetEndian(_1_) ((const union{char _; _1_ e;}){1}).e
 #endif /* NETPOOL_H */
 
 
