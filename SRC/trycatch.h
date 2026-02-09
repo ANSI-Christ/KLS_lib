@@ -34,6 +34,7 @@ extern void(*TryCatchTerminate)(void);  /* by default exit(-1) */
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 
+extern const char * const _TryCatchMsg[];
 struct _TRYCATCH{ jmp_buf *jmp; struct EXCEPTION_INFO info[1]; void *data; union{long double ald; double ad; char c[96];}buffer[1]; };
 struct _TRYCATCH *_TryCatch(char);
 #define EXCEPTION ((const struct EXCEPTION_INFO*)((const struct _EXCEPTION_DONT_EXISTS*)_1tc_->info))
@@ -42,8 +43,8 @@ struct _TRYCATCH *_TryCatch(char);
     struct _TRYCATCH * const _1_=_TryCatch(0);\
     if(_1_ && _1_->info->type){\
         if(_1_->jmp) longjmp(*_1_->jmp,1);\
-        printf("\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",_1_->info->type,_1_->info->where);\
-    }else puts("\nterminate called after throwing without an active excepion at [" _THROW_INFO "]\n");\
+        printf(_TryCatchMsg[1],_1_->info->type,_1_->info->where);\
+    }else printf(_TryCatchMsg[2],_THROW_INFO);\
     TryCatchTerminate();\
 })
 #define _THROW1(_type_,...) ({\
@@ -58,14 +59,14 @@ struct _TRYCATCH *_TryCatch(char);
             }) , \
             M_EXTRACT( longjmp(*_1_->jmp,1); )\
         )\
-    }puts("\nterminate called after throwing an instance of \'" M_STRING(_type_) "\' at [" _THROW_INFO "]\n");\
+    }printf(_TryCatchMsg[1],M_STRING(_type_),_THROW_INFO);\
     TryCatchTerminate();\
 })
 #define __TRY(_decl_,...) ({\
     jmp_buf _2tc_, *_3tc_;\
     _decl_;\
     int _4tc_;\
-    if(!_1tc_){puts("\n\nTRY FAULT at [" _THROW_INFO "]\n");TryCatchTerminate();}\
+    if(!_1tc_){printf(_TryCatchMsg[0],_THROW_INFO);TryCatchTerminate();}\
     _3tc_=_1tc_->jmp;\
     _1tc_->jmp=&_2tc_;\
     _4tc_=setjmp(_2tc_);\
@@ -99,6 +100,11 @@ struct _TRYCATCH *_TryCatch(char);
 
 #include <pthread.h>
 
+const char * const _TryCatchMsg[]={
+    "\nTRY FAULT at [%s]\n\n",
+    "\nterminate called after throwing an instance of \'%s\' at [%s]\n\n",
+    "\nterminate called after throwing without an active excepion at [%s]\n\n"
+};
 static pthread_key_t _TryCatchKey;
 static unsigned char _TryCatchInit;
 

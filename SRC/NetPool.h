@@ -32,9 +32,10 @@ enum NET_STATE{
 };
 
 enum NET_ENDIAN{
-    NET_LTL = (1<<0),
-    NET_PDP = (((sizeof(int)==4 || sizeof(long)==4)*1L)<<((sizeof(int)==4 || sizeof(long)==4)*16)),
-    NET_BIG = (1L<<(((sizeof(int)<4?sizeof(long):sizeof(int))-1)*8)) /* network byte order */
+    NET_UND = 0,
+    NET_LTL = 1,
+    NET_PDP = 2,
+    NET_BIG = 3   /* network byte order */
 };
 
 #define NET_ANY4        "0.0.0.0"
@@ -124,7 +125,13 @@ enum NET_ENDIAN NetEndian(void);
 
 
 
-#define NetEndian() (sizeof(int)<4 ? _NetEndian(long) : _NetEndian(int))
+#define NetEndian() (\
+    sizeof(long)==sizeof(char) ? ( ((unsigned char)-1)>255 ? NET_UND : NET_BIG) : (\
+        ((const union{long l; struct{char x;}s;}){1}).s.x ? NET_LTL : (\
+            (sizeof(long)==4 && ((const union{long l; struct{char a,x;}s;}){1}).s.x) ? NET_PDP : NET_BIG \
+        )\
+    )\
+)
 #define NetViewHost(_p_) NetViewNet(_p_)
 #define NetViewNet(_p_) do{\
     struct static_assert_bad_type_##__LINE__{char _1[(sizeof((_p_)[0]<=16) && sizeof((_p_)[0])>1) ? 1 : -1], _2[sizeof((_p_)[0]+=0.1)];};\
@@ -144,7 +151,7 @@ enum NET_ENDIAN NetEndian(void);
         }\
 }while(0)
 #define _NetViewSwap(_i_,_j_) _2_=_1_[_i_], _1_[_i_]=_1_[_j_], _1_[_j_]=_2_
-#define _NetEndian(_1_) ((const union{char _; _1_ e;}){1}).e
+
 #endif /* NETPOOL_H */
 
 
