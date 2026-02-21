@@ -182,12 +182,14 @@ _mark:
             pthread_pool_t *_p;
             unsigned int c=(--p->size)/p->count;
             if(c>p->banch){c=p->banch;} i=t;
-            if(p->reject)
-                for(_p=NULL;c;--c,--p->size){
+            if(p->reject){
+                unsigned int j=0;
+                for(_p=NULL;;){
                     if(i==p->reject){p->reject=NULL; break;}
+                    if(j==c){break;} ++j;
                     i=i->next=_pthread_pool_pop(p);
-                }
-            else
+                } p->size-=j;
+            }else
                 for(_p=((p->ctrl & 2)?NULL:p),p->size-=c;c;--c)
                     i=i->next=_pthread_pool_pop(p);
             if(!busy){busy=1; ++p->busy;}
