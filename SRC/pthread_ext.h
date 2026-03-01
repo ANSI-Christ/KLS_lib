@@ -89,7 +89,6 @@ extern int pthread_kill(pthread_t,int);
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <time.h>
 
 
 typedef struct __pthread_pool_task_t{
@@ -168,20 +167,19 @@ static void _pthread_pool_release(pthread_pool_t * const p){
 static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
     pthread_pool_t * const p=arg->p;
     const unsigned int index=arg->i;
+    unsigned int busy=0;
     void(* const del)(void*)=p->deallocator;
-    _pthread_pool_task_t *t,*i;
-    const struct timespec millisec[1]={{0,1000*1000}};
-    unsigned char sleep=0, busy=0;
 
     del(arg);
 
+    pthread_mutex_lock(p->mtx);
     while('0'){
-        pthread_mutex_lock(p->mtx);
-_mark:
-        if( (t=_pthread_pool_pop(p)) ){
+        _pthread_pool_task_t *t=_pthread_pool_pop(p);
+        if(t){
             pthread_pool_t *_p;
+            _pthread_pool_task_t *i=t;
             unsigned int c=(--p->size)/p->count;
-            if(c>p->banch){c=p->banch;} i=t;
+            if(c>p->banch){c=p->banch;}
             if(p->reject){
                 unsigned int j=0;
                 for(_p=NULL;;){
@@ -192,44 +190,29 @@ _mark:
             }else
                 for(_p=((p->ctrl & 2)?NULL:p),p->size-=c;c;--c)
                     i=i->next=_pthread_pool_pop(p);
-            if(!busy){busy=1; ++p->busy;}
+            if(!busy) {busy=1; ++p->busy;}
 
             pthread_mutex_unlock(p->mtx);
-
             i->next=NULL;
             do{
                 i=t->next;
                 t->f(_p,t+1,index);
                 del(t); t=i;
             }while(t);
-
-            sleep=64;
-            continue;
-        }
-        if(busy){
-            busy=0; --p->busy;
-        }
-        if(!p->busy)
-            pthread_cond_broadcast(p->cond+1);
-        if(p->ctrl & 1)
-            break;
-        if(!sleep){
+            pthread_mutex_lock(p->mtx);
+        }else{
+            if(busy) {busy=0; --p->busy;}
+            if(!p->busy) pthread_cond_broadcast(p->cond+1);
+            if(p->ctrl & 1) break;
             pthread_cond_wait(p->cond,p->mtx);
-            goto _mark;
         }
-        pthread_mutex_unlock(p->mtx);
-
-        nanosleep(millisec,NULL);
-        sleep>>=1;
-
     }
     busy=p->ctrl & 4;
-    sleep=busy && !--p->count;
-
+    busy|=busy && !--p->count;
     pthread_mutex_unlock(p->mtx);
 
     if(busy) pthread_detach(pthread_self());
-    if(sleep) _pthread_pool_release(p);
+    if(busy & 1) _pthread_pool_release(p);
     return NULL;
 }
 
@@ -502,7 +485,7 @@ unsigned int pthread_backtrace(void **array,unsigned int count){
     return c>0?c:0;
 }
 
-unsigned int pthread_cores(void){
+static unsigned int _pthread_cores(void){
     SYSTEM_INFO sys; GetSystemInfo(&sys);
     return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
 }
@@ -570,7 +553,7 @@ unsigned int pthread_backtrace(void **array,unsigned int count){
 
 #ifdef _SC_NPROCESSORS_CONF
 
-unsigned int pthread_cores(void){
+static unsigned int _pthread_cores(void){
     const long int c=sysconf(_SC_NPROCESSORS_CONF);
     return c>1?c:1;
 }
@@ -578,7 +561,7 @@ unsigned int pthread_cores(void){
 #else
 
 #include <sys/sysctl.h>
-unsigned int pthread_cores(void){
+static unsigned int _pthread_cores(void){
     int cores=1; size_t len=sizeof(cores);
     int mib[2]={CTL_HW,HW_NCPU};
     if(sysctl(mib,2,&cores,&len,NULL,0))
@@ -589,6 +572,12 @@ unsigned int pthread_cores(void){
 #endif
 
 #endif /* end not _WIN32 */
+
+unsigned int pthread_cores(void){
+    static unsigned int cores=0;
+    if(!cores) cores=_pthread_cores();
+    return cores;
+}
 
 static int _pthread_policy_checked(const int pol,const int pri){
 #ifdef _POSIX_PRIORITY_SCHEDULING
