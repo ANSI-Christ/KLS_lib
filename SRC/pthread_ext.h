@@ -29,7 +29,6 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,uns
 
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
-
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
 void pthread_pool_unpending(pthread_pool_t *pool);
@@ -45,8 +44,27 @@ const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
 
 
 
+typedef struct{
+    pthread_mutex_t mtx[1];
+    pthread_cond_t cond[1];
+    void (*deallocator)(void*);
+    unsigned int target, done, reject;
+    signed char state, destroy, wait;
+}pthread_group_t;
 
-typedef struct{ union{void *p; int i;} r[1], w[1]; } pthread_channel_t;
+int pthread_group_rejected(pthread_group_t *g);
+int pthread_group_init(pthread_group_t *g,unsigned int target,void(* const deallocator)(void*));
+int pthread_group_wait(pthread_group_t *g,unsigned int *done,unsigned int *target); /* 0 = ok, -1 = reject */
+int pthread_group_timedwait(pthread_group_t *g,unsigned int *done,unsigned int *target,struct timespec *abstime); /* 0 = ok, -1 = reject, EINVAL, ETIMEDOUT */
+
+void pthread_group_destroy(pthread_group_t *g);
+void pthread_group_reject(pthread_group_t *g,unsigned char by_task);
+void pthread_group_progress(pthread_group_t *g,unsigned int add_targets);
+
+
+
+
+typedef struct{union{void *p;int i;}r[1],w[1];} pthread_channel_t;
 
 int pthread_channel_open(pthread_channel_t *channel);
 int pthread_channel_pop(pthread_channel_t *channel,void *data,int size);
@@ -366,6 +384,125 @@ const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
 }
 
 #undef _pthread_pool_tids
+
+
+static void _pthread_group_reset(pthread_group_t * const g,const unsigned int target){
+    g->target=target; g->done=g->reject=0; g->state=g->destroy=0; g->wait=1;
+}
+
+int pthread_group_init(pthread_group_t * const g,const unsigned int target,void (* const deallocator)(void*)){
+    if(!g){
+        errno=EINVAL; return -1;
+    }
+    if(pthread_mutex_init(g->mtx, NULL))
+        return -1;
+    if(pthread_cond_init(g->cond, NULL)){
+        pthread_mutex_destroy(g->mtx);
+        return -1;
+    }
+    g->deallocator=deallocator;
+    _pthread_group_reset(g,target);
+    return 0;
+}
+
+static void _pthread_group_destroy(pthread_group_t * const g){
+    pthread_mutex_destroy(g->mtx);
+    pthread_cond_destroy(g->cond);
+    if(g->deallocator) g->deallocator(g);
+}
+
+void pthread_group_destroy(pthread_group_t * const g){
+    int del=0;
+    pthread_mutex_lock(g->mtx);
+    if(g->target){
+        g->state=-1;
+        if(g->deallocator) g->destroy=1;
+        else{
+            del=1;
+            while(g->wait) pthread_cond_wait(g->cond,g->mtx);
+        }
+    }else del=1;
+    pthread_mutex_unlock(g->mtx);
+    if(del) _pthread_group_destroy(g);
+}
+
+void pthread_group_progress(pthread_group_t * const g,const unsigned int add_targets){
+    int del=0;
+    pthread_mutex_lock(g->mtx);
+    g->done+=!!g->target;
+    g->target+=add_targets;
+    if(g->done+g->reject==g->target){
+        if(g->destroy) del=1;
+        else{
+            g->wait=0;
+            pthread_cond_broadcast(g->cond);
+        }
+    }
+    pthread_mutex_unlock(g->mtx);
+    if(del) _pthread_group_destroy(g);
+}
+
+int pthread_group_wait(pthread_group_t * const g,unsigned int * const done,unsigned int * const target){
+    int ret;
+    pthread_mutex_lock(g->mtx);
+    if(g->target) while(g->wait) pthread_cond_wait(g->cond,g->mtx);
+    if(done) *done=g->done;
+    if(target) *target=g->target;
+    ret=g->state;
+    _pthread_group_reset(g,0);
+    pthread_mutex_unlock(g->mtx);
+    return ret;
+}
+
+int pthread_group_timedwait(pthread_group_t * const g,unsigned int * const done,unsigned int * const target,struct timespec * const abstime){
+    int ret,err=0;
+    pthread_mutex_lock(g->mtx);
+    if(g->target) while(g->wait)
+        #define _CASE_ERR case EINVAL: err=EINVAL; goto _mark; case ETIMEDOUT: err=ETIMEDOUT; goto _mark;
+        switch(pthread_cond_timedwait(g->cond,g->mtx,abstime)){
+            case -1: switch(errno){ _CASE_ERR }
+            _CASE_ERR
+        }
+        #undef _CASE_ERR
+_mark:
+    if(done) *done=g->done;
+    if(target) *target=g->target;
+    if(err){
+        ret=err;
+    }else{
+        ret=g->state;
+       _pthread_group_reset(g,0);
+    }
+    pthread_mutex_unlock(g->mtx);
+    return ret;
+}
+
+void pthread_group_reject(pthread_group_t * const g,const unsigned char by_task){
+    int del=0;
+    pthread_mutex_lock(g->mtx);
+    g->state=-1;
+    if(by_task){
+        if(++g->reject+g->done==g->target){
+            if(g->destroy) del=1;
+            else{
+                g->wait=0;
+                pthread_cond_broadcast(g->cond);
+            }
+        }
+    }else{
+        if(g->target) while(g->wait) pthread_cond_wait(g->cond,g->mtx);
+        _pthread_group_reset(g,0);
+    }
+    pthread_mutex_unlock(g->mtx);
+    if(del) _pthread_group_destroy(g);
+}
+
+int pthread_group_rejected(pthread_group_t * const g){
+    const int ret=g->state;
+    if(ret) pthread_group_reject(g,1);
+    return ret;
+}
+
 
 #ifdef _WIN32
 
