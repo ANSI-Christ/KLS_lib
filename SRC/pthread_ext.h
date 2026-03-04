@@ -540,13 +540,13 @@ int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
 
 
 #define _pthread_iter(_1_,_2_,_sig_) static void _pthread_raise_##_sig_(void){raise(_sig_);}
-M_FOREACH(_pthread_iter,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+M_FOREACH(_pthread_iter,-,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
 #undef _pthread_iter
 
 static void *_pthread_raise_func(const int sig){
 #define _pthread_iter(_1_,_2_,_sig_) case _sig_:return _pthread_raise_##_sig_;
     switch(sig){
-        M_FOREACH(_pthread_iter,-,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
+        M_FOREACH(_pthread_iter,-,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
     } return NULL;
 #undef _pthread_iter
 }
@@ -597,8 +597,10 @@ static void *_CtxCtrlRegf(CONTEXT *c){
 #endif
 
 int _pthread_kill_win(pthread_t tid,const int sig){
-    void *f=_pthread_raise_func(sig);
-    if(f){
+    void *f;
+    if(!sig) return pthread_kill(tid,0);
+    else if(pthread_equal(pthread_self(),tid)) return raise(sig);
+    else if( (f=_pthread_raise_func(sig)) ){
         CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
         void **x=(void*)_CtxCtrlReg(c), *p=pthread_gethandle(tid);
         SuspendThread(p);
