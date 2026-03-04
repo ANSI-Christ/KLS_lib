@@ -24,11 +24,11 @@ typedef struct _pthread_pool_t pthread_pool_t;
 pthread_pool_t *pthread_pool_create(unsigned int count,unsigned char prio);
 pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,const pthread_attr_t *attr,void*(*allocator)(size_t),void(*deallocator)(void*));
 
+int pthread_pool_detach(pthread_pool_t *pool);
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
-void pthread_pool_detach(pthread_pool_t *pool);
 void pthread_pool_unpending(pthread_pool_t *pool);
 void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
@@ -225,12 +225,18 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
             pthread_cond_wait(p->cond,p->mtx);
         }
     }
-    busy=(p->ctrl & 12);
-    busy|=(p->ctrl & 4) && !--p->count;
+    busy=p->ctrl & 12;
+    busy|=(busy & 4) && !--p->count;
     pthread_mutex_unlock(p->mtx);
 
-    if(busy & 8) pthread_detach(pthread_self());
+    if(!index && !(busy & 4)){
+        pthread_t * const tid=_pthread_pool_tids(p);
+        unsigned int i=p->count;
+        while(--i) pthread_join(tid[i],NULL);
+        if(busy & 8) busy|=1;
+    }
     if(busy & 1) _pthread_pool_release(p);
+
     return NULL;
 }
 
@@ -239,8 +245,8 @@ pthread_pool_t *pthread_pool_create(const unsigned int count,const unsigned char
 }
 
 pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char prio,const pthread_attr_t * const attr,void*(*allocator)(size_t),void(*deallocator)(void*)){
-    int detached;
-    if(attr && (errno=pthread_attr_getdetachstate(attr,&detached))) return NULL;
+    int detached=PTHREAD_CREATE_JOINABLE;
+    if(attr){const int e=pthread_attr_getdetachstate(attr,&detached); if(e){errno=e; return NULL;}}
     if(!allocator) allocator=malloc;
     if(!deallocator) deallocator=free;
     if(count || (count=pthread_cores())){
@@ -263,7 +269,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             p->deallocator=deallocator;
             p->reject=NULL;
             p->count=p->busy=p->size=0;
-            p->ctrl=((detached==PTHREAD_CREATE_DETACHED)?4:0);
+            p->ctrl=(detached==PTHREAD_CREATE_DETACHED)*4;
             p->peak=0;
             p->max=prio;
             p->banch=3;
@@ -285,10 +291,13 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     } return NULL;
 }
 
-void pthread_pool_detach(pthread_pool_t * const p){
+int pthread_pool_detach(pthread_pool_t * const p){
+    int err=EINVAL;
     pthread_mutex_lock(p->mtx);
-    if(!(p->ctrl & 4)) p->ctrl|=12;
+    if( !(p->ctrl & 12) && !(err=pthread_detach(_pthread_pool_tids(p)[0])) )
+        p->ctrl|=8;
     pthread_mutex_unlock(p->mtx);
+    return err;
 }
 
 void pthread_pool_destroy(pthread_pool_t * const p,const unsigned char now){
@@ -298,11 +307,9 @@ void pthread_pool_destroy(pthread_pool_t * const p,const unsigned char now){
         i=(p->ctrl|=i);
         pthread_cond_broadcast(p->cond);
         pthread_mutex_unlock(p->mtx);
-        if(!(i & 4)){
-            pthread_t * const tid=_pthread_pool_tids(p);
-            for(i=p->count;i;) pthread_join(tid[--i],NULL);
-            _pthread_pool_release(p);
-        }
+        if(i & 12) return;
+        pthread_join(_pthread_pool_tids(p)[0],NULL);
+        _pthread_pool_release(p);
     }
 }
 

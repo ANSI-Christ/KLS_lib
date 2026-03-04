@@ -329,12 +329,15 @@ static void _timer_sched(void){
     }
 }
 
-static void *_timer_thread_worker(void *detach){
+static void *_timer_thread_worker(void *joinable){
     TIMER_GLOBAL_LINK(g);
     struct timespec t;
     struct _timer_struct_t *timer;
+
     _timer_sched();
-    if(detach) pthread_detach(pthread_self());
+    if(joinable && !pthread_detach(pthread_self()))
+        joinable=NULL;
+
     pthread_mutex_lock(g->mtx);
     while('0'){
         t=g->t;
@@ -343,7 +346,7 @@ static void *_timer_thread_worker(void *detach){
             case 0: if(g->first) continue; break;
             case EINTR: continue;
         }
-        if(!(timer=g->first))
+        if(!(timer=g->first) && !joinable)
             break;
         timespec_current(&t);
         g->t.tv_sec=t.tv_sec+3600;
