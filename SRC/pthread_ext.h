@@ -24,7 +24,7 @@ typedef struct _pthread_pool_t pthread_pool_t;
 pthread_pool_t *pthread_pool_create(unsigned int count,unsigned char prio);
 pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,const pthread_attr_t *attr,void*(*allocator)(size_t),void(*deallocator)(void*));
 
-int pthread_pool_detach(pthread_pool_t *pool);
+int pthread_pool_detach(pthread_pool_t *pool,int forced);
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
 void pthread_pool_wait(pthread_pool_t *pool);
@@ -291,12 +291,13 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     } return NULL;
 }
 
-int pthread_pool_detach(pthread_pool_t * const p){
+int pthread_pool_detach(pthread_pool_t * const p,const int forced){
     int err=EINVAL;
     pthread_mutex_lock(p->mtx);
-    if( !(p->ctrl & 12) && !(err=pthread_detach(_pthread_pool_tids(p)[0])) )
+    if( ( !(p->ctrl & 12) && !(err=pthread_detach(_pthread_pool_tids(p)[0])) ) || forced )
         p->ctrl|=8;
     pthread_mutex_unlock(p->mtx);
+    if(forced) return 0;
     return err;
 }
 
