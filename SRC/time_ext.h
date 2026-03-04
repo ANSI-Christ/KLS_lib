@@ -326,7 +326,7 @@ static void _timer_sched(void){
     if(!pthread_getschedparam(tid,&pol,&pri)){
         pri.sched_priority=99;
         pthread_setschedparam(tid,pol,&pri);
-    }
+    } pthread_detach(pthread_self());
 }
 
 static void *_timer_thread_worker(void *arg){
@@ -371,14 +371,16 @@ static int _timer_thread_init(void){
         pthread_attr_t a[1];
         pthread_t tid[1];
         do{
+            struct sched_param pri; int pol;
             if(pthread_attr_init(a)) break;
             if(pthread_cond_init(g->cond,NULL)) break;
             if(pthread_attr_setstacksize(a,20<<10)) break;
-            if(pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED)) break;
-            if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
-            #ifdef PTHREAD_FPU_ENABLED
-            if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
-            #endif
+            pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED);
+            if(!pthread_attr_setinheritsched(a,PTHREAD_EXPLICIT_SCHED) && !pthread_getschedparam(pthread_self(),&pol,&pri)){
+                pri.sched_priority=99;
+                pthread_attr_setschedpolicy(a,pol);
+                pthread_attr_setschedparam(a,&pri);
+            }else pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED);
             if(!pthread_create(tid,a,_timer_thread_worker,NULL))
                 g->t.tv_sec=time(NULL)+3600;
         }while(0);

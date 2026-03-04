@@ -12,9 +12,6 @@
 
 
 
-int pthread_policy_set(pthread_t tid,int policy,int priority);
-int pthread_policy_get(pthread_t tid,int *policy,int *priority);
-
 const char *pthread_policy_name(int policy);
 
 unsigned int pthread_cores(void);
@@ -25,7 +22,7 @@ unsigned int pthread_backtrace(void **array,unsigned int count);
 typedef struct _pthread_pool_t pthread_pool_t;
 
 pthread_pool_t *pthread_pool_create(unsigned int count,unsigned char prio);
-pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,unsigned int stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*));
+pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,const pthread_attr_t *attr,void*(*allocator)(size_t),void(*deallocator)(void*));
 
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
@@ -234,50 +231,37 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
     return NULL;
 }
 
-static char _pthread_attr_init(pthread_attr_t *a,size_t s){
-    do{
-        if(pthread_attr_init(a)) return 0;
-        if(s && pthread_attr_setstacksize(a,s<<10)) break;
-        if(pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED)) break;
-        #ifdef PTHREAD_FPU_ENABLED
-        if(pthread_setfpustate(a,PTHREAD_FPU_ENABLED)) break;
-        #endif
-        return 1;
-    }while(0);
-    pthread_attr_destroy(a);
-    return 0;
-}
-
 pthread_pool_t *pthread_pool_create(const unsigned int count,const unsigned char prio){
-    return pthread_pool_create_ex(count,prio,0,(void*(*)(size_t))0,(void(*)(void*))0);
+    return pthread_pool_create_ex(count,prio,NULL,(void*(*)(size_t))0,(void(*)(void*))0);
 }
 
-pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char prio,const unsigned int stackSize_kb,void*(*allocator)(size_t),void(*deallocator)(void*)){
-    pthread_attr_t attr[1];
-    if( (count || (count=pthread_cores())) && _pthread_attr_init(attr,stackSize_kb) && (allocator || (allocator=malloc)) && (deallocator || (deallocator=free)) ){
+pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char prio,const pthread_attr_t * const attr,void*(*allocator)(size_t),void(*deallocator)(void*)){
+    int detached;
+    if(attr && (errno=pthread_attr_getdetachstate(attr,&detached))) return NULL;
+    if(!allocator) allocator=malloc;
+    if(!deallocator) deallocator=free;
+    if(count || (count=pthread_cores())){
         const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
-        pthread_pool_t *p=(pthread_pool_t*)allocator(M_OFFSETOF(*p,queue) + size);
-        while(p){
+        pthread_pool_t * const p=(pthread_pool_t*)allocator(M_OFFSETOF(*p,queue) + size);
+        if(p){
             if(pthread_mutex_init(p->mtx,NULL)){
-                deallocator(p); p=NULL;
-                break;
+                deallocator(p); return NULL;
             }
             if(pthread_cond_init(p->cond,NULL)){
                 pthread_mutex_destroy(p->mtx);
-                deallocator(p); p=NULL;
-                break;
+                deallocator(p); return NULL;
             }
             if(pthread_cond_init(p->cond+1,NULL)){
                 pthread_mutex_destroy(p->mtx);
                 pthread_cond_destroy(p->cond);
-                deallocator(p); p=NULL;
-                break;
+                deallocator(p); return NULL;
             }
             p->allocator=allocator;
             p->deallocator=deallocator;
             p->reject=NULL;
             p->count=p->busy=p->size=0;
-            p->ctrl=p->peak=0;
+            p->ctrl=((detached==PTHREAD_CREATE_DETACHED)?4:0);
+            p->peak=0;
             p->max=prio;
             p->banch=3;
             memset(p->queue,0,size);
@@ -286,49 +270,47 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             for(;p->count<count;++p->count){
                 _pthread_pool_initializer_t * const _i=(_pthread_pool_initializer_t*)allocator(sizeof(*_i));
                 if(!_i){
-                    pthread_pool_destroy(p,1,0); p=NULL; break;
+                    pthread_pool_destroy(p,1,0); return NULL;
                 }
                 _i->p=p; _i->i=p->count;
                 if(pthread_create(tid+p->count,attr,(void*(*)(void*))_pthread_pool_worker,_i)){
-                    deallocator(_i); pthread_pool_destroy(p,1,0); p=NULL; break;
+                    deallocator(_i); pthread_pool_destroy(p,1,0); return NULL;
                 }
             }}
-            break;
+            return p;
         }
-        pthread_attr_destroy(attr);
-        return p;
     } return NULL;
 }
 
 void pthread_pool_destroy(pthread_pool_t * const p,const unsigned char now,const unsigned char async){
     if(p){
-        unsigned int i=1|((now!=0)<<1)|((async!=0)<<2);
+        pthread_t * const tid=_pthread_pool_tids(p);
+        unsigned int i;
+        if(async && !(p->ctrl & 4)) for(i=p->count;i;) pthread_detach(tid[--i]);
+        i=1|((now!=0)<<1)|((async!=0)<<2);
         pthread_mutex_lock(p->mtx);
-        p->ctrl|=i; pthread_cond_broadcast(p->cond);
+        i=(p->ctrl|=i);
+        pthread_cond_broadcast(p->cond);
         pthread_mutex_unlock(p->mtx);
-        if(async) return;
-        {pthread_t * const tid=_pthread_pool_tids(p);
-        for(i=p->count;i;) pthread_join(tid[--i],NULL);}
+        if(i & 4) return;
+        for(i=p->count;i;) pthread_join(tid[--i],NULL);
         _pthread_pool_release(p);
     }
 }
 
 void pthread_pool_unpending(pthread_pool_t * const p){
-    if(!p) return;
     pthread_mutex_lock(p->mtx);
     _pthread_pool_reject(p);
     pthread_mutex_unlock(p->mtx);
 }
 
 void pthread_pool_wait(pthread_pool_t * const p){
-    if(!p) return;
     pthread_mutex_lock(p->mtx);
     while(p->busy || p->size) pthread_cond_wait(p->cond+1,p->mtx);
     pthread_mutex_unlock(p->mtx);
 }
 
 void pthread_pool_clear(pthread_pool_t * const p){
-    if(!p) return;
     pthread_mutex_lock(p->mtx);
     if(p->busy || p->size){
         p->ctrl|=2;
@@ -340,23 +322,21 @@ void pthread_pool_clear(pthread_pool_t * const p){
 
 int pthread_pool_timedwait(pthread_pool_t * const p,const struct timespec *abstime){
     #define _CASE_ERR case EINVAL: err=EINVAL; goto _mark; case ETIMEDOUT: err=ETIMEDOUT; goto _mark;
-    if(p && abstime){
-        int err=0;
-        pthread_mutex_lock(p->mtx);
-        while(p->busy || p->size)
-            switch(pthread_cond_timedwait(p->cond+1,p->mtx,abstime)){
-                case -1: switch(errno){_CASE_ERR} break;
-                _CASE_ERR
-            }
+    int err=0;
+    pthread_mutex_lock(p->mtx);
+    while(p->busy || p->size)
+        switch(pthread_cond_timedwait(p->cond+1,p->mtx,abstime)){
+            case -1: switch(errno){_CASE_ERR} break;
+            _CASE_ERR
+        }
 _mark:
-        pthread_mutex_unlock(p->mtx);
-        return err;
-    } return EINVAL;
+    pthread_mutex_unlock(p->mtx);
+    return err;
     #undef _CASE_ERR
 }
 
 void *_pthread_pool_task_alloc(const pthread_pool_t * const p,const unsigned int size){
-    return p->ctrl ? NULL : p->allocator(size);
+    return (p->ctrl & 3) ? NULL : p->allocator(size);
 }
 
 void _pthread_pool_task_run(pthread_pool_t * const p,void * const t,unsigned char prio){
@@ -368,7 +348,6 @@ void _pthread_pool_task_run(pthread_pool_t * const p,void * const t,unsigned cha
 }
 
 void pthread_pool_banch(pthread_pool_t * const p,unsigned char count){
-    if(!p) return;
     if(count) --count;
     pthread_mutex_lock(p->mtx);
     p->banch=count;
@@ -376,7 +355,7 @@ void pthread_pool_banch(pthread_pool_t * const p,unsigned char count){
 }
 
 unsigned int pthread_pool_count(const pthread_pool_t * const p){
-    return p ? p->count : 0;
+    return p->count;
 }
 
 const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
@@ -714,26 +693,6 @@ unsigned int pthread_cores(void){
     static unsigned int cores=0;
     if(!cores) cores=_pthread_cores();
     return cores;
-}
-
-static int _pthread_policy_checked(const int pol,const int pri){
-#ifdef _POSIX_PRIORITY_SCHEDULING
-    const int min=sched_get_priority_min(pol), max=sched_get_priority_max(pol);
-    if(pri>max) return max;
-    if(pri<min) return min;
-#endif
-    return pri;
-}
-
-int pthread_policy_set(pthread_t tid,int policy,int priority){
-    struct sched_param s[1]={{0}}; s->sched_priority=_pthread_policy_checked(policy,priority);
-    return pthread_setschedparam(tid,policy,s);
-}
-
-int pthread_policy_get(pthread_t tid,int *policy,int *priority){
-    struct sched_param s[1]={{0}};
-    const int err=pthread_getschedparam(tid,policy,s); *priority=s->sched_priority;
-    return err;
 }
 
 const char *pthread_policy_name(int policy){
