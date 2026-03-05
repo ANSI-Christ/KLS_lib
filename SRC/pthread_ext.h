@@ -109,6 +109,208 @@ extern int pthread_detach(pthread_t);
 #include <string.h>
 #include <errno.h>
 
+#ifdef _WIN32
+
+#define NOMINMAX
+#include <windows.h>
+#undef NOMINMAX
+
+int pthread_channel_open(pthread_channel_t * const channel){
+    if(channel) return CreatePipe(&channel->r->p,&channel->w->p,NULL,0)-1;
+    return -1;
+}
+
+void pthread_channel_close(pthread_channel_t * const channel){
+    if(channel && channel->r->p){
+        CloseHandle(channel->w->p);
+        CloseHandle(channel->r->p);
+        channel->r->p=NULL;
+    }
+}
+
+int pthread_channel_push(pthread_channel_t * const channel,const void *data,const int size){
+    DWORD count;
+    if(channel && channel->r->p && data && size>0 && WriteFile(channel->w->p,data,size,&count,NULL)) return size;
+    return -1;
+}
+
+int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
+    if(channel && channel->r->p && data){
+        char *p=(char*)data;
+        while(size>0){
+            DWORD bytes;
+            ReadFile(channel->r->p,p,size,&bytes,NULL);
+            if(bytes>0){
+                size-=bytes;
+                p+=bytes;
+            }
+        } return 0;
+    } return -1;
+}
+
+
+#define _pthread_signals(_) _(1),_(2),_(3),_(4),_(5),_(6),_(7),_(8),_(9),_(10),_(11),_(12),_(13),_(14),_(15),_(16),_(17),_(18),_(19),_(20),_(21),_(22),_(23),_(24),_(25),_(26),_(27),_(28),_(29),_(30),_(31),_(32),_(33),_(34),_(35),_(36),_(37),_(38),_(39),_(40)
+#define _pthread_iter(_1_) static void _pthread_raise_##_1_(void){raise(_1_);}
+_pthread_signals(_pthread_iter)
+#undef _pthead_iter
+
+static void *_pthread_raise_func(const int sig){
+#define _pthread_iter(_1_) case _1_:return _pthread_raise_##_1_;
+    switch(sig){
+        _pthread_signals(_pthread_iter)
+    } return NULL;
+#undef _pthread_iter
+}
+#undef _pthread_signals
+
+#if defined(_M_IX86) || (defined(_X86_) && !defined(__amd64__))
+    #define _CtxCtrlReg(_1_)  &(_1_.Eip)
+#endif
+
+#if defined (_M_IA64) || defined(_IA64)
+    #define _CtxCtrlReg(_1_)  &(_1_.StIIP)
+#endif
+
+#if defined(_MIPS_) || defined(MIPS)
+    #define _CtxCtrlReg(_1_)  &(_1_.Fir)
+#endif
+
+#if defined(_ALPHA_)
+    #define _CtxCtrlReg(_1_)  &(_1_.Fir)
+#endif
+
+#ifdef _PPC_
+    #define _CtxCtrlReg(_1_)  &(_1_.Iar)
+#endif
+
+#if defined(_AMD64_) || defined(__amd64__)
+    #define _CtxCtrlReg(_1_)  &(_1_.Rip)
+#endif
+
+#if defined(_ARM_) || defined(ARM) || defined(_M_ARM) || defined(_M_ARM64)
+    #define _CtxCtrlReg(_1_)  &(_1_.Pc)
+#endif
+
+#ifndef _CtxCtrlReg
+static void *_CtxCtrlRegf(CONTEXT *c){
+    static unsigned int offset=-1;
+    if(offset==-1){
+        const uintptr_t * const end=(void*)(c+1), f=(uintptr_t)GetThreadContext;
+        uintptr_t diff, min=0, *p=(void*)c;
+        GetThreadContext(GetCurrentThread(),c);
+        for(c->ContextFlags=0,min=~min;p!=end;++p)
+            if((diff=(*p>f) ? (*p-f) : (f-*p))<min){
+                min=diff; offset=(char*)p-(char*)c;
+            }
+        c->ContextFlags=CONTEXT_CONTROL;
+    } return (char*)c+offset;
+}
+#define _CtxCtrlReg(_1_) _CtxCtrlRegf(&_1_)
+#endif
+
+int _pthread_kill_win(pthread_t tid,const int sig){
+    void *f;
+    if(!sig) return pthread_kill(tid,0);
+    else if(pthread_equal(pthread_self(),tid)) return raise(sig);
+    else if( (f=_pthread_raise_func(sig)) ){
+        CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
+        void **x=(void*)_CtxCtrlReg(c), *p=pthread_gethandle(tid);
+        SuspendThread(p);
+        GetThreadContext(p,&c);
+        *x=f;
+        SetThreadContext(p,&c);
+        c.ContextFlags=CONTEXT_ALL;
+        GetThreadContext(p,&c);
+        ResumeThread(p);
+        return 0;
+    } return -1;
+}
+#undef _CtxCtrlReg
+
+static unsigned int _pthread_cores(void){
+    SYSTEM_INFO sys; GetSystemInfo(&sys);
+    return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
+}
+
+#else /* end _WIN32 */
+
+extern int pthread_attr_getdetachstate(const pthread_attr_t *,int *);
+
+static int _pthread_pipe(int fd[2]){
+    struct _pipe_t{long fd[2];} s={{-1,-1}};
+    const union{void * const _; struct _pipe_t(* const f)(int fd[2]);}f={(void*)pipe};
+    fd[0]=fd[1]=-1; s=f.f(fd);
+    if(s.fd[0]==-1) return -1;
+    if(fd[0]==-1){
+        fd[0]=s.fd[0];
+        fd[1]=s.fd[1];
+    }
+    return fd[0]==-1;
+}
+
+int pthread_channel_open(pthread_channel_t * const channel){
+    if(channel){
+        int fd[2];
+        if(_pthread_pipe(fd)){
+            channel->r->i=channel->w->i=-1;
+            return -1;
+        }
+        channel->r->i=fd[0];
+        channel->w->i=fd[1];
+        return 0;
+    }
+    return -1;
+}
+
+void pthread_channel_close(pthread_channel_t * const channel){
+    if(channel && channel->r->i!=-1){
+        close(channel->w->i);
+        close(channel->r->i);
+        channel->r->i=-1;
+    }
+}
+
+int pthread_channel_push(pthread_channel_t * const channel,const void *data,int size){
+    if(channel && channel->r->i!=-1 && data && size>0) return write(channel->w->i,data,size);
+    return -1;
+}
+
+int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
+    if(channel && channel->r->i!=-1 && data){
+        char *p=(char*)data;
+        while(size>0){
+            const int bytes=read(channel->r->i,p,size);
+            if(bytes>0){
+                size-=bytes;
+                p+=bytes;
+            }
+        } return 0;
+    } return -1;
+}
+
+#ifdef _SC_NPROCESSORS_CONF
+
+static unsigned int _pthread_cores(void){
+    const long int c=sysconf(_SC_NPROCESSORS_CONF);
+    return c>1?c:1;
+}
+
+#else
+
+#include <sys/sysctl.h>
+static unsigned int _pthread_cores(void){
+    int cores=1; size_t len=sizeof(cores);
+    int mib[2]={CTL_HW,HW_NCPU};
+    if(sysctl(mib,2,&cores,&len,NULL,0))
+        return 1;
+    return cores>1?cores:1;
+}
+
+#endif
+
+#endif /* end not _WIN32 */
+
+
 
 typedef struct __pthread_pool_task_t{
     struct __pthread_pool_task_t *next;
@@ -499,202 +701,6 @@ int pthread_group_rejected(pthread_group_t * const g){
 }
 
 
-#ifdef _WIN32
-
-#define NOMINMAX
-#include <windows.h>
-#undef NOMINMAX
-
-int pthread_channel_open(pthread_channel_t * const channel){
-    if(channel) return CreatePipe(&channel->r->p,&channel->w->p,NULL,0)-1;
-    return -1;
-}
-
-void pthread_channel_close(pthread_channel_t * const channel){
-    if(channel && channel->r->p){
-        CloseHandle(channel->w->p);
-        CloseHandle(channel->r->p);
-        channel->r->p=NULL;
-    }
-}
-
-int pthread_channel_push(pthread_channel_t * const channel,const void *data,const int size){
-    DWORD count;
-    if(channel && channel->r->p && data && size>0 && WriteFile(channel->w->p,data,size,&count,NULL)) return size;
-    return -1;
-}
-
-int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
-    if(channel && channel->r->p && data){
-        char *p=(char*)data;
-        while(size>0){
-            DWORD bytes;
-            ReadFile(channel->r->p,p,size,&bytes,NULL);
-            if(bytes>0){
-                size-=bytes;
-                p+=bytes;
-            }
-        } return 0;
-    } return -1;
-}
-
-
-#define _pthread_iter(_1_,_2_,_sig_) static void _pthread_raise_##_sig_(void){raise(_sig_);}
-M_FOREACH(_pthread_iter,-,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
-#undef _pthread_iter
-
-static void *_pthread_raise_func(const int sig){
-#define _pthread_iter(_1_,_2_,_sig_) case _sig_:return _pthread_raise_##_sig_;
-    switch(sig){
-        M_FOREACH(_pthread_iter,-,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40)
-    } return NULL;
-#undef _pthread_iter
-}
-
-#if defined(_M_IX86) || (defined(_X86_) && !defined(__amd64__))
-    #define _CtxCtrlReg(_1_)  &(_1_.Eip)
-#endif
-
-#if defined (_M_IA64) || defined(_IA64)
-    #define _CtxCtrlReg(_1_)  &(_1_.StIIP)
-#endif
-
-#if defined(_MIPS_) || defined(MIPS)
-    #define _CtxCtrlReg(_1_)  &(_1_.Fir)
-#endif
-
-#if defined(_ALPHA_)
-    #define _CtxCtrlReg(_1_)  &(_1_.Fir)
-#endif
-
-#ifdef _PPC_
-    #define _CtxCtrlReg(_1_)  &(_1_.Iar)
-#endif
-
-#if defined(_AMD64_) || defined(__amd64__)
-    #define _CtxCtrlReg(_1_)  &(_1_.Rip)
-#endif
-
-#if defined(_ARM_) || defined(ARM) || defined(_M_ARM) || defined(_M_ARM64)
-    #define _CtxCtrlReg(_1_)  &(_1_.Pc)
-#endif
-
-#ifndef _CtxCtrlReg
-static void *_CtxCtrlRegf(CONTEXT *c){
-    static unsigned int offset=-1;
-    if(offset==-1){
-        const uintptr_t * const end=(void*)(c+1), f=(uintptr_t)GetThreadContext;
-        uintptr_t diff, min=0, *p=(void*)c;
-        GetThreadContext(GetCurrentThread(),c);
-        for(c->ContextFlags=0,min=~min;p!=end;++p)
-            if((diff=(*p>f) ? (*p-f) : (f-*p))<min){
-                min=diff; offset=(char*)p-(char*)c;
-            }
-        c->ContextFlags=CONTEXT_CONTROL;
-    } return (char*)c+offset;
-}
-#define _CtxCtrlReg(_1_) _CtxCtrlRegf(&_1_)
-#endif
-
-int _pthread_kill_win(pthread_t tid,const int sig){
-    void *f;
-    if(!sig) return pthread_kill(tid,0);
-    else if(pthread_equal(pthread_self(),tid)) return raise(sig);
-    else if( (f=_pthread_raise_func(sig)) ){
-        CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
-        void **x=(void*)_CtxCtrlReg(c), *p=pthread_gethandle(tid);
-        SuspendThread(p);
-        GetThreadContext(p,&c);
-        *x=f;
-        SetThreadContext(p,&c);
-        c.ContextFlags=CONTEXT_ALL;
-        GetThreadContext(p,&c);
-        ResumeThread(p);
-        return 0;
-    } return -1;
-}
-
-static unsigned int _pthread_cores(void){
-    SYSTEM_INFO sys; GetSystemInfo(&sys);
-    return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
-}
-
-#else /* end _WIN32 */
-
-static int _pthread_pipe(int fd[2]){
-    struct _pipe_t{long fd[2];} s={{-1,-1}};
-    const union{void * const _; struct _pipe_t(* const f)(int fd[2]);}f={(void*)pipe};
-    fd[0]=fd[1]=-1; s=f.f(fd);
-    if(s.fd[0]==-1) return -1;
-    if(fd[0]==-1){
-        fd[0]=s.fd[0];
-        fd[1]=s.fd[1];
-    }
-    return fd[0]==-1;
-}
-
-int pthread_channel_open(pthread_channel_t * const channel){
-    if(channel){
-        int fd[2];
-        if(_pthread_pipe(fd)){
-            channel->r->i=channel->w->i=-1;
-            return -1;
-        }
-        channel->r->i=fd[0];
-        channel->w->i=fd[1];
-        return 0;
-    }
-    return -1;
-}
-
-void pthread_channel_close(pthread_channel_t * const channel){
-    if(channel && channel->r->i!=-1){
-        close(channel->w->i);
-        close(channel->r->i);
-        channel->r->i=-1;
-    }
-}
-
-int pthread_channel_push(pthread_channel_t * const channel,const void *data,int size){
-    if(channel && channel->r->i!=-1 && data && size>0) return write(channel->w->i,data,size);
-    return -1;
-}
-
-int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
-    if(channel && channel->r->i!=-1 && data){
-        char *p=(char*)data;
-        while(size>0){
-            const int bytes=read(channel->r->i,p,size);
-            if(bytes>0){
-                size-=bytes;
-                p+=bytes;
-            }
-        } return 0;
-    } return -1;
-}
-
-#ifdef _SC_NPROCESSORS_CONF
-
-static unsigned int _pthread_cores(void){
-    const long int c=sysconf(_SC_NPROCESSORS_CONF);
-    return c>1?c:1;
-}
-
-#else
-
-#include <sys/sysctl.h>
-static unsigned int _pthread_cores(void){
-    int cores=1; size_t len=sizeof(cores);
-    int mib[2]={CTL_HW,HW_NCPU};
-    if(sysctl(mib,2,&cores,&len,NULL,0))
-        return 1;
-    return cores>1?cores:1;
-}
-
-#endif
-
-#endif /* end not _WIN32 */
-
 unsigned int pthread_cores(void){
     static unsigned int cores=0;
     if(!cores) cores=_pthread_cores();
@@ -730,9 +736,13 @@ const char *pthread_policy_name(int policy){
 
 #endif /*PTHREAD_EXT_IMPL*/
 
+
 #ifdef _WIN32
-    int _pthread_kill_win(pthread_t,int);
-    #ifndef pthread_kill
-        #define pthread_kill _pthread_kill_win
-    #endif
+
+#ifndef pthread_kill
+#undef pthread_kill
+#endif
+#define pthread_kill _pthread_kill_win
+int _pthread_kill_win(pthread_t,int);
+
 #endif
