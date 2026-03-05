@@ -6,7 +6,6 @@ Some stuff:
   - heap
   - timer
   - class-system
-  - signals
   - string calculator
   - list
   - queue
