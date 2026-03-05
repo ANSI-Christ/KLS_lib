@@ -15,7 +15,7 @@
 const char *pthread_policy_name(int policy);
 
 unsigned int pthread_cores(void);
-unsigned int pthread_backtrace(void **array,unsigned int count);
+
 
 
 
@@ -39,6 +39,7 @@ void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,void(*task)
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
 
 const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
+
 
 
 
@@ -613,11 +614,6 @@ int _pthread_kill_win(pthread_t tid,const int sig){
     } return -1;
 }
 
-unsigned int pthread_backtrace(void **array,unsigned int count){
-    const int c=CaptureStackBackTrace(0,count,array,NULL);
-    return c>0?c:0;
-}
-
 static unsigned int _pthread_cores(void){
     SYSTEM_INFO sys; GetSystemInfo(&sys);
     return sys.dwNumberOfProcessors>1 ? sys.dwNumberOfProcessors : 1;
@@ -675,13 +671,6 @@ int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
             }
         } return 0;
     } return -1;
-}
-
-extern int backtrace(void**,int);
-
-unsigned int pthread_backtrace(void **array,unsigned int count){
-    const int c=backtrace(array,count);
-    return c>0?c:0;
 }
 
 #ifdef _SC_NPROCESSORS_CONF
