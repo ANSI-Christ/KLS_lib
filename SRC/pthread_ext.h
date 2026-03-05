@@ -294,10 +294,9 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
 int pthread_pool_detach(pthread_pool_t * const p,const int forced){
     int err=EINVAL;
     pthread_mutex_lock(p->mtx);
-    if( ( !(p->ctrl & 12) && !(err=pthread_detach(_pthread_pool_tids(p)[0])) ) || forced )
+    if( !(p->ctrl & 12) && ( !(err=pthread_detach(_pthread_pool_tids(p)[0])) || forced) )
         p->ctrl|=8;
     pthread_mutex_unlock(p->mtx);
-    if(forced) return 0;
     return err;
 }
 
