@@ -126,6 +126,8 @@ extern int _timer_start(void*,const struct timespec *,void*,const void*);
 #include <stdio.h>
 #include <pthread.h>
 extern int pthread_detach(pthread_t);
+extern int pthread_getschedparam(pthread_t,int*,struct sched_param*);
+extern int pthread_setschedparam(pthread_t,int,const struct sched_param*);
 
 #ifdef _WIN32
 
@@ -291,7 +293,9 @@ static struct _global_timer_t{
     pthread_condattr_t *ac;
     struct _timer_struct_t *first, *last;
     struct timespec t;
+    struct sched_param sched;
     pthread_t tid;
+    int policy;
     char init, joinable;
 }_timer_global;
 
@@ -317,7 +321,6 @@ static void _timer_atexit(void){
 static void _timer_oncer(void){
     TIMER_GLOBAL_LINK(g);
     if(timer_configurator && timer_configurator(NULL,(void**)&g->am,(void**)&g->ac)) return;
-    if(g->ac && pthread_condattr_setclock(g->ac,CLOCK_REALTIME)) return _timer_atexit();
     if(pthread_mutex_init(g->mtx,g->am)) return _timer_atexit();
     atexit(_timer_atexit);
     g->init=1;
@@ -368,21 +371,12 @@ static void _timer_link_beg(_timer_cptr_t t){
     }
 }
 
-static void _timer_sched(void){
-    const pthread_t tid=pthread_self();
-    struct sched_param pri; int pol;
-    if(!pthread_getschedparam(tid,&pol,&pri)){
-        pri.sched_priority=99;
-        pthread_setschedparam(tid,pol,&pri);
-    }
-}
-
 static void *_timer_thread_worker(void *joinable){
     TIMER_GLOBAL_LINK(g);
     struct timespec t;
     struct _timer_struct_t *timer;
 
-    _timer_sched();
+    pthread_setschedparam(pthread_self(),g->policy,&g->sched);
 
     pthread_mutex_lock(g->mtx);
     g->joinable=(joinable && pthread_detach(pthread_self()));
@@ -419,13 +413,12 @@ static void *_timer_thread_worker(void *joinable){
 static int _timer_thread_init(void){
     TIMER_GLOBAL_LINK(g);
     while(!g->t.tv_sec){
-        struct sched_param pri; int pol;
         if(pthread_cond_init(g->cond,g->ac)) return 0;
         if(pthread_attr_setstacksize(g->at,20<<10)) break;
-        if(!pthread_attr_setinheritsched(g->at,PTHREAD_EXPLICIT_SCHED) && !pthread_getschedparam(pthread_self(),&pol,&pri)){
-            pri.sched_priority=99;
-            pthread_attr_setschedpolicy(g->at,pol);
-            pthread_attr_setschedparam(g->at,&pri);
+        if(!pthread_attr_setinheritsched(g->at,PTHREAD_EXPLICIT_SCHED) && !pthread_getschedparam(pthread_self(),&g->policy,&g->sched)){
+            g->sched.sched_priority=99;
+            pthread_attr_setschedpolicy(g->at,g->policy);
+            pthread_attr_setschedparam(g->at,&g->sched);
         }else pthread_attr_setinheritsched(g->at,PTHREAD_INHERIT_SCHED);
         if(timer_configurator && timer_configurator(g->at,NULL,NULL)) break;
         if( (!pthread_attr_setdetachstate(g->at,PTHREAD_CREATE_DETACHED) && !pthread_create(&g->tid,g->at,_timer_thread_worker,NULL))
