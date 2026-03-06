@@ -49,6 +49,9 @@ char *datetime_string(const struct datetime * const dt,const char *format,char b
 
 
 
+
+
+
 struct timer {void *_[4]; struct timespec __; char ___[2];};
 
 int timer_init(struct timer *t,int(*callback)(void *arg,const struct timespec *abstime),void *arg);
@@ -57,6 +60,13 @@ int timer_start(struct timer *timer,unsigned int delay_ms,unsigned int interval_
 void timer_stop(struct timer *t);
 void timer_close(struct timer *t);
 
+/*
+ for configure attributes on nonstandart OS
+    - must return 0 on success
+    - arguments may be NULL, so ignore it and return success
+    - if you want to configure mutexattr or condattr, then declare static variables and set *attr = &static_var and at programms end it will be auto destroyed
+*/
+extern int (*timer_configurator)(void *pthread_attr_t,void **pthread_mutexattr_t,void **pthread_condattr_t);
 
 
 
@@ -276,6 +286,9 @@ typedef struct _timer_struct_t{
 static struct _global_timer_t{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[1];
+    pthread_attr_t at[1];
+    pthread_mutexattr_t *am;
+    pthread_condattr_t *ac;
     struct _timer_struct_t *first, *last;
     struct timespec t;
     pthread_t tid;
@@ -284,23 +297,30 @@ static struct _global_timer_t{
 
 #define TIMER_GLOBAL_LINK(_name_) struct _global_timer_t * const _name_=&_timer_global
 
+int (*timer_configurator)(void *pthread_attr_t,void **pthread_mutexattr_t,void **pthread_condattr_t)=NULL;
+
 extern int atexit(void(*)(void));
 
 static void _timer_atexit(void){
     TIMER_GLOBAL_LINK(g);
-    if(g->joinable){
-        pthread_mutex_lock(g->mtx);
-        g->joinable=0; g->first=NULL;
-        pthread_cond_signal(g->cond);
-        pthread_mutex_unlock(g->mtx);
-        pthread_join(g->tid,NULL);
-    }
+    if(g->am) pthread_mutexattr_destroy(g->am);
+    if(g->ac) pthread_condattr_destroy(g->ac);
+    if(!g->joinable) return;
+
+    pthread_mutex_lock(g->mtx);
+    g->joinable=0; g->first=NULL;
+    pthread_cond_signal(g->cond);
+    pthread_mutex_unlock(g->mtx);
+    pthread_join(g->tid,NULL);
 }
 
 static void _timer_oncer(void){
     TIMER_GLOBAL_LINK(g);
-    if( (g->init=!pthread_mutex_init(g->mtx,NULL)) )
-        atexit(_timer_atexit);
+    if(timer_configurator && timer_configurator(NULL,(void**)&g->am,(void**)&g->ac)) return;
+    if(g->ac && pthread_condattr_setclock(g->ac,CLOCK_REALTIME)) return _timer_atexit();
+    if(pthread_mutex_init(g->mtx,g->am)) return _timer_atexit();
+    atexit(_timer_atexit);
+    g->init=1;
 }
 
 static int _timer_once_init(void){
@@ -398,25 +418,22 @@ static void *_timer_thread_worker(void *joinable){
 
 static int _timer_thread_init(void){
     TIMER_GLOBAL_LINK(g);
-    if(!g->t.tv_sec){
-        pthread_attr_t a[1];
-        do{
-            struct sched_param pri; int pol;
-            if(pthread_attr_init(a)) break;
-            if(pthread_cond_init(g->cond,NULL)) break;
-            if(pthread_attr_setstacksize(a,20<<10)) break;
-            if(!pthread_attr_setinheritsched(a,PTHREAD_EXPLICIT_SCHED) && !pthread_getschedparam(pthread_self(),&pol,&pri)){
-                pri.sched_priority=99;
-                pthread_attr_setschedpolicy(a,pol);
-                pthread_attr_setschedparam(a,&pri);
-            }else pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED);
-            if( (!pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED) && !pthread_create(&g->tid,a,_timer_thread_worker,NULL))
-            ||  (!pthread_attr_setdetachstate(a,PTHREAD_CREATE_JOINABLE) && !pthread_create(&g->tid,a,_timer_thread_worker,(void*)1)) )
-                g->t.tv_sec=time(NULL)+3600;
-        }while(0);
-        pthread_attr_destroy(a);
-        if(!g->t.tv_sec) pthread_cond_destroy(g->cond);
-    } return g->t.tv_sec>0;
+    while(!g->t.tv_sec){
+        struct sched_param pri; int pol;
+        if(pthread_cond_init(g->cond,g->ac)) return 0;
+        if(pthread_attr_setstacksize(g->at,20<<10)) break;
+        if(!pthread_attr_setinheritsched(g->at,PTHREAD_EXPLICIT_SCHED) && !pthread_getschedparam(pthread_self(),&pol,&pri)){
+            pri.sched_priority=99;
+            pthread_attr_setschedpolicy(g->at,pol);
+            pthread_attr_setschedparam(g->at,&pri);
+        }else pthread_attr_setinheritsched(g->at,PTHREAD_INHERIT_SCHED);
+        if(timer_configurator && timer_configurator(g->at,NULL,NULL)) break;
+        if( (!pthread_attr_setdetachstate(g->at,PTHREAD_CREATE_DETACHED) && !pthread_create(&g->tid,g->at,_timer_thread_worker,NULL))
+        ||  (!pthread_attr_setdetachstate(g->at,PTHREAD_CREATE_JOINABLE) && !pthread_create(&g->tid,g->at,_timer_thread_worker,(void*)1)) )
+            g->t.tv_sec=time(NULL)+3600;
+    }
+    if(!g->t.tv_sec) pthread_cond_destroy(g->cond);
+    return g->t.tv_sec>0;
 }
 
 int _timer_init(void * const timer,void * const f,const void * const _arg){

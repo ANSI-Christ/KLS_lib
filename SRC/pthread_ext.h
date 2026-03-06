@@ -23,8 +23,8 @@ typedef struct{void *_[3];}pthread_poolattr_t;
 int pthread_poolattr_init(pthread_poolattr_t *attr);
 
 int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr);
-int pthread_poolattr_setcattr(pthread_poolattr_t *attr,pthread_condattr_t *pattr);
-int pthread_poolattr_setmattr(pthread_poolattr_t *attr,pthread_mutexattr_t *pattr);
+int pthread_poolattr_setcattr(pthread_poolattr_t *attr,pthread_condattr_t *cattr);
+int pthread_poolattr_setmattr(pthread_poolattr_t *attr,pthread_mutexattr_t *mattr);
 
 int pthread_poolattr_getpattr(const pthread_poolattr_t *attr,pthread_attr_t **pattr);
 int pthread_poolattr_getcattr(const pthread_poolattr_t *attr,pthread_condattr_t **cattr);
