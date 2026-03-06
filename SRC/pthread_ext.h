@@ -18,11 +18,27 @@ unsigned int pthread_cores(void);
 
 
 
+typedef struct{void *_[3];}pthread_poolattr_t;
+
+int pthread_poolattr_init(pthread_poolattr_t *attr);
+
+int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr);
+int pthread_poolattr_setcattr(pthread_poolattr_t *attr,pthread_condattr_t *pattr);
+int pthread_poolattr_setmattr(pthread_poolattr_t *attr,pthread_mutexattr_t *pattr);
+
+int pthread_poolattr_getpattr(const pthread_poolattr_t *attr,pthread_attr_t **pattr);
+int pthread_poolattr_getcattr(const pthread_poolattr_t *attr,pthread_condattr_t **cattr);
+int pthread_poolattr_getmattr(const pthread_poolattr_t *attr,pthread_mutexattr_t **mattr);
+
+void pthread_poolattr_destroy(pthread_poolattr_t *attr);
+
+
+
 
 typedef struct _pthread_pool_t pthread_pool_t;
 
 pthread_pool_t *pthread_pool_create(unsigned int count,unsigned char prio);
-pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,const pthread_attr_t *attr,void*(*allocator)(size_t),void(*deallocator)(void*));
+pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,const pthread_poolattr_t *attr,void*(*allocator)(size_t),void(*deallocator)(void*));
 
 int pthread_pool_detach(pthread_pool_t *pool,int forced);
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
@@ -43,6 +59,22 @@ const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
 
 
 
+
+typedef struct{void *_[2];}pthread_groupattr_t;
+
+int pthread_groupattr_init(pthread_groupattr_t *attr);
+
+int pthread_groupattr_setcattr(pthread_groupattr_t *attr,pthread_condattr_t *cattr);
+int pthread_groupattr_setmattr(pthread_groupattr_t *attr,pthread_mutexattr_t *mattr);
+
+int pthread_groupattr_getcattr(const pthread_groupattr_t *attr,pthread_condattr_t **cattr);
+int pthread_groupattr_getmattr(const pthread_groupattr_t *attr,pthread_mutexattr_t **mattr);
+
+void pthread_groupattr_destroy(pthread_groupattr_t *attr);
+
+
+
+
 typedef struct{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[1];
@@ -51,8 +83,8 @@ typedef struct{
     signed char state, destroy, wait;
 }pthread_group_t;
 
+int pthread_group_init(pthread_group_t *g,unsigned int target,const pthread_groupattr_t *attr,void(*deallocator)(void*));
 int pthread_group_rejected(pthread_group_t *g);
-int pthread_group_init(pthread_group_t *g,unsigned int target,void(* const deallocator)(void*));
 int pthread_group_wait(pthread_group_t *g,unsigned int *done,unsigned int *target); /* 0 = ok, -1 = reject */
 int pthread_group_timedwait(pthread_group_t *g,unsigned int *done,unsigned int *target,struct timespec *abstime); /* 0 = ok, -1 = reject, EINVAL, ETIMEDOUT */
 
@@ -311,6 +343,49 @@ static unsigned int _pthread_cores(void){
 #endif /* end not _WIN32 */
 
 
+int pthread_poolattr_init(pthread_poolattr_t * const attr){
+    if(!attr) return -1;
+    attr->_[0]=attr->_[1]=attr->_[2]=NULL; return 0;
+}
+
+void pthread_poolattr_destroy(pthread_poolattr_t * const attr){
+    if(!attr) return;
+    if(attr->_[0]) pthread_attr_destroy((pthread_attr_t*)attr->_[0]);
+    if(attr->_[1]) pthread_mutexattr_destroy((pthread_mutexattr_t*)attr->_[1]);
+    if(attr->_[2]) pthread_condattr_destroy((pthread_condattr_t*)attr->_[2]);
+}
+
+int pthread_poolattr_setpattr(pthread_poolattr_t * const attr,pthread_attr_t * const pattr){
+    if(!attr) return -1;
+    attr->_[0]=pattr; return 0;
+}
+
+int pthread_poolattr_setmdattr(pthread_poolattr_t * const attr,pthread_mutexattr_t * const mattr){
+    if(!attr) return -1;
+    attr->_[1]=mattr; return 0;
+}
+
+int pthread_poolattr_setcattr(pthread_poolattr_t * const attr,pthread_condattr_t * const cattr){
+    if(!attr) return -1;
+    attr->_[2]=cattr; return 0;
+}
+
+int pthread_poolattr_getpattr(const pthread_poolattr_t * const attr,pthread_attr_t ** const pattr){
+    if(!attr) return -1;
+    *pattr=(pthread_attr_t*)attr->_[0]; return 0;
+}
+
+int pthread_poolattr_getmattr(const pthread_poolattr_t * const attr,pthread_mutexattr_t ** const mattr){
+    if(!attr) return -1;
+    *mattr=(pthread_mutexattr_t*)attr->_[1]; return 0;
+}
+
+int pthread_poolattr_getcattr(const pthread_poolattr_t * const attr,pthread_condattr_t ** const cattr){
+    if(!attr) return -1;
+    *cattr=(pthread_condattr_t*)attr->_[2]; return 0;
+}
+
+
 
 typedef struct __pthread_pool_task_t{
     struct __pthread_pool_task_t *next;
@@ -447,23 +522,32 @@ pthread_pool_t *pthread_pool_create(const unsigned int count,const unsigned char
     return pthread_pool_create_ex(count,prio,NULL,(void*(*)(size_t))0,(void(*)(void*))0);
 }
 
-pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char prio,const pthread_attr_t * const attr,void*(*allocator)(size_t),void(*deallocator)(void*)){
+pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char prio,const pthread_poolattr_t * const attr,void*(*allocator)(size_t),void(*deallocator)(void*)){
+    pthread_attr_t *pattr=NULL;
+    pthread_condattr_t *cattr=NULL;
+    pthread_mutexattr_t *mattr=NULL;
     int detached=PTHREAD_CREATE_JOINABLE;
-    if(attr){const int e=pthread_attr_getdetachstate(attr,&detached); if(e){errno=e; return NULL;}}
+
+    pthread_poolattr_getpattr(attr,&pattr);
+    if(pattr){const int e=pthread_attr_getdetachstate(pattr,&detached); if(e){errno=e; return NULL;}}
+
+    pthread_poolattr_getmattr(attr,&mattr);
+    pthread_poolattr_getcattr(attr,&cattr);
     if(!allocator) allocator=malloc;
     if(!deallocator) deallocator=free;
+
     if(count || (count=pthread_cores())){
         const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count;
         pthread_pool_t * const p=(pthread_pool_t*)allocator(M_OFFSETOF(*p,queue) + size);
         if(p){
-            if(pthread_mutex_init(p->mtx,NULL)){
+            if(pthread_mutex_init(p->mtx,mattr)){
                 deallocator(p); return NULL;
             }
-            if(pthread_cond_init(p->cond,NULL)){
+            if(pthread_cond_init(p->cond,cattr)){
                 pthread_mutex_destroy(p->mtx);
                 deallocator(p); return NULL;
             }
-            if(pthread_cond_init(p->cond+1,NULL)){
+            if(pthread_cond_init(p->cond+1,cattr)){
                 pthread_mutex_destroy(p->mtx);
                 pthread_cond_destroy(p->cond);
                 deallocator(p); return NULL;
@@ -485,7 +569,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
                     pthread_pool_destroy(p,1); return NULL;
                 }
                 _i->p=p; _i->i=p->count;
-                if(pthread_create(tid+p->count,attr,(void*(*)(void*))_pthread_pool_worker,_i)){
+                if(pthread_create(tid+p->count,pattr,(void*(*)(void*))_pthread_pool_worker,_i)){
                     deallocator(_i); pthread_pool_destroy(p,1); return NULL;
                 }
             }}
@@ -583,22 +667,59 @@ const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
 #undef _pthread_pool_tids
 
 
+int pthread_groupattr_init(pthread_groupattr_t * const attr){
+    if(!attr) return -1;
+    attr->_[0]=attr->_[1]=NULL; return 0;
+}
+
+void pthread_groupattr_destroy(pthread_groupattr_t * const attr){
+    if(!attr) return;
+    if(attr->_[0]) pthread_mutexattr_destroy((pthread_mutexattr_t*)attr->_[0]);
+    if(attr->_[1]) pthread_condattr_destroy((pthread_condattr_t*)attr->_[1]);
+}
+
+int pthread_groupattr_setmdattr(pthread_groupattr_t * const attr,pthread_mutexattr_t * const mattr){
+    if(!attr) return -1;
+    attr->_[0]=mattr; return 0;
+}
+
+int pthread_groupattr_setcattr(pthread_groupattr_t * const attr,pthread_condattr_t * const cattr){
+    if(!attr) return -1;
+    attr->_[1]=cattr; return 0;
+}
+
+int pthread_groupattr_getmattr(const pthread_groupattr_t * const attr,pthread_mutexattr_t ** const mattr){
+    if(!attr) return -1;
+    *mattr=(pthread_mutexattr_t*)attr->_[0]; return 0;
+}
+
+int pthread_groupattr_getcattr(const pthread_groupattr_t * const attr,pthread_condattr_t ** const cattr){
+    if(!attr) return -1;
+    *cattr=(pthread_condattr_t*)attr->_[1]; return 0;
+}
+
+
 static void _pthread_group_reset(pthread_group_t * const g,const unsigned int target){
     g->target=target; g->done=g->reject=0; g->state=g->destroy=0; g->wait=1;
 }
 
-int pthread_group_init(pthread_group_t * const g,const unsigned int target,void (* const deallocator)(void*)){
+int pthread_group_init(pthread_group_t * const g,const unsigned int target,const pthread_groupattr_t * const attr,void(* const deallocator)(void*)){
     if(!g){
         errno=EINVAL; return -1;
+    }else{
+        pthread_condattr_t *cattr=NULL;
+        pthread_mutexattr_t *mattr=NULL;
+        pthread_groupattr_getmattr(attr,&mattr);
+        pthread_groupattr_getcattr(attr,&cattr);
+        if(pthread_mutex_init(g->mtx,mattr))
+            return -1;
+        if(pthread_cond_init(g->cond,cattr)){
+            pthread_mutex_destroy(g->mtx);
+            return -1;
+        }
+        g->deallocator=deallocator;
+        _pthread_group_reset(g,target);
     }
-    if(pthread_mutex_init(g->mtx, NULL))
-        return -1;
-    if(pthread_cond_init(g->cond, NULL)){
-        pthread_mutex_destroy(g->mtx);
-        return -1;
-    }
-    g->deallocator=deallocator;
-    _pthread_group_reset(g,target);
     return 0;
 }
 
