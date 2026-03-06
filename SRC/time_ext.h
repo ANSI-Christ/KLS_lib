@@ -278,9 +278,37 @@ static struct _global_timer_t{
     pthread_cond_t cond[1];
     struct _timer_struct_t *first, *last;
     struct timespec t;
-}_timer_global={{PTHREAD_MUTEX_INITIALIZER}};
+    pthread_t tid;
+    char init, joinable;
+}_timer_global;
 
 #define TIMER_GLOBAL_LINK(_name_) struct _global_timer_t * const _name_=&_timer_global
+
+extern int atexit(void(*)(void));
+
+static void _timer_atexit(void){
+    TIMER_GLOBAL_LINK(g);
+    if(g->joinable){
+        pthread_mutex_lock(g->mtx);
+        g->joinable=0; g->first=NULL;
+        pthread_cond_signal(g->cond);
+        pthread_mutex_unlock(g->mtx);
+        pthread_join(g->tid,NULL);
+    }
+}
+
+static void _timer_oncer(void){
+    TIMER_GLOBAL_LINK(g);
+    if( (g->init=!pthread_mutex_init(g->mtx,NULL)) )
+        atexit(_timer_atexit);
+}
+
+static int _timer_once_init(void){
+    static pthread_once_t once=PTHREAD_ONCE_INIT;
+    TIMER_GLOBAL_LINK(g);
+    return g->init || (!pthread_once(&once,_timer_oncer) && g->init);
+}
+
 
 static void _timer_link(_timer_cptr_t t){
     TIMER_GLOBAL_LINK(g);
@@ -335,10 +363,9 @@ static void *_timer_thread_worker(void *joinable){
     struct _timer_struct_t *timer;
 
     _timer_sched();
-    if(joinable && !pthread_detach(pthread_self()))
-        joinable=NULL;
 
     pthread_mutex_lock(g->mtx);
+    g->joinable=(joinable && pthread_detach(pthread_self()));
     while('0'){
         t=g->t;
         switch(pthread_cond_timedwait(g->cond,g->mtx,&t)){
@@ -346,7 +373,7 @@ static void *_timer_thread_worker(void *joinable){
             case 0: if(g->first) continue; break;
             case EINTR: continue;
         }
-        if(!(timer=g->first) && !joinable)
+        if(!(timer=g->first) && !g->joinable)
             break;
         timespec_current(&t);
         g->t.tv_sec=t.tv_sec+3600;
@@ -373,7 +400,6 @@ static int _timer_thread_init(void){
     TIMER_GLOBAL_LINK(g);
     if(!g->t.tv_sec){
         pthread_attr_t a[1];
-        pthread_t tid[1];
         do{
             struct sched_param pri; int pol;
             if(pthread_attr_init(a)) break;
@@ -384,8 +410,8 @@ static int _timer_thread_init(void){
                 pthread_attr_setschedpolicy(a,pol);
                 pthread_attr_setschedparam(a,&pri);
             }else pthread_attr_setinheritsched(a,PTHREAD_INHERIT_SCHED);
-            if( (!pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED) && !pthread_create(tid,a,_timer_thread_worker,NULL))
-            ||  (!pthread_attr_setdetachstate(a,PTHREAD_CREATE_JOINABLE) && !pthread_create(tid,a,_timer_thread_worker,(void*)1)) )
+            if( (!pthread_attr_setdetachstate(a,PTHREAD_CREATE_DETACHED) && !pthread_create(&g->tid,a,_timer_thread_worker,NULL))
+            ||  (!pthread_attr_setdetachstate(a,PTHREAD_CREATE_JOINABLE) && !pthread_create(&g->tid,a,_timer_thread_worker,(void*)1)) )
                 g->t.tv_sec=time(NULL)+3600;
         }while(0);
         pthread_attr_destroy(a);
@@ -394,16 +420,18 @@ static int _timer_thread_init(void){
 }
 
 int _timer_init(void * const timer,void * const f,const void * const _arg){
-    TIMER_GLOBAL_LINK(g);
-    _timer_cptr_t t=(_timer_cptr_t)timer;
-    const union{const void *_; void *p;} arg={_arg};
-    t->prev=t->next=(_timer_cptr_t)0;
-    t->f=f; t->arg=arg.p; t->run=0;
-    pthread_mutex_lock(g->mtx);
-    if( (t->init=_timer_thread_init()) )
-        _timer_link(t);
-    pthread_mutex_unlock(g->mtx);
-    return t->init-1;
+    if(_timer_once_init()){
+        TIMER_GLOBAL_LINK(g);
+        _timer_cptr_t t=(_timer_cptr_t)timer;
+        const union{const void *_; void *p;} arg={_arg};
+        t->prev=t->next=(_timer_cptr_t)0;
+        t->f=f; t->arg=arg.p; t->run=0;
+        pthread_mutex_lock(g->mtx);
+        if( (t->init=_timer_thread_init()) )
+            _timer_link(t);
+        pthread_mutex_unlock(g->mtx);
+        return t->init-1;
+    } return -1;
 }
 
 int _timer_start(void * const timer,const struct timespec *abstime,void * const f,const void * const _arg){
