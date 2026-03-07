@@ -84,13 +84,13 @@ typedef struct{
 }pthread_group_t;
 
 int pthread_group_init(pthread_group_t *g,unsigned int target,const pthread_groupattr_t *attr,void(*deallocator)(void*));
-int pthread_group_rejected(pthread_group_t *g);
+
+int pthread_group_destroy(pthread_group_t *g); /* return 1 if group destroys at this call, else 0 */
+int pthread_group_rejected(pthread_group_t *g); /* return 1 if group is rejected and it destroys at this call, -1 if rejected, else 0 */
+int pthread_group_reject(pthread_group_t *g,unsigned char by_task); /* return like pthread_group_destroy */
+int pthread_group_progress(pthread_group_t *g,unsigned int add_targets); /* return like pthread_group_destroy */
 int pthread_group_wait(pthread_group_t *g,unsigned int *done,unsigned int *target); /* 0 = ok, -1 = reject */
 int pthread_group_timedwait(pthread_group_t *g,unsigned int *done,unsigned int *target,struct timespec *abstime); /* 0 = ok, -1 = reject, EINVAL, ETIMEDOUT */
-
-void pthread_group_destroy(pthread_group_t *g);
-void pthread_group_reject(pthread_group_t *g,unsigned char by_task);
-void pthread_group_progress(pthread_group_t *g,unsigned int add_targets);
 
 
 
@@ -700,7 +700,7 @@ int pthread_groupattr_getcattr(const pthread_groupattr_t * const attr,pthread_co
 
 
 static void _pthread_group_reset(pthread_group_t * const g,const unsigned int target){
-    g->target=target; g->done=g->reject=0; g->state=g->destroy=0; g->wait=1;
+    g->target=target; g->done=g->reject=0; g->state=0; g->wait=1;
 }
 
 int pthread_group_init(pthread_group_t * const g,const unsigned int target,const pthread_groupattr_t * const attr,void(* const deallocator)(void*)){
@@ -717,8 +717,9 @@ int pthread_group_init(pthread_group_t * const g,const unsigned int target,const
             pthread_mutex_destroy(g->mtx);
             return -1;
         }
-        g->deallocator=deallocator;
         _pthread_group_reset(g,target);
+        g->deallocator=deallocator;
+        g->destroy=0;
     }
     return 0;
 }
@@ -729,7 +730,7 @@ static void _pthread_group_destroy(pthread_group_t * const g){
     if(g->deallocator) g->deallocator(g);
 }
 
-void pthread_group_destroy(pthread_group_t * const g){
+int pthread_group_destroy(pthread_group_t * const g){
     int del=0;
     pthread_mutex_lock(g->mtx);
     if(g->target){
@@ -742,9 +743,10 @@ void pthread_group_destroy(pthread_group_t * const g){
     }else del=1;
     pthread_mutex_unlock(g->mtx);
     if(del) _pthread_group_destroy(g);
+    return del;
 }
 
-void pthread_group_progress(pthread_group_t * const g,const unsigned int add_targets){
+int pthread_group_progress(pthread_group_t * const g,const unsigned int add_targets){
     int del=0;
     pthread_mutex_lock(g->mtx);
     g->done+=!!g->target;
@@ -758,6 +760,7 @@ void pthread_group_progress(pthread_group_t * const g,const unsigned int add_tar
     }
     pthread_mutex_unlock(g->mtx);
     if(del) _pthread_group_destroy(g);
+    return del;
 }
 
 int pthread_group_wait(pthread_group_t * const g,unsigned int * const done,unsigned int * const target){
@@ -795,7 +798,7 @@ _mark:
     return ret;
 }
 
-void pthread_group_reject(pthread_group_t * const g,const unsigned char by_task){
+int pthread_group_reject(pthread_group_t * const g,const unsigned char by_task){
     int del=0;
     pthread_mutex_lock(g->mtx);
     g->state=-1;
@@ -813,12 +816,11 @@ void pthread_group_reject(pthread_group_t * const g,const unsigned char by_task)
     }
     pthread_mutex_unlock(g->mtx);
     if(del) _pthread_group_destroy(g);
+    return del;
 }
 
 int pthread_group_rejected(pthread_group_t * const g){
-    const int ret=g->state;
-    if(ret) pthread_group_reject(g,1);
-    return ret;
+    return (g->state ? ((pthread_group_reject(g,1)<<1)-1) : 0);
 }
 
 
