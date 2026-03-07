@@ -360,7 +360,7 @@ int pthread_poolattr_setpattr(pthread_poolattr_t * const attr,pthread_attr_t * c
     attr->_[0]=pattr; return 0;
 }
 
-int pthread_poolattr_setmdattr(pthread_poolattr_t * const attr,pthread_mutexattr_t * const mattr){
+int pthread_poolattr_setmattr(pthread_poolattr_t * const attr,pthread_mutexattr_t * const mattr){
     if(!attr) return -1;
     attr->_[1]=mattr; return 0;
 }
@@ -678,7 +678,7 @@ void pthread_groupattr_destroy(pthread_groupattr_t * const attr){
     if(attr->_[1]) pthread_condattr_destroy((pthread_condattr_t*)attr->_[1]);
 }
 
-int pthread_groupattr_setmdattr(pthread_groupattr_t * const attr,pthread_mutexattr_t * const mattr){
+int pthread_groupattr_setmattr(pthread_groupattr_t * const attr,pthread_mutexattr_t * const mattr){
     if(!attr) return -1;
     attr->_[0]=mattr; return 0;
 }
