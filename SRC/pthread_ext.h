@@ -11,9 +11,6 @@
 #include "macro.h"
 
 
-
-const char *pthread_policy_name(int policy);
-
 unsigned int pthread_cores(void);
 
 
@@ -240,6 +237,10 @@ static void *_CtxCtrlRegf(CONTEXT *c){
 #define _CtxCtrlReg(_1_) _CtxCtrlRegf(&_1_)
 #endif
 
+#ifdef pthread_kill
+#undef pthread_kill
+#endif
+
 int _pthread_kill_win(pthread_t tid,const int sig){
     void *f;
     if(!sig) return pthread_kill(tid,0);
@@ -344,7 +345,7 @@ static unsigned int _pthread_cores(void){
 
 
 int pthread_poolattr_init(pthread_poolattr_t * const attr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     attr->_[0]=attr->_[1]=attr->_[2]=NULL; return 0;
 }
 
@@ -356,32 +357,32 @@ void pthread_poolattr_destroy(pthread_poolattr_t * const attr){
 }
 
 int pthread_poolattr_setpattr(pthread_poolattr_t * const attr,pthread_attr_t * const pattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     attr->_[0]=pattr; return 0;
 }
 
 int pthread_poolattr_setmattr(pthread_poolattr_t * const attr,pthread_mutexattr_t * const mattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     attr->_[1]=mattr; return 0;
 }
 
 int pthread_poolattr_setcattr(pthread_poolattr_t * const attr,pthread_condattr_t * const cattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     attr->_[2]=cattr; return 0;
 }
 
 int pthread_poolattr_getpattr(const pthread_poolattr_t * const attr,pthread_attr_t ** const pattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     *pattr=(pthread_attr_t*)attr->_[0]; return 0;
 }
 
 int pthread_poolattr_getmattr(const pthread_poolattr_t * const attr,pthread_mutexattr_t ** const mattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     *mattr=(pthread_mutexattr_t*)attr->_[1]; return 0;
 }
 
 int pthread_poolattr_getcattr(const pthread_poolattr_t * const attr,pthread_condattr_t ** const cattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     *cattr=(pthread_condattr_t*)attr->_[2]; return 0;
 }
 
@@ -407,12 +408,12 @@ struct _pthread_pool_t{
     _pthread_pool_queue_t queue[1];
 };
 
-#define _pthread_pool_tids(_p_) ((pthread_t*)(p->queue+1+p->max))
-
 typedef struct{
     pthread_pool_t *p;
     unsigned int i;
 }_pthread_pool_initializer_t;
+
+#define _pthread_pool_tids(_p_) ((pthread_t*)(_p_->queue+1+_p_->max))
 
 static void _pthread_pool_push(pthread_pool_t * const p,_pthread_pool_task_t * const t,unsigned char prio){
     if(prio>p->peak) p->peak=prio;
@@ -529,7 +530,8 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     int detached=PTHREAD_CREATE_JOINABLE;
 
     pthread_poolattr_getpattr(attr,&pattr);
-    if(pattr){const int e=pthread_attr_getdetachstate(pattr,&detached); if(e){errno=e; return NULL;}}
+    if(pattr && pthread_attr_getdetachstate(pattr,&detached))
+        return NULL;
 
     pthread_poolattr_getmattr(attr,&mattr);
     pthread_poolattr_getcattr(attr,&cattr);
@@ -661,14 +663,13 @@ unsigned int pthread_pool_count(const pthread_pool_t * const p){
 }
 
 const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
-    return p ? _pthread_pool_tids(p) : NULL;
+    return _pthread_pool_tids(p);
 }
 
 #undef _pthread_pool_tids
 
-
 int pthread_groupattr_init(pthread_groupattr_t * const attr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     attr->_[0]=attr->_[1]=NULL; return 0;
 }
 
@@ -679,22 +680,22 @@ void pthread_groupattr_destroy(pthread_groupattr_t * const attr){
 }
 
 int pthread_groupattr_setmattr(pthread_groupattr_t * const attr,pthread_mutexattr_t * const mattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     attr->_[0]=mattr; return 0;
 }
 
 int pthread_groupattr_setcattr(pthread_groupattr_t * const attr,pthread_condattr_t * const cattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     attr->_[1]=cattr; return 0;
 }
 
 int pthread_groupattr_getmattr(const pthread_groupattr_t * const attr,pthread_mutexattr_t ** const mattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     *mattr=(pthread_mutexattr_t*)attr->_[0]; return 0;
 }
 
 int pthread_groupattr_getcattr(const pthread_groupattr_t * const attr,pthread_condattr_t ** const cattr){
-    if(!attr) return -1;
+    if(!attr) return EINVAL;
     *cattr=(pthread_condattr_t*)attr->_[1]; return 0;
 }
 
@@ -704,24 +705,23 @@ static void _pthread_group_reset(pthread_group_t * const g,const unsigned int ta
 }
 
 int pthread_group_init(pthread_group_t * const g,const unsigned int target,const pthread_groupattr_t * const attr,void(* const deallocator)(void*)){
-    if(!g){
-        errno=EINVAL; return -1;
-    }else{
+    if(g){
+        int err;
         pthread_condattr_t *cattr=NULL;
         pthread_mutexattr_t *mattr=NULL;
         pthread_groupattr_getmattr(attr,&mattr);
         pthread_groupattr_getcattr(attr,&cattr);
-        if(pthread_mutex_init(g->mtx,mattr))
-            return -1;
-        if(pthread_cond_init(g->cond,cattr)){
+        if( (err=pthread_mutex_init(g->mtx,mattr)) )
+            return err;
+        if( (err=pthread_cond_init(g->cond,cattr)) ){
             pthread_mutex_destroy(g->mtx);
-            return -1;
+            return err;
         }
         _pthread_group_reset(g,target);
         g->deallocator=deallocator;
         g->destroy=0;
-    }
-    return 0;
+        return 0;
+    } return EINVAL;
 }
 
 static void _pthread_group_destroy(pthread_group_t * const g){
@@ -830,39 +830,12 @@ unsigned int pthread_cores(void){
     return cores;
 }
 
-const char *pthread_policy_name(int policy){
-    switch(policy){
-        #ifdef SCHED_RR
-            case SCHED_RR: return "SCHED_RR";
-        #endif
-        #ifdef SCHED_FIFO
-            case SCHED_FIFO: return "SCHED_FIFO";
-        #endif
-        #ifdef SCHED_IDLE
-            case SCHED_IDLE: return "SCHED_IDLE";
-        #endif
-        #ifdef SCHED_OTHER
-            case SCHED_OTHER: return "SCHED_OTHER";
-        #endif
-        #ifdef SCHED_BATCH
-            case SCHED_BATCH: return "SCHED_BATCH";
-        #endif
-        #ifdef SCHED_DEADLINE
-            case SCHED_DEADLINE: return "SCHED_DEADLINE";
-        #endif
-        #ifdef SCHED_SPORADIC
-            case SCHED_SPORADIC: return "SCHED_SPORADIC";
-        #endif
-    }
-    return "unknown";
-}
-
 #endif /*PTHREAD_EXT_IMPL*/
 
 
 #ifdef _WIN32
 
-#ifndef pthread_kill
+#ifdef pthread_kill
 #undef pthread_kill
 #endif
 #define pthread_kill _pthread_kill_win

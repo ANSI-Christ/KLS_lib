@@ -463,7 +463,7 @@ int _timer_start(void * const timer,const struct timespec *abstime,void * const 
         }
         pthread_mutex_unlock(g->mtx);
         return 0;
-    } return -1;
+    } return EINVAL;
 }
 
 void timer_stop(struct timer * const timer){
