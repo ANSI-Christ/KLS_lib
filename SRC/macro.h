@@ -23,6 +23,7 @@
 #define M_TYPEOF __typeof__
 #define M_ALIGNOF(_type_) _M_ALIGNOF(_type_)
 #define M_OFFSETOF(_type_,_field_) _M_OFFSETOF(_type_,_field_)
+#define M_PADDING(_type1_,_type2_) _M_PADDING(_type1_,_type2_)
 #define M_ABSTRACT(_type_) ((M_TYPEOF(_type_)*)0)
 #define M_ASSERT(_condition_,_reference_,...) struct M_JOIN(_reference_,M_LINE()){char _reference_[(_condition_)?1:-1];}
 #define M_EXTERN_C _M_EXTERN_C
@@ -62,7 +63,7 @@
 #else
 #define _M_OFFSETOF(_type_,_field_) (((M_TYPEOF(sizeof(int)))(&M_ABSTRACT(_type_)->_field_)))
 #endif
-
+#define _M_PADDING(_1_,_2_) ((M_ALIGNOF(_2_) - (sizeof(_1_) % M_ALIGNOF(_2_))) % M_ALIGNOF(_2_))
 #define _M_ENDIAN (\
     sizeof(long)==sizeof(char) ? ( ((unsigned char)-1)>255 ? M_ENDIAN_UND : M_ENDIAN_BIG) : (\
         ((const union{long l; struct{char x;}s;}){1}).s.x ? M_ENDIAN_LTL : (\
@@ -170,39 +171,6 @@
 #if ( M_CSTD < 1999 )
     #undef M_FUNCTION
     #define M_FUNCTION "?()"
-/*    #ifndef inline
-        #define inline
-    #endif
-    #ifndef restrict
-        #define restrict
-    #endif
-    #ifndef true
-        #define true  1
-    #endif
-    #ifndef false
-        #define false 0
-    #endif
-    #ifndef _Bool
-        #define _Bool unsigned char
-    #endif*/
-#endif
-/*
-#if ( M_CSTD < 2011 )
-    #ifndef _Noreturn
-        #define _Noreturn
-    #endif
 #endif
 
-#if ( M_CSTD < 2023 )
-    #ifndef typeof
-        #define typeof __typeof__
-    #endif
-    #ifndef noreturn
-        #define noreturn _Noreturn
-    #endif
-    #ifndef bool
-        #define bool _Bool
-    #endif
-#endif
-*/
 #endif /* MACRO_H */
