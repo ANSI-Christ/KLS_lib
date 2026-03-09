@@ -46,8 +46,11 @@ void pthread_pool_unpending(pthread_pool_t *pool);
 void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
-void *pthread_pool_task(pthread_pool_t *pool,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
-void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
+/* Returns task pointer (check with if(pthread_task(...)){ success }) */
+/* Task function should return 0 to free task resources, or non-zero to hold it. (now value is ignored and always free resources) */
+void *pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
+void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
+/* Public API may be extended or customized by user for task-specific waits via futex-like ops. */
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
 
@@ -390,7 +393,7 @@ int pthread_poolattr_getcattr(const pthread_poolattr_t * const attr,pthread_cond
 
 typedef struct __pthread_pool_task_t{
     struct __pthread_pool_task_t *next;
-    void (*f)(void *p,void *a,unsigned int i);
+    int(*f)(void *p,void *a,unsigned int i);
 }_pthread_pool_task_t;
 
 typedef struct{
