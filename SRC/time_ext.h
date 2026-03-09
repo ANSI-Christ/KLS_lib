@@ -289,13 +289,12 @@ typedef struct _timer_struct_t{
 static struct _global_timer_t{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[1];
-    pthread_attr_t at[1];
-    pthread_mutexattr_t *am;
-    pthread_condattr_t *ac;
     struct _timer_struct_t *first, *last;
     struct timespec t;
+    pthread_mutexattr_t *am;
+    pthread_condattr_t *ac;
     pthread_t tid;
-    char init, joinable;
+    unsigned char init, joinable;
 }_timer_global;
 
 #define TIMER_GLOBAL_LINK(_name_) struct _global_timer_t * const _name_=&_timer_global
@@ -306,7 +305,6 @@ extern int atexit(void(*)(void));
 
 static void _timer_atexit(void){
     TIMER_GLOBAL_LINK(g);
-    pthread_attr_destroy(g->at);
     if(g->am) pthread_mutexattr_destroy(g->am);
     if(g->ac) pthread_condattr_destroy(g->ac);
     if(!g->joinable) return;
@@ -320,24 +318,7 @@ static void _timer_atexit(void){
 
 static void _timer_oncer(void){
     TIMER_GLOBAL_LINK(g);
-    if(pthread_attr_init(g->at)) return;
-    #ifdef _POSIX_THREAD_ATTR_STACKSIZE
-    pthread_attr_setstacksize(g->at,20<<10);
-    #else
-    do{ typedef struct{char _;} TIMER_PTHREAD_NOT_SUPPORT_STACKSIZE; }while(0);
-    #endif
-    #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
-    if(!pthread_attr_setinheritsched(g->at,PTHREAD_EXPLICIT_SCHED)){
-        int policy; struct sched_param sched;
-        pthread_getschedparam(pthread_self(),&policy,&sched);
-        sched.sched_priority=95;
-        pthread_attr_setschedpolicy(g->at,policy);
-        pthread_attr_setschedparam(g->at,&sched);
-    }
-    #else
-    do{ typedef struct{char _;} TIMER_PTHREAD_NOT_SUPPORT_SCHEDULING; }while(0);
-    #endif
-    if(timer_configurator && timer_configurator(g->at,(void**)&g->am,(void**)&g->ac)) return _timer_atexit();
+    if(timer_configurator && timer_configurator(NULL,(void**)&g->am,(void**)&g->ac)) return _timer_atexit();
     if(pthread_mutex_init(g->mtx,g->am)) return _timer_atexit();
     atexit(_timer_atexit);
     g->init=1;
@@ -427,13 +408,37 @@ static void *_timer_thread_worker(void *joinable){
 
 static int _timer_thread_init(void){
     TIMER_GLOBAL_LINK(g);
+    pthread_attr_t at[1];
     while(!g->t.tv_sec){
-        if(pthread_cond_init(g->cond,g->ac)) return 0;
-        if( (!pthread_attr_setdetachstate(g->at,PTHREAD_CREATE_DETACHED) && !pthread_create(&g->tid,g->at,_timer_thread_worker,NULL))
-        ||  (!pthread_attr_setdetachstate(g->at,PTHREAD_CREATE_JOINABLE) && !pthread_create(&g->tid,g->at,_timer_thread_worker,(void*)1)) )
+        if(pthread_attr_init(at)) return 0;
+        if(pthread_cond_init(g->cond,g->ac)){
+            pthread_attr_destroy(at);
+            return 0;
+        }
+        #ifdef _POSIX_THREAD_ATTR_STACKSIZE
+        pthread_attr_setstacksize(at,20<<10);
+        #else
+        do{ typedef struct{char _;} TIMER_PTHREAD_NOT_SUPPORT_STACKSIZE; }while(0);
+        #endif
+        #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
+        if(!pthread_attr_setinheritsched(at,PTHREAD_EXPLICIT_SCHED)){
+            int policy; struct sched_param sched;
+            pthread_getschedparam(pthread_self(),&policy,&sched);
+            sched.sched_priority=95;
+            pthread_attr_setschedpolicy(at,policy);
+            pthread_attr_setschedparam(at,&sched);
+        }
+        #else
+        do{ typedef struct{char _;} TIMER_PTHREAD_NOT_SUPPORT_SCHEDULING; }while(0);
+        #endif
+        if(timer_configurator && timer_configurator(at,NULL,NULL))
+            break;
+        if( (!pthread_attr_setdetachstate(at,PTHREAD_CREATE_DETACHED) && !pthread_create(&g->tid,at,_timer_thread_worker,NULL))
+        ||  (!pthread_attr_setdetachstate(at,PTHREAD_CREATE_JOINABLE) && !pthread_create(&g->tid,at,_timer_thread_worker,(void*)1)) )
             g->t.tv_sec=time(NULL)+3600;
     }
     if(!g->t.tv_sec) pthread_cond_destroy(g->cond);
+    pthread_attr_destroy(at);
     return g->t.tv_sec>0;
 }
 
