@@ -46,11 +46,23 @@ void pthread_pool_unpending(pthread_pool_t *pool);
 void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
+
+enum{
+/*  PTHREAD_TASK_SIGNALISE = -1,
+#define PTHREAD_TASK_SIGNALISE PTHREAD_TASK_SIGNALISE */
+
+    PTHREAD_TASK_AUTORELEASE = 0
+#define PTHREAD_TASK_AUTORELEASE PTHREAD_TASK_AUTORELEASE
+
+/*, PTHREAD_TASK_SCHEDULE = [1 ... ]
+#define PTHREAD_TASK_SCHEDULE PTHREAD_TASK_SCHEDULE */
+};
+
 /* Returns task pointer (check with if(pthread_task(...)){ success }) */
-/* Task function should return 0 to free task resources, or non-zero to hold it. (now value is ignored and always free resources) */
+/* Task function should return PTHREAD_TASK_AUTORELEASE to free task resources, or else to hold it. (now value is ignored and always free resources) */
 void *pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
 void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
-/* Public API may be extended or customized by user for task-specific waits via futex-like ops. */
+/* Public API may be extended or customized by user for task-specific waits via futex-like ops or stackless coroutines. */
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
 
@@ -122,8 +134,8 @@ void pthread_channel_close(pthread_channel_t *channel);
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
-void _pthread_pool_task_run(pthread_pool_t *,void *,unsigned char);
-void *_pthread_pool_task_alloc(const pthread_pool_t *p,unsigned int);
+void _pthread_pool_task_queue(pthread_pool_t *p,void *task,unsigned char prio);
+void *_pthread_pool_task_alloc(const pthread_pool_t *p,unsigned int size);
 extern int nanosleep(const struct timespec*,struct timespec*);
 extern int pthread_kill(pthread_t,int);
 extern int pthread_detach(pthread_t);
