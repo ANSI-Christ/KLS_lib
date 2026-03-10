@@ -46,9 +46,9 @@ void pthread_pool_unpending(pthread_pool_t *pool);
 void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
-
-void *pthread_pool_task(pthread_pool_t *pool,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* returns NULL on failure */
-void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* returns NULL on failure */
+/* task shall return 0 for release its resources, or else to hold it */
+void *pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* returns NULL on failure */
+void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* returns NULL on failure */
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
 
@@ -391,7 +391,7 @@ int pthread_poolattr_getcattr(const pthread_poolattr_t * const attr,pthread_cond
 
 typedef struct __pthread_pool_task_t{
     struct __pthread_pool_task_t *next;
-    void(*f)(void *p,void *a,unsigned int i);
+    int(*f)(void *p,void *a,unsigned int i);
 }_pthread_pool_task_t;
 
 typedef struct{
@@ -495,9 +495,8 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
             i->next=NULL;
             do{
                 i=t->next;
-                t->f(_p,t+1,index);
-                del(t); t=i;
-            }while(t);
+                if(!t->f(_p,t+1,index)) del(t);
+            }while( (t=i) );
             pthread_mutex_lock(p->mtx);
         }else{
             if(busy) {busy=0; --p->busy;}
@@ -563,7 +562,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             p->ctrl=(detached==PTHREAD_CREATE_DETACHED)*4;
             p->peak=0;
             p->max=prio;
-            p->banch=3;
+            p->banch=0;
             memset(p->queue,0,size);
 
             {pthread_t * const tid=_pthread_pool_tids(p);
@@ -654,8 +653,7 @@ void _pthread_pool_task_queue(pthread_pool_t * const p,void * const t,unsigned c
     pthread_mutex_unlock(p->mtx);
 }
 
-void pthread_pool_banch(pthread_pool_t * const p,unsigned char count){
-    if(count) --count;
+void pthread_pool_banch(pthread_pool_t * const p,const unsigned char count){
     pthread_mutex_lock(p->mtx);
     p->banch=count;
     pthread_mutex_unlock(p->mtx);
