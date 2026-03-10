@@ -39,30 +39,14 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,unsigned char prio,con
 
 int pthread_pool_detach(pthread_pool_t *pool,int forced);
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
+int pthread_pool_task(pthread_pool_t *pool,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
+int pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,void(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
 
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
 void pthread_pool_unpending(pthread_pool_t *pool);
 void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
-
-
-enum{
-/*  PTHREAD_TASK_SIGNALISE = -1,
-#define PTHREAD_TASK_SIGNALISE PTHREAD_TASK_SIGNALISE */
-
-    PTHREAD_TASK_AUTORELEASE = 0
-#define PTHREAD_TASK_AUTORELEASE PTHREAD_TASK_AUTORELEASE
-
-/*, PTHREAD_TASK_SCHEDULE = [1 ... ]
-#define PTHREAD_TASK_SCHEDULE PTHREAD_TASK_SCHEDULE */
-};
-
-/* Returns task pointer (check with if(pthread_task(...)){ success }) */
-/* Task function should return PTHREAD_TASK_AUTORELEASE to free task resources, or else to hold it. (now value is ignored and always free resources) */
-void *pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
-void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...);
-/* Public API may be extended or customized by user for task-specific waits via futex-like ops or stackless coroutines. */
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
 
@@ -130,7 +114,7 @@ void pthread_channel_close(pthread_channel_t *channel);
         struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
         M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(struct _pthread_pool_task_args,size) == M_OFFSETOF(struct _pthread_pool_task_size,size) , pthread_pool_task_bad_align_of_arguments);\
         _t_->n=NULL; _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) _pthread_pool_task_queue(_p_,_t_,(_2_));\
-    } _t_;\
+    } (_t_ ? 0 : -1);\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
@@ -405,7 +389,7 @@ int pthread_poolattr_getcattr(const pthread_poolattr_t * const attr,pthread_cond
 
 typedef struct __pthread_pool_task_t{
     struct __pthread_pool_task_t *next;
-    int(*f)(void *p,void *a,unsigned int i);
+    void(*f)(void *p,void *a,unsigned int i);
 }_pthread_pool_task_t;
 
 typedef struct{
