@@ -115,7 +115,7 @@ void pthread_channel_close(pthread_channel_t *channel);
     if(_t_){\
         struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
         M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(struct _pthread_pool_task_args,size) == M_OFFSETOF(struct _pthread_pool_task_size,size) , pthread_pool_task_bad_align_of_arguments);\
-        _t_->n=NULL; _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) _pthread_pool_task_queue(_p_,_t_,(_2_));\
+        _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) _pthread_pool_task_queue(_p_,_t_,(_2_));\
     } _t_;\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
@@ -647,6 +647,7 @@ void *_pthread_pool_task_alloc(const pthread_pool_t * const p,const unsigned int
 
 void _pthread_pool_task_queue(pthread_pool_t * const p,void * const t,unsigned char prio){
     if(prio>p->max) prio=p->max;
+    ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
     _pthread_pool_push(p,(_pthread_pool_task_t*)t,prio);
     pthread_cond_signal(p->cond);
