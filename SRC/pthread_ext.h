@@ -15,6 +15,7 @@ unsigned int pthread_cores(void);
 
 
 
+
 typedef struct{void *_[3];}pthread_poolattr_t;
 
 int pthread_poolattr_init(pthread_poolattr_t *attr);
@@ -49,11 +50,15 @@ void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 /* task shall return 0 for release its resources, or else to hold it */
 void *pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* returns NULL on failure */
 void *pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* returns NULL on failure */
+/* raw API begin */
+void pthread_pool_raw_task_queue(pthread_pool_t *pool,void *raw_task,unsigned char prio);
+void *pthread_pool_raw_task_alloc(const pthread_pool_t *pool,unsigned int size);
+void *pthread_pool_raw_task_from_arg(void *arg);
+/* raw API end */
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
 
 const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
-
 
 
 
@@ -111,17 +116,16 @@ void pthread_channel_close(pthread_channel_t *channel);
     void * const _f_=(_3_);\
     pthread_pool_t * const _p_=(_1_);\
     M_FOREACH(_PTHREAD_ARGUM,-,__VA_ARGS__)\
-    struct _pthread_pool_task_size{void *n,*f; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? _pthread_pool_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
+    struct _pthread_pool_task_size{void *n,*f; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? pthread_pool_raw_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
     if(_t_){\
         struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
         M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(struct _pthread_pool_task_args,size) == M_OFFSETOF(struct _pthread_pool_task_size,size) , pthread_pool_task_bad_align_of_arguments);\
-        _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) _pthread_pool_task_queue(_p_,_t_,(_2_));\
+        _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) pthread_pool_raw_task_queue(_p_,_t_,(_2_));\
     } _t_;\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
-void _pthread_pool_task_queue(pthread_pool_t *p,void *task,unsigned char prio);
-void *_pthread_pool_task_alloc(const pthread_pool_t *p,unsigned int size);
+#define pthread_pool_raw_task_from_arg(_1_) (((void**)(_1_))-2)
 extern int nanosleep(const struct timespec*,struct timespec*);
 extern int pthread_kill(pthread_t,int);
 extern int pthread_detach(pthread_t);
@@ -640,11 +644,11 @@ _mark:
     #undef _CASE_ERR
 }
 
-void *_pthread_pool_task_alloc(const pthread_pool_t * const p,const unsigned int size){
+void *pthread_pool_raw_task_alloc(const pthread_pool_t * const p,const unsigned int size){
     return (p->ctrl & 3) ? NULL : p->allocator(size);
 }
 
-void _pthread_pool_task_queue(pthread_pool_t * const p,void * const t,unsigned char prio){
+void pthread_pool_raw_task_queue(pthread_pool_t * const p,void * const t,unsigned char prio){
     if(prio>p->max) prio=p->max;
     ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
