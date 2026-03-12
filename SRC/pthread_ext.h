@@ -117,10 +117,11 @@ void pthread_channel_close(pthread_channel_t *channel);
     pthread_pool_t * const _p_=(_1_);\
     M_FOREACH(_PTHREAD_ARGUM,-,__VA_ARGS__)\
     struct _pthread_pool_task_size{void *n,*f; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? pthread_pool_raw_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
+    const unsigned char _q_=(_2_);\
     if(_t_){\
         struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
         M_ASSERT( sizeof(void*[2]) + M_OFFSETOF(struct _pthread_pool_task_args,size) == M_OFFSETOF(struct _pthread_pool_task_size,size) , pthread_pool_task_bad_align_of_arguments);\
-        _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) pthread_pool_raw_task_queue(_p_,_t_,(_2_));\
+        _t_->f=_f_; M_FOREACH(_PTHREAD_SETUP,_t_,__VA_ARGS__) pthread_pool_raw_task_queue(_p_,_t_,_q_);\
     } _t_;\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
