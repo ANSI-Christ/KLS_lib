@@ -547,7 +547,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
 
     if(count || (count=pthread_cores())){
         const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count + _pthread_pool_pad(1+(unsigned int)prio);
-        pthread_pool_t * const p=(pthread_pool_t*)allocator(M_OFFSETOF(*p,queue) + size);
+        pthread_pool_t * const p=(pthread_pool_t*)allocator(M_OFFSETOF(struct _pthread_pool_t,queue) + size);
         if(p){
             if(pthread_mutex_init(p->mtx,mattr)){
                 deallocator(p); return NULL;
