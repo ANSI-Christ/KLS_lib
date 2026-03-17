@@ -106,7 +106,7 @@ const char * const _TryCatchMsg[]={
     "\nterminate called after throwing without an active excepion at [%s]\n\n"
 };
 static pthread_key_t _TryCatchKey;
-static unsigned char _TryCatchInit;
+static unsigned char _TryCatchInit=0;
 
 static void _TryCatchDeleter(struct _TRYCATCH *s){
     if(s){
