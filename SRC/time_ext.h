@@ -125,6 +125,8 @@ extern int _timer_start(void*,const struct timespec *,void*,const void*);
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 extern int pthread_detach(pthread_t);
 extern int pthread_getschedparam(pthread_t,int*,struct sched_param*);
@@ -294,10 +296,10 @@ static struct _global_timer_t{
     pthread_mutexattr_t *am;
     pthread_condattr_t *ac;
     pthread_t tid;
-    unsigned char init, joinable;
-}_timer_global;
+    unsigned char joinable;
+} *_timer_global=NULL;
 
-#define TIMER_GLOBAL_LINK(_name_) struct _global_timer_t * const _name_=&_timer_global
+#define TIMER_GLOBAL_LINK(_name_) struct _global_timer_t * const _name_=_timer_global
 
 int (*timer_configurator)(void *pthread_attr_t,void **pthread_mutexattr_t,void **pthread_condattr_t)=NULL;
 
@@ -307,27 +309,28 @@ static void _timer_atexit(void){
     TIMER_GLOBAL_LINK(g);
     if(g->am) pthread_mutexattr_destroy(g->am);
     if(g->ac) pthread_condattr_destroy(g->ac);
-    if(!g->joinable) return;
-
-    pthread_mutex_lock(g->mtx);
-    g->joinable=0; g->first=NULL;
-    pthread_cond_signal(g->cond);
-    pthread_mutex_unlock(g->mtx);
-    pthread_join(g->tid,NULL);
+    if(g->joinable){
+        pthread_mutex_lock(g->mtx);
+        g->joinable=0; g->first=NULL;
+        pthread_cond_signal(g->cond);
+        pthread_mutex_unlock(g->mtx);
+        pthread_join(g->tid,NULL);
+    } free(g);
 }
 
 static void _timer_oncer(void){
-    TIMER_GLOBAL_LINK(g);
-    if(timer_configurator && timer_configurator(NULL,(void**)&g->am,(void**)&g->ac)) return _timer_atexit();
-    if(pthread_mutex_init(g->mtx,g->am)) return _timer_atexit();
-    atexit(_timer_atexit);
-    g->init=1;
+    if( (_timer_global=(struct _global_timer_t*)malloc(sizeof(struct _global_timer_t))) ){
+        TIMER_GLOBAL_LINK(g);
+        memset(g,0,sizeof(*g));
+        if(timer_configurator && timer_configurator(NULL,(void**)&g->am,(void**)&g->ac)) return _timer_atexit();
+        if(pthread_mutex_init(g->mtx,g->am)) return _timer_atexit();
+        atexit(_timer_atexit);
+    }
 }
 
 static int _timer_once_init(void){
     static pthread_once_t once=PTHREAD_ONCE_INIT;
-    TIMER_GLOBAL_LINK(g);
-    return g->init || (!pthread_once(&once,_timer_oncer) && g->init);
+    return _timer_global || (!pthread_once(&once,_timer_oncer) && _timer_global);
 }
 
 
@@ -409,12 +412,10 @@ static void *_timer_thread_worker(void *joinable){
 static int _timer_thread_init(void){
     TIMER_GLOBAL_LINK(g);
     pthread_attr_t at[1];
+    int flag=0;
     while(!g->t.tv_sec){
-        if(pthread_attr_init(at)) return 0;
-        if(pthread_cond_init(g->cond,g->ac)){
-            pthread_attr_destroy(at);
-            return 0;
-        }
+        if(pthread_attr_init(at)){break;} flag|=1;
+        if(pthread_cond_init(g->cond,g->ac)){break;} flag|=2;
         #ifdef _POSIX_THREAD_ATTR_STACKSIZE
         pthread_attr_setstacksize(at,20<<10);
         #else
@@ -437,8 +438,8 @@ static int _timer_thread_init(void){
         ||  (!pthread_attr_setdetachstate(at,PTHREAD_CREATE_JOINABLE) && !pthread_create(&g->tid,at,_timer_thread_worker,(void*)1)) )
             g->t.tv_sec=time(NULL)+3600;
     }
-    if(!g->t.tv_sec) pthread_cond_destroy(g->cond);
-    pthread_attr_destroy(at);
+    if(flag & 1) pthread_attr_destroy(at);
+    if(flag & 2) pthread_cond_destroy(g->cond);
     return g->t.tv_sec>0;
 }
 
