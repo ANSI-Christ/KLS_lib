@@ -408,7 +408,6 @@ const short NET_WR=POLLOUT;
 
 
 typedef union{
-    int _;
     struct sockaddr sa;
     struct sockaddr_in a4;
     struct sockaddr_in6 a6;
