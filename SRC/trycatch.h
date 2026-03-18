@@ -129,7 +129,8 @@ static void _TryCatchOnce(void){
 struct _TRYCATCH *_TryCatch(const char alloc){
     static pthread_once_t once=PTHREAD_ONCE_INIT;
     struct _TRYCATCH *s=NULL;
-    if((_TryCatchInit || (!pthread_once(&once,_TryCatchOnce) && _TryCatchInit)) && !(s=(struct _TRYCATCH*)pthread_getspecific(_TryCatchKey)) && alloc && (s=(struct _TRYCATCH*)malloc(sizeof(*s))) ){
+    pthread_once(&once,_TryCatchOnce);
+    if( _TryCatchInit && !(s=(struct _TRYCATCH*)pthread_getspecific(_TryCatchKey)) && alloc && (s=(struct _TRYCATCH*)malloc(sizeof(*s))) ){
         if(pthread_setspecific(_TryCatchKey,s)){
             free(s); s=NULL;
         }else{

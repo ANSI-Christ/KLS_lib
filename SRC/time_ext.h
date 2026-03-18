@@ -330,7 +330,8 @@ static void _timer_oncer(void){
 
 static int _timer_once_init(void){
     static pthread_once_t once=PTHREAD_ONCE_INIT;
-    return _timer_global || (!pthread_once(&once,_timer_oncer) && _timer_global);
+    pthread_once(&once,_timer_oncer);
+    return _timer_global!=NULL;
 }
 
 
