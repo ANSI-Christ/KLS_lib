@@ -315,7 +315,9 @@ static void _timer_atexit(void){
         pthread_cond_signal(g->cond);
         pthread_mutex_unlock(g->mtx);
         pthread_join(g->tid,NULL);
-    } free(g);
+    }
+    free(g);
+    _timer_global=NULL;
 }
 
 static void _timer_oncer(void){
