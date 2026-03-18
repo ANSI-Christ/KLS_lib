@@ -391,8 +391,8 @@ static int poll(struct pollfd * const p,const int cnt,const int timeout){
 #ifndef AF_INET6
     #define AF_INET6 -1
     struct sockaddr_in6{
-        __typeof__( ((struct sockaddr_in*)0)->sin_family ) sin6_family;
-        unsigned short sin6_port;
+        sa_family_t sin6_family;
+        in_port_t sin6_port;
         int sin6_addr[4];
     }
 #endif
@@ -433,10 +433,12 @@ static int _NetAddressFromNet(const _NetAddressStorage * const in,const unsigned
 static unsigned int _NetAddressToNet(const NetAddress * const in,_NetAddress * const out){
     switch(in->ipv){
         case 4:
+            memset(&out->a4,0,sizeof(out->a4));
             memcpy(&out->a4.sin_addr,in,sizeof(out->a4.sin_addr));
             out->a4.sin_family=AF_INET; out->a4.sin_port=in->port;
             return sizeof(out->a4);
         case 6:
+            memset(&out->a6,0,sizeof(out->a6));
             memcpy(&out->a6.sin6_addr,in,sizeof(out->a6.sin6_addr));
             out->a6.sin6_family=AF_INET6; out->a6.sin6_port=in->port;
             return sizeof(out->a6);
@@ -445,8 +447,8 @@ static unsigned int _NetAddressToNet(const NetAddress * const in,_NetAddress * c
 }
 
 static char _NetAddressFind(const char * const host,NetAddress * const out,const int flags){
-    const struct addrinfo in={.ai_flags=flags, .ai_family=AF_UNSPEC};
-    struct addrinfo *i, *info=NULL;
+    struct addrinfo in,*i,*info=NULL;
+    memset(&in,0,sizeof(in)); in.ai_flags=flags; in.ai_family=AF_UNSPEC;
     if(getaddrinfo(host,NULL,&in,&info)) return 0;
     for(i=info;i && _NetAddressFromNet((_NetAddressStorage*)i->ai_addr,i->ai_addrlen,out);i=i->ai_next);
     freeaddrinfo(info);
@@ -523,7 +525,7 @@ static NetSocket _NetSocketAccept(NetSocket in,NetAddress * const a){
 }
 
 static int _NetSocketListen(NetSocket s,const NetAddress * const a,const unsigned int peers,const unsigned char protocol){
-    _NetAddress _a={0};
+    _NetAddress _a;
     const unsigned int l=_NetAddressToNet(a,&_a);
     if(l){
         if(bind(s,&_a.sa,l)==SOCKET_ERROR) return _NET_LAST_ERROR();
@@ -533,7 +535,7 @@ static int _NetSocketListen(NetSocket s,const NetAddress * const a,const unsigne
 }
 
 static int _NetSocketConnect(NetSocket s,const NetAddress * const a){
-    _NetAddress _a={0};
+    _NetAddress _a;
     const unsigned int l=_NetAddressToNet(a,&_a);
     if(l){
         if(connect(s,&_a.sa,l)==SOCKET_ERROR) return _NET_LAST_ERROR();
@@ -992,7 +994,7 @@ int NetUnitWrite(NetUnit * const unit,const void * const data,const unsigned int
     NetNode * const n=(NetNode*)unit;
     ssize_t bytes;
     if(address){
-        _NetAddress _a={0};
+        _NetAddress _a;
         const unsigned int l=_NetAddressToNet(address,&_a);
         if(!l) return -2;
         bytes=sendto(n->sock,data,size,MSG_NOSIGNAL,&_a.sa,l);
