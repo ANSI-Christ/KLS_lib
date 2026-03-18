@@ -342,6 +342,12 @@ static int _NetSocketError(NetSocket s){
     #define MSG_NOSIGNAL 0
 #endif
 
+#ifdef SO_NOSIGPIPE
+    #define _NET_SOCKOPT_NOSIGPIPE(_1_) do{const int _v_=1; setsockopt(_1_,SOL_SOCKET,SO_NOSIGPIPE,&_v_,sizeof(_v_));}while(0);
+#else
+    #define _NET_SOCKOPT_NOSIGPIPE(_1_)
+#endif
+
 #ifndef POLLIN
 
 #define POLLIN 1
@@ -500,7 +506,6 @@ char *NetAddressString(const NetAddress * const address,char name[static 46]){
     return NULL;
 }
 
-
 static NetSocket _NetSocketCreate(const unsigned char p,const unsigned char v){
     NetSocket s=socket((v==6?AF_INET6:AF_INET),(p==NET_TCP?SOCK_STREAM:SOCK_DGRAM),0);
     if(s!=INVALID_SOCKET){
@@ -508,6 +513,7 @@ static NetSocket _NetSocketCreate(const unsigned char p,const unsigned char v){
         if(setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&opt1,sizeof(opt1))){
             const char opt2=1; setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&opt2,sizeof(opt2));
         }
+        _NET_SOCKOPT_NOSIGPIPE(s)
         _NetSocketUnblock(s);
     } return s;
 }
@@ -520,6 +526,7 @@ static NetSocket _NetSocketAccept(NetSocket in,NetAddress * const a){
         if(_NetAddressFromNet(&_a,l,a)){
             _NetSocketDestroy(&s); return INVALID_SOCKET;
         }
+        _NET_SOCKOPT_NOSIGPIPE(s)
         _NetSocketUnblock(s);
     } return s;
 }
