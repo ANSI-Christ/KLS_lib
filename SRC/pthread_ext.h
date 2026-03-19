@@ -277,15 +277,7 @@ static unsigned int _pthread_cores(void){
 extern int pthread_attr_getdetachstate(const pthread_attr_t *,int *);
 
 static int _pthread_pipe(int fd[2]){
-    struct _pipe_t{long fd[2];} s={{-1,-1}};
-    const union{void * const _; struct _pipe_t(* const f)(int fd[2]);}f={(void*)pipe};
-    fd[0]=fd[1]=-1; s=f.f(fd);
-    if(s.fd[0]==-1) return -1;
-    if(fd[0]==-1){
-        fd[0]=s.fd[0];
-        fd[1]=s.fd[1];
-    }
-    return fd[0]==-1;
+    fd[0]=fd[1]=-1; return pipe(fd);
 }
 
 int pthread_channel_open(pthread_channel_t * const channel){
