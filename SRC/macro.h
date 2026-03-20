@@ -56,9 +56,13 @@
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 
 #ifdef M_CPP
+#define M_CPP_BEGIN extern "C"{
+#define M_CPP_END }
 #define _M_ALIGNOF(_1_) alignof(_1_)
-#define _M_SEBLOCK(...) ([]{__VA_ARGS__}())
+#define _M_SEBLOCK(...) ([&]{__VA_ARGS__}())
 #else
+#define M_CPP_BEGIN
+#define M_CPP_END
 #define _M_ALIGNOF(_1_) M_OFFSETOF(struct{char _;_1_ x;},x)
 #define _M_SEBLOCK(...) ({__VA_ARGS__})
 #endif
