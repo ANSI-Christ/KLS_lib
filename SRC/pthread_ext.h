@@ -84,7 +84,7 @@ typedef struct{
     pthread_cond_t cond[1];
     void (*deallocator)(void*);
     unsigned int target, done, reject;
-    signed char state, destroy, wait;
+    signed char state, destroy, wait, lock;
 }pthread_group_t;
 
 int pthread_group_init(pthread_group_t *g,unsigned int target,const pthread_groupattr_t *attr,void(*deallocator)(void*));
@@ -95,6 +95,8 @@ int pthread_group_reject(pthread_group_t *g,unsigned char by_task); /* return li
 int pthread_group_progress(pthread_group_t *g,unsigned int add_targets); /* return like pthread_group_destroy */
 int pthread_group_wait(pthread_group_t *g,unsigned int *done,unsigned int *target); /* 0 = ok, -1 = reject */
 int pthread_group_timedwait(pthread_group_t *g,unsigned int *done,unsigned int *target,struct timespec *abstime); /* 0 = ok, -1 = reject, EINVAL, ETIMEDOUT */
+
+void pthread_group_payload(pthread_group_t *g); /* use before pthread_group_progress / pthread_group_reject to safely access user data ( maybe as struct{pthread_group_t g; ...payload_data;} or detached data ) */
 
 
 
@@ -719,7 +721,7 @@ int pthread_group_init(pthread_group_t * const g,const unsigned int target,const
         }
         _pthread_group_reset(g,target);
         g->deallocator=deallocator;
-        g->destroy=0;
+        g->destroy=0; g->lock=0;
         return 0;
     } return EINVAL;
 }
@@ -748,7 +750,8 @@ int pthread_group_destroy(pthread_group_t * const g){
 
 int pthread_group_progress(pthread_group_t * const g,const unsigned int add_targets){
     int del=0;
-    pthread_mutex_lock(g->mtx);
+    if(g->lock) g->lock=0;
+    else pthread_mutex_lock(g->mtx);
     g->done+=!!g->target;
     g->target+=add_targets;
     if(g->done+g->reject==g->target){
@@ -800,7 +803,8 @@ _mark:
 
 int pthread_group_reject(pthread_group_t * const g,const unsigned char by_task){
     int del=0;
-    pthread_mutex_lock(g->mtx);
+    if(g->lock) g->lock=0;
+    else pthread_mutex_lock(g->mtx);
     g->state=-1;
     if(by_task){
         if(++g->reject+g->done==g->target){
@@ -823,6 +827,11 @@ int pthread_group_rejected(pthread_group_t * const g){
     return (g->state ? ((pthread_group_reject(g,1)<<1)-1) : 0);
 }
 
+void pthread_group_payload(pthread_group_t * const g){
+    if(g->lock) return;
+    pthread_mutex_lock(g->mtx);
+    g->lock=1;
+}
 
 unsigned int pthread_cores(void){
     static unsigned int cores=0;
