@@ -46,7 +46,6 @@
 #define M_BOOL(...) M_JOIN(_M_BOOL,M_IS_ARG(M_PEAK(__VA_ARGS__)))(__VA_ARGS__)
 #define M_CMP(_1_, _2_) _M_REVERS(M_NCMP(_1_, _2_))
 #define M_NCMP(_1_, _2_) M_IF( _M_BITAND(_M_IS_CMP(_1_))(_M_IS_CMP(_2_)) ) (_M_CMP,1 M_SKIP)(_1_, _2_)
-#define M_SEBLOCK(...) _M_SEBLOCK(__VA_ARGS__)
 
 #define M_OVERLOAD(macros,...) M_JOIN(macros,M_COUNT(__VA_ARGS__))
 #define M_FOREACH(macros,arg,...) M_LOOP(_M_FOREACH_MAP1(macros,arg,__VA_ARGS__,()()(),()()(),()()(),0))
@@ -59,12 +58,10 @@
 #define M_CPP_BEGIN extern "C"{
 #define M_CPP_END }
 #define _M_ALIGNOF(_1_) alignof(_1_)
-#define _M_SEBLOCK(...) ([&]{__VA_ARGS__}())
 #else
 #define M_CPP_BEGIN
 #define M_CPP_END
 #define _M_ALIGNOF(_1_) M_OFFSETOF(struct{char _;_1_ x;},x)
-#define _M_SEBLOCK(...) ({__VA_ARGS__})
 #endif
 #ifdef offsetof
 #define _M_OFFSETOF(_type_,_field_) offsetof(_type_,_field_)
