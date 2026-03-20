@@ -6,6 +6,10 @@
 #ifndef MACRO_H
 #define MACRO_H
 
+#ifdef __cplusplus
+#define M_CPP
+#endif
+
 #define M_CSTD _M_CSTD
 
 #define M_FILE() __FILE__
@@ -24,9 +28,8 @@
 #define M_ALIGNOF(_type_) _M_ALIGNOF(_type_)
 #define M_OFFSETOF(_type_,_field_) _M_OFFSETOF(_type_,_field_)
 #define M_PADDING(_type1_,_type2_) _M_PADDING(_type1_,_type2_)
-#define M_ABSTRACT(_type_) ((M_TYPEOF(_type_)*)0)
-#define M_ASSERT(_condition_,_reference_,...) struct M_JOIN(_reference_,M_LINE()){char _reference_[(_condition_)?1:-1];}
-#define M_EXTERN_C _M_EXTERN_C
+#define M_ABSTRACT(_type_) ((_type_*)0)
+#define M_ASSERT(_condition_,_reference_) struct M_JOIN(_reference_,M_LINE()){char _reference_[(_condition_)?1:-1];}
 
 #define M_SKIP(...)
 #define M_PEAK(...) _M_PEAK(__VA_ARGS__)
@@ -43,6 +46,7 @@
 #define M_BOOL(...) M_JOIN(_M_BOOL,M_IS_ARG(M_PEAK(__VA_ARGS__)))(__VA_ARGS__)
 #define M_CMP(_1_, _2_) _M_REVERS(M_NCMP(_1_, _2_))
 #define M_NCMP(_1_, _2_) M_IF( _M_BITAND(_M_IS_CMP(_1_))(_M_IS_CMP(_2_)) ) (_M_CMP,1 M_SKIP)(_1_, _2_)
+#define M_SEBLOCK(...) _M_SEBLOCK(__VA_ARGS__)
 
 #define M_OVERLOAD(macros,...) M_JOIN(macros,M_COUNT(__VA_ARGS__))
 #define M_FOREACH(macros,arg,...) M_LOOP(_M_FOREACH_MAP1(macros,arg,__VA_ARGS__,()()(),()()(),()()(),0))
@@ -51,15 +55,15 @@
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
 
-#ifdef __cplusplus
-#define _M_EXTERN_C(...) extern "C"{__VA_ARGS__}
-#define _M_ALIGNOF(_1_) alignof(M_TYPEOF(_1_))
+#ifdef M_CPP
+#define _M_ALIGNOF(_1_) alignof(_1_)
+#define _M_SEBLOCK(...) ([]{__VA_ARGS__}())
 #else
-#define _M_EXTERN_C(...) __VA_ARGS__
-#define _M_ALIGNOF(_1_) ( (sizeof(struct{char a;M_TYPEOF(_1_) b;})-sizeof(char)) % sizeof(_1_)+1)
+#define _M_ALIGNOF(_1_) M_OFFSETOF(struct{char _;_1_ x;},x)
+#define _M_SEBLOCK(...) ({__VA_ARGS__})
 #endif
 #ifdef offsetof
-#define _M_OFFSETOF(_type_,_field_) offsetof(M_TYPEOF(_type_),_field_)
+#define _M_OFFSETOF(_type_,_field_) offsetof(_type_,_field_)
 #else
 #define _M_OFFSETOF(_type_,_field_) (((M_TYPEOF(sizeof(int)))(&M_ABSTRACT(_type_)->_field_)))
 #endif
@@ -169,8 +173,9 @@
 #endif /* __STDC__ */
 
 #if ( M_CSTD < 1999 )
-    #undef M_FUNCTION
-    #define M_FUNCTION "?()"
+    #ifndef __func__
+    #define __func__ "?()"
+    #endif
 #endif
 
 #endif /* MACRO_H */
