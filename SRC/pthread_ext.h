@@ -56,6 +56,7 @@ unsigned int pthread_pool_count(const pthread_pool_t *pool);
 const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
 
 /* raw API begin */
+typedef struct{void *_;int(*f)(pthread_pool_t*,void*,unsigned int);} pthread_pool_raw_task_t;
 void pthread_pool_raw_task_queue(pthread_pool_t *pool,void *raw_task,unsigned char prio);
 void *pthread_pool_raw_task_alloc(const pthread_pool_t *pool,unsigned int size);
 void *pthread_pool_raw_task_from_arg(void *task_arg);
@@ -119,7 +120,7 @@ void pthread_channel_close(pthread_channel_t *channel);
     int(* const _f_)(pthread_pool_t*,void*,unsigned int)=(int(*)(pthread_pool_t*,void*,unsigned int))(_3_);\
     pthread_pool_t * const _p_=(pthread_pool_t*)(_1_);\
     M_FOREACH(_PTHREAD_ARGUM,-,__VA_ARGS__)\
-    struct _pthread_pool_task_size{struct{void *n; int(*f)(pthread_pool_t*,void*,unsigned int);}t; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? pthread_pool_raw_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
+    struct _pthread_pool_task_size{pthread_pool_raw_task_t t; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? pthread_pool_raw_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
     const unsigned char _q_=(_2_);\
     if(_t_){\
         struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
@@ -129,7 +130,7 @@ void pthread_channel_close(pthread_channel_t *channel);
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
-#define pthread_pool_raw_task_from_arg(_1_) ((void*)(((void**)(_1_))-2))
+#define pthread_pool_raw_task_from_arg(_1_) ((void*)(((pthread_pool_raw_task_t*)(_1_))-1))
 extern int nanosleep(const struct timespec*,struct timespec*);
 extern int pthread_kill(pthread_t,int);
 extern int pthread_detach(pthread_t);
