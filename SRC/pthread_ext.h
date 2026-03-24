@@ -451,8 +451,7 @@ static void _pthread_pool_reject(pthread_pool_t * const p){
         p->reject=q->last;
         if(p->peak!=p->max){
             _pthread_pool_queue_t * const m=p->queue+(p->peak=p->max);
-            m->first=q->first; m->last=q->last;
-            q->first=q->last=NULL;
+            *m=*q; q->first=q->last=NULL;
         }
     }
 }
@@ -514,7 +513,7 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
         pthread_t * const tid=_pthread_pool_tids(p);
         unsigned int i=p->count;
         while(--i) pthread_join(tid[i],NULL);
-        if(busy & 8) busy|=1;
+        busy|=(busy & 8)>>3;
     }
     if(busy & 1) _pthread_pool_release(p);
 
