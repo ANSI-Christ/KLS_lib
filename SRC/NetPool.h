@@ -110,6 +110,8 @@ NetPool *NetUnitPool(const NetUnit *unit);
 NetUnit *NetUnitNodeNext(const NetUnit *unit);
 NetUnit *NetUnitNodeServer(const NetUnit *unit);
 
+const void *NetUnitSocket(const NetUnit *unit);
+
 const NetAddress *NetUnitAddress(const NetUnit *unit);
 
 enum NET_STATE NetUnitState(const NetUnit *unit);
@@ -859,7 +861,7 @@ int NetPoolDispatch(NetPool * const pool,void **async){
     if(!async) async=&tmp;
     do{
         int count=poll(pool->sock,pool->size,1000);
-        if(count==SOCKET_ERROR) return errno;
+        if(count==SOCKET_ERROR) return -1;
         if(pool->sock->revents){
             recv(pool->async[0],async,sizeof(*async),MSG_NOSIGNAL);
             --count; work=0;
@@ -1068,6 +1070,10 @@ short *NetUnitRDWR(const NetUnit * const unit){
     const NetNode * const n=(const NetNode*)unit;
     if(n->id) return &n->pool->sock[n->id].events;
     return NULL;
+}
+
+const void *NetUnitSocket(const NetUnit * const unit){
+    return &((const NetNode*)unit)->sock;
 }
 
 NetPool *NetUnitPool(const NetUnit * const unit){
