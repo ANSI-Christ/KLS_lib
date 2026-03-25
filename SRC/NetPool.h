@@ -71,7 +71,7 @@ typedef struct{
 
 
 
-char *NetAddressString(const NetAddress *address,char buffer[static 46]);
+char *NetAddressString(const NetAddress *address,char buffer[46]);
 
 NetAddress *NetAddressDns(const char *host,unsigned short port,NetAddress *address);
 NetAddress *NetAddressNumeric(const char *ip,unsigned short port,NetAddress *address);
@@ -492,7 +492,7 @@ NetAddress *NetAddressNumeric(const char * const ip,const unsigned short port,Ne
     return NULL;
 }
 
-char *NetAddressString(const NetAddress * const address,char name[static 46]){
+char *NetAddressString(const NetAddress * const address,char name[46]){
     switch(address->ipv){
         case 4:{
             const unsigned char * const p=address->ip.v4;
@@ -632,9 +632,9 @@ static int _NetPollAdd(NetPool * const p,NetNode * const n,const short flags){
             return -1;
         }
         memcpy(x[0],p->node,sizeof(*p->node)*p->size);
-        p->deallocator(p->node); p->node=x[0];
+        p->deallocator(p->node); p->node=(NetNode**)x[0];
         memcpy(x[1],p->sock,sizeof(*p->sock)*p->size);
-        p->deallocator(p->sock); p->sock=x[1];
+        p->deallocator(p->sock); p->sock=(struct pollfd*)x[1];
         p->real=count;
     }
     n->id=p->size++;
@@ -1081,7 +1081,7 @@ NetPool *NetUnitPool(const NetUnit * const unit){
 }
 
 enum NET_STATE NetUnitState(const NetUnit * const unit){
-    return ((const NetNode*)unit)->state;
+    return (enum NET_STATE)(((const NetNode*)unit)->state);
 }
 
 const NetAddress *NetUnitAddress(const NetUnit * const unit){
