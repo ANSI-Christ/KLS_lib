@@ -58,7 +58,7 @@ const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
 /* raw API begin */
 typedef struct{void *_;int(*f)(pthread_pool_t*,void*,unsigned int);} pthread_pool_raw_task_t;
 void pthread_pool_raw_task_queue(pthread_pool_t *pool,void *raw_task,unsigned char prio);
-void *pthread_pool_raw_task_alloc(const pthread_pool_t *pool,unsigned int size);
+void *pthread_pool_raw_task_create(const pthread_pool_t *pool,unsigned int size);
 void *pthread_pool_raw_task_from_arg(void *task_arg);
 /* raw API end */
 
@@ -120,7 +120,7 @@ void pthread_channel_close(pthread_channel_t *channel);
     int(* const _f_)(pthread_pool_t*,void*,unsigned int)=(int(*)(pthread_pool_t*,void*,unsigned int))(_3_);\
     pthread_pool_t * const _p_=(pthread_pool_t*)(_1_);\
     M_FOREACH(_PTHREAD_ARGUM,-,__VA_ARGS__)\
-    struct _pthread_pool_task_size{pthread_pool_raw_task_t t; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? pthread_pool_raw_task_alloc(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
+    struct _pthread_pool_task_size{pthread_pool_raw_task_t t; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_size*)((_p_ && _f_) ? pthread_pool_raw_task_create(_p_,M_OFFSETOF(struct _pthread_pool_task_size,size)) : NULL);\
     const unsigned char _q_=(_2_);\
     if(_t_){\
         struct _pthread_pool_task_args{ M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;};\
@@ -640,8 +640,8 @@ _mark:
     #undef _CASE_ERR
 }
 
-void *pthread_pool_raw_task_alloc(const pthread_pool_t * const p,const unsigned int size){
-    return (p->ctrl & 3) ? NULL : p->allocator(size);
+void *pthread_pool_raw_task_create(const pthread_pool_t * const p,const unsigned int size){
+    return (p->ctrl & 3) ? NULL : (size ? p->allocator(size) : (void*)1);
 }
 
 void pthread_pool_raw_task_queue(pthread_pool_t * const p,void * const t,unsigned char prio){
