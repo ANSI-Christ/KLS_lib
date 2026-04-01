@@ -649,7 +649,7 @@ void pthread_pool_raw_task_queue(pthread_pool_t * const p,void * const t,unsigne
     ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
     _pthread_pool_push(p,(_pthread_pool_task_t*)t,prio);
-    if(p->busy<p->count) pthread_cond_signal(p->cond);
+    if(p->busy!=p->count) pthread_cond_signal(p->cond);
     pthread_mutex_unlock(p->mtx);
 }
 
