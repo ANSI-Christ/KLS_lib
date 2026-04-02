@@ -52,6 +52,7 @@ void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
+unsigned int pthread_pool_pending(const pthread_pool_t *pool);
 
 const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
 
@@ -450,8 +451,8 @@ static void _pthread_pool_reject(pthread_pool_t * const p){
         }
         p->reject=q->last;
         if(p->peak!=p->max){
-            _pthread_pool_queue_t * const m=p->queue+(p->peak=p->max);
-            *m=*q; q->first=q->last=NULL;
+            p->queue[(p->peak=p->max)]=*q;
+            q->first=NULL; q->last=NULL;
         }
     }
 }
@@ -661,6 +662,10 @@ void pthread_pool_banch(pthread_pool_t * const p,const unsigned char count){
 
 unsigned int pthread_pool_count(const pthread_pool_t * const p){
     return p->count;
+}
+
+unsigned int pthread_pool_pending(const pthread_pool_t * const p){
+    return p->size;
 }
 
 const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
