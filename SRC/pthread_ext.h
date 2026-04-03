@@ -114,9 +114,9 @@ void pthread_channel_close(pthread_channel_t *channel);
 
 
 
-#define _PTHREAD_SETUP(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( do{ union _pthread_pool_task_arg{M_TYPEOF(__VA_ARGS__) _; struct{char _[sizeof(M_TYPEOF(__VA_ARGS__))];} x;}; ((union _pthread_pool_task_arg*) M_PEAK _arg_ ->a.M_JOIN(_,_index_).x)->x=((const union _pthread_pool_task_arg*)&M_JOIN(M_REMAINED _arg_ ,_index_).x)->x; }while(0); )
-#define _PTHREAD_FIELD(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( union{M_TYPEOF(__VA_ARGS__) _;char x[1];} M_JOIN(_,_index_); )
-#define _PTHREAD_ARGUM(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( const struct{M_TYPEOF(__VA_ARGS__) x;} M_JOIN(_arg_,_index_)={__VA_ARGS__}; )
+#define _PTHREAD_SETUP(_index_,_arg2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_PEAK _arg2_ ->a.M_JOIN(_,_index_).x=M_JOIN(M_REMAINED _arg2_ ,_index_).x; )
+#define _PTHREAD_FIELD(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( union M_JOIN(_pthread_pool_task_arg,_index_) M_JOIN(_,_index_); )
+#define _PTHREAD_ARGUM(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( const union M_JOIN(_pthread_pool_task_arg,_index_){M_TYPEOF(__VA_ARGS__) _; struct{char _[sizeof(__VA_ARGS__)];}x;} M_JOIN(_arg_,_index_)={__VA_ARGS__}; )
 #define _PTHREAD_TASK(_1_,_2_,_3_,...) ({\
     int(* const _f_)(pthread_pool_t*,void*,unsigned int)=(int(*)(pthread_pool_t*,void*,unsigned int))(_3_);\
     pthread_pool_t * const _p_=(pthread_pool_t*)(_1_);\
