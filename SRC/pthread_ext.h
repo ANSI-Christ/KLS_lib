@@ -42,8 +42,8 @@ int pthread_pool_detach(pthread_pool_t *pool,int forced);
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
 /* task function shall return 0 for release its resources, or else to hold it */
-int pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* return 0 on success */
-int pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *args,unsigned int index),...); /* return 0 on success */
+int pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index),...); /* return 0 on success */
+int pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index),...); /* return 0 on success */
 
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
@@ -57,10 +57,9 @@ unsigned int pthread_pool_pending(const pthread_pool_t *pool);
 const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
 
 /* raw API begin */
-typedef struct{void *_;int(*f)(pthread_pool_t*,void*,unsigned int);} pthread_pool_raw_task_t;
+typedef struct{void *_; int(*f)(pthread_pool_t*,void*,unsigned int);} pthread_pool_raw_task_t;
 void pthread_pool_raw_task_queue(pthread_pool_t *pool,void *raw_task,unsigned char prio);
 void *pthread_pool_raw_task_create(const pthread_pool_t *pool,unsigned int size);
-void *pthread_pool_raw_task_from_arg(void *task_arg);
 /* raw API end */
 
 
@@ -123,14 +122,11 @@ void pthread_channel_close(pthread_channel_t *channel);
     M_FOREACH(_PTHREAD_ARGUM,_a_,__VA_ARGS__)\
     struct _pthread_pool_task_gen{pthread_pool_raw_task_t t; struct{M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;}a;} * const _t_=(struct _pthread_pool_task_gen*)((_p_ && _f_) ? pthread_pool_raw_task_create(_p_,M_OFFSETOF(struct _pthread_pool_task_gen,a.size)) : NULL);\
     const unsigned char _q_=(_2_);\
-    if(_t_){\
-        M_ASSERT( M_OFFSETOF(struct _pthread_pool_task_gen,a) == sizeof(pthread_pool_raw_task_t) , pthread_pool_task_bad_align_of_arguments);\
-        _t_->t.f=_f_; M_FOREACH(_PTHREAD_SETUP,(_t_,_a_),__VA_ARGS__) pthread_pool_raw_task_queue(_p_,_t_,_q_);\
-    } (_t_?0:-1);\
+    if(_t_){ _t_->t.f=_f_; M_FOREACH(_PTHREAD_SETUP,(_t_,_a_),__VA_ARGS__) pthread_pool_raw_task_queue(_p_,_t_,_q_); }\
+    (_t_?0:-1);\
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
-#define pthread_pool_raw_task_from_arg(_1_) ((void*)(((pthread_pool_raw_task_t*)(_1_))-1))
 extern int nanosleep(const struct timespec*,struct timespec*);
 extern int pthread_kill(pthread_t,int);
 extern int pthread_detach(pthread_t);
@@ -495,7 +491,7 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
             i->next=NULL;
             do{
                 i=t->next;
-                if(!t->f(_p,t+1,index)) del(t);
+                if(!t->f(_p,t,index)) del(t);
             }while( (t=i) );
             pthread_mutex_lock(p->mtx);
         }else{
