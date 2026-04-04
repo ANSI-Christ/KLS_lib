@@ -113,14 +113,14 @@ void pthread_channel_close(pthread_channel_t *channel);
 
 
 
-#define _PTHREAD_SETUP(_index_,_arg2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_PEAK _arg2_ ->a.M_JOIN(_,_index_).x=M_JOIN(M_REMAINED _arg2_ ,_index_).x; )
+#define _PTHREAD_SETUP(_index_,_arg2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_PEAK _arg2_ ->M_JOIN(_,_index_).x=M_JOIN(M_REMAINED _arg2_ ,_index_).x; )
 #define _PTHREAD_FIELD(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( union M_JOIN(_pthread_pool_task_arg,_index_) M_JOIN(_,_index_); )
 #define _PTHREAD_ARGUM(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( const union M_JOIN(_pthread_pool_task_arg,_index_){M_TYPEOF(__VA_ARGS__) _; struct{char _[sizeof(__VA_ARGS__)];}x;} M_JOIN(_arg_,_index_)={__VA_ARGS__}; )
 #define _PTHREAD_TASK(_1_,_2_,_3_,...) ({\
     int(* const _f_)(pthread_pool_t*,void*,unsigned int)=(int(*)(pthread_pool_t*,void*,unsigned int))(_3_);\
     pthread_pool_t * const _p_=(pthread_pool_t*)(_1_);\
     M_FOREACH(_PTHREAD_ARGUM,_a_,__VA_ARGS__)\
-    struct _pthread_pool_task_gen{pthread_pool_raw_task_t t; struct{M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;}a;} * const _t_=(struct _pthread_pool_task_gen*)((_p_ && _f_) ? pthread_pool_raw_task_create(_p_,M_OFFSETOF(struct _pthread_pool_task_gen,a.size)) : NULL);\
+    struct _pthread_pool_task_gen{pthread_pool_raw_task_t t; M_FOREACH(_PTHREAD_FIELD,-,__VA_ARGS__) char size;} * const _t_=(struct _pthread_pool_task_gen*)((_p_ && _f_) ? pthread_pool_raw_task_create(_p_,M_OFFSETOF(struct _pthread_pool_task_gen,size)) : NULL);\
     const unsigned char _q_=(_2_);\
     if(_t_){ _t_->t.f=_f_; M_FOREACH(_PTHREAD_SETUP,(_t_,_a_),__VA_ARGS__) pthread_pool_raw_task_queue(_p_,_t_,_q_); }\
     (_t_?0:-1);\
