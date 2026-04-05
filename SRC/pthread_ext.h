@@ -20,7 +20,7 @@ typedef struct{void *_[4];}pthread_poolattr_t;
 
 int pthread_poolattr_init(pthread_poolattr_t *attr);
 
-int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t pattr[],unsigned int count);
+int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr,unsigned int count); /* pattr shares by all threads of pool if count < 2 */
 int pthread_poolattr_setcattr(pthread_poolattr_t *attr,pthread_condattr_t *cattr);
 int pthread_poolattr_setmattr(pthread_poolattr_t *attr,pthread_mutexattr_t *mattr);
 
@@ -371,10 +371,10 @@ int pthread_poolattr_setcattr(pthread_poolattr_t * const attr,pthread_condattr_t
     attr->_[1]=cattr; return 0;
 }
 
-int pthread_poolattr_setpattr(pthread_poolattr_t * const attr,pthread_attr_t pattr[],const unsigned int count){
-    if(!attr || !count) return EINVAL;
+int pthread_poolattr_setpattr(pthread_poolattr_t * const attr,pthread_attr_t * const pattr,const unsigned int count){
+    if(!attr) return EINVAL;
     attr->_[2]=pattr;
-    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[3]}; *p.i=count;}
+    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[3]}; *p.i=(pattr?count:0);}
     return 0;
 }
 
