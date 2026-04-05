@@ -46,8 +46,10 @@ int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 typedef struct{ void *_padding; int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index); } pthread_pool_task_base_t;
 void *pthread_pool_task_create(const pthread_pool_t *pool,unsigned int size);
 void pthread_pool_task_queue(pthread_pool_t *pool,void *composite_task,unsigned char prio);
+#ifndef M_PP_C89
 int pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index),...); /* return 0 on success */
 int pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index),...); /* return 0 on success */
+#endif
 
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
@@ -111,6 +113,7 @@ void pthread_channel_close(pthread_channel_t *channel);
 
 
 
+#ifndef M_PP_C89
 #define _PTHREAD_SETUP(_index_,_arg2_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( M_PEAK _arg2_ ->M_JOIN(_,_index_).x=M_JOIN(M_REMAINED _arg2_ ,_index_).x; )
 #define _PTHREAD_FIELD(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( union M_JOIN(_pthread_pool_task_arg,_index_) M_JOIN(_,_index_); )
 #define _PTHREAD_ARGUM(_index_,_arg_,...) M_WHEN(M_IS_ARG(__VA_ARGS__))( const union M_JOIN(_pthread_pool_task_arg,_index_){M_TYPEOF(__VA_ARGS__) _; struct{char _[sizeof(__VA_ARGS__)];}x;} M_JOIN(_arg_,_index_)={__VA_ARGS__}; )
@@ -125,6 +128,7 @@ void pthread_channel_close(pthread_channel_t *channel);
 })
 #define pthread_pool_task(_1_,_3_,...) _PTHREAD_TASK((_1_),0,(_3_),__VA_ARGS__)
 #define pthread_pool_task_prio(_1_,_2_,_3_,...) _PTHREAD_TASK((_1_),(_2_),(_3_),__VA_ARGS__)
+#endif
 extern int nanosleep(const struct timespec*,struct timespec*);
 extern int pthread_kill(pthread_t,int);
 extern int pthread_detach(pthread_t);
