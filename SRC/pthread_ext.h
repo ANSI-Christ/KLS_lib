@@ -55,11 +55,12 @@ int pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pt
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
 void pthread_pool_unpending(pthread_pool_t *pool);
-void pthread_pool_batch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
 unsigned int pthread_pool_pending(const pthread_pool_t *pool);
+
+unsigned char pthread_pool_batch(pthread_pool_t *pool,unsigned char count);
 
 const pthread_t *pthread_pool_array(const pthread_pool_t *pool);
 
@@ -673,10 +674,14 @@ void pthread_pool_task_urgent(pthread_pool_t * const p,void * const t){
     pthread_mutex_unlock(p->mtx);
 }
 
-void pthread_pool_batch(pthread_pool_t * const p,const unsigned char count){
-    pthread_mutex_lock(p->mtx);
-    p->batch=count;
-    pthread_mutex_unlock(p->mtx);
+unsigned char pthread_pool_batch(pthread_pool_t * const p,unsigned char count){
+    const unsigned char sav=p->batch;
+    if(count){
+        --count;
+        pthread_mutex_lock(p->mtx);
+        p->batch=count;
+        pthread_mutex_unlock(p->mtx);
+    } return sav+1;
 }
 
 unsigned int pthread_pool_count(const pthread_pool_t * const p){
