@@ -20,7 +20,7 @@ typedef struct{void *_[4];}pthread_poolattr_t;
 
 int pthread_poolattr_init(pthread_poolattr_t *attr);
 
-int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr,unsigned int count); /* pattr shares by all threads of pool if count < 2 */
+int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr,unsigned int count); /* pattr is shared by all threads of pool if count < 2 */
 int pthread_poolattr_setcattr(pthread_poolattr_t *attr,pthread_condattr_t *cattr);
 int pthread_poolattr_setmattr(pthread_poolattr_t *attr,pthread_mutexattr_t *mattr);
 
@@ -42,7 +42,7 @@ int pthread_pool_detach(pthread_pool_t *pool,int forced);
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
 /* composite task structure must include pthread_pool_task_base_t as first field. */
-/* task function shall return 0 for release its resources, or else to hold it.     */
+/* task function shall return 0 for release its resources, or else to hold it. */
 typedef struct{ void *_padding; int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index); } pthread_pool_task_base_t;
 void *pthread_pool_task_create(const pthread_pool_t *pool,unsigned int size);
 void pthread_pool_task_queue(pthread_pool_t *pool,void *composite_task,unsigned char prio);
@@ -511,8 +511,7 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
             }while( (t=i) );
             pthread_mutex_lock(p->mtx);
         }else{
-            if(busy) {busy=0; --p->busy;}
-            if(!p->busy) pthread_cond_broadcast(p->cond+1);
+            if(busy){busy=0; if(!--p->busy) pthread_cond_broadcast(p->cond+1);}
             if(p->ctrl & 1) break;
             pthread_cond_wait(p->cond,p->mtx);
         }
@@ -624,15 +623,15 @@ void pthread_pool_unpending(pthread_pool_t * const p){
 
 void pthread_pool_wait(pthread_pool_t * const p){
     pthread_mutex_lock(p->mtx);
-    while(p->busy || p->size) pthread_cond_wait(p->cond+1,p->mtx);
+    while(p->busy|p->size) pthread_cond_wait(p->cond+1,p->mtx);
     pthread_mutex_unlock(p->mtx);
 }
 
 void pthread_pool_clear(pthread_pool_t * const p){
     pthread_mutex_lock(p->mtx);
-    if(p->busy || p->size){
+    if(p->busy|p->size){
         p->ctrl|=2;
-        do{ pthread_cond_wait(p->cond+1,p->mtx); } while(p->busy || p->size);
+        do{ pthread_cond_wait(p->cond+1,p->mtx); } while(p->busy|p->size);
         p->ctrl&=~2;
     }
     pthread_mutex_unlock(p->mtx);
@@ -642,7 +641,7 @@ int pthread_pool_timedwait(pthread_pool_t * const p,const struct timespec *absti
     #define _CASE_ERR case EINVAL: err=EINVAL; goto _mark; case ETIMEDOUT: err=ETIMEDOUT; goto _mark;
     int err=0;
     pthread_mutex_lock(p->mtx);
-    while(p->busy || p->size)
+    while(p->busy|p->size)
         switch(pthread_cond_timedwait(p->cond+1,p->mtx,abstime)){
             case -1: switch(errno){_CASE_ERR} break;
             _CASE_ERR
