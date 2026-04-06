@@ -46,6 +46,8 @@ int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 typedef struct{ void *_padding; int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index); } pthread_pool_task_base_t;
 void *pthread_pool_task_create(const pthread_pool_t *pool,unsigned int size);
 void pthread_pool_task_queue(pthread_pool_t *pool,void *composite_task,unsigned char prio);
+void pthread_pool_task_front(pthread_pool_t *pool,void *composite_task,unsigned char prio);
+void pthread_pool_task_urgent(pthread_pool_t *pool,void *composite_task);
 #ifdef M_FOREACH
 int pthread_pool_task(pthread_pool_t *pool,int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index),...); /* return 0 on success */
 int pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index),...); /* return 0 on success */
@@ -424,13 +426,17 @@ typedef struct{
 #define _pthread_pool_pad(_N_) ((M_PADDING(_pthread_pool_queue_t,pthread_t)*(_N_))%M_ALIGNOF(pthread_t))
 #define _pthread_pool_tids(_p_) ((pthread_t*)(((char*)(_p_->queue+1+(unsigned int)_p_->max))+_pthread_pool_pad(1+(unsigned int)_p_->max)))
 
-static void _pthread_pool_push(pthread_pool_t * const p,_pthread_pool_task_t * const t,unsigned char prio){
-    if(prio>p->peak) p->peak=prio;
-    {_pthread_pool_queue_t * const q=p->queue + prio;
+static void _pthread_pool_append(pthread_pool_t * const p,_pthread_pool_task_t * const t,const unsigned char prio){
+    _pthread_pool_queue_t * const q=p->queue+prio;
     if(q->last) q->last->next=t;
     else q->first=t;
-    q->last=t;}
-    ++p->size;
+    q->last=t; ++p->size;
+}
+
+static void _pthread_pool_prepend(pthread_pool_t * const p,_pthread_pool_task_t * const t,const unsigned char prio){
+    _pthread_pool_queue_t * const q=p->queue+prio;
+    if( !(t->next=q->first) ) q->last=t;
+    q->first=t; ++p->size;
 }
 
 static _pthread_pool_task_t *_pthread_pool_pop(pthread_pool_t * const p){
@@ -655,9 +661,24 @@ void pthread_pool_task_queue(pthread_pool_t * const p,void * const t,unsigned ch
     if(prio>p->max) prio=p->max;
     ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
-    _pthread_pool_push(p,(_pthread_pool_task_t*)t,prio);
+    if(prio>p->peak) p->peak=prio;
+    _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
     if(p->busy!=p->count) pthread_cond_signal(p->cond);
     pthread_mutex_unlock(p->mtx);
+}
+
+void pthread_pool_task_front(pthread_pool_t * const p,void * const t,unsigned char prio){
+    if(prio>p->max) prio=p->max;
+    ((_pthread_pool_task_t*)t)->next=NULL;
+    pthread_mutex_lock(p->mtx);
+    if(prio>p->peak) p->peak=prio;
+    _pthread_pool_prepend(p,(_pthread_pool_task_t*)t,prio);
+    if(p->busy!=p->count) pthread_cond_signal(p->cond);
+    pthread_mutex_unlock(p->mtx);
+}
+
+void pthread_pool_task_urgent(pthread_pool_t * const p,void * const t){
+    pthread_pool_task_front(p,t,p->max);
 }
 
 void pthread_pool_banch(pthread_pool_t * const p,const unsigned char count){
