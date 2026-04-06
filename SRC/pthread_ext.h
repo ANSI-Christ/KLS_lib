@@ -55,7 +55,7 @@ int pthread_pool_task_prio(pthread_pool_t *pool,unsigned char prio,int(*task)(pt
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
 void pthread_pool_unpending(pthread_pool_t *pool);
-void pthread_pool_banch(pthread_pool_t *pool,unsigned char count);
+void pthread_pool_batch(pthread_pool_t *pool,unsigned char count);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
@@ -413,7 +413,7 @@ struct _pthread_pool_t{
     void(*deallocator)(void*);
     _pthread_pool_task_t *reject;
     unsigned int count, busy, size;
-    unsigned char ctrl, peak, max, banch;
+    unsigned char ctrl, peak, max, batch;
     _pthread_pool_queue_t queue[1];
 };
 
@@ -489,7 +489,7 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
             pthread_pool_t *_p;
             _pthread_pool_task_t *i=t;
             unsigned int c=(--p->size)/p->count;
-            if(c>p->banch){c=p->banch;}
+            if(c>p->batch){c=p->batch;}
             if(p->reject){
                 unsigned int j=0;
                 for(_p=NULL;;){
@@ -574,7 +574,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             p->ctrl=(detached==PTHREAD_CREATE_DETACHED)*4;
             p->peak=0;
             p->max=prio;
-            p->banch=0;
+            p->batch=0;
             memset(p->queue,0,size);
 
             {pthread_t * const tid=_pthread_pool_tids(p);
@@ -673,9 +673,9 @@ void pthread_pool_task_urgent(pthread_pool_t * const p,void * const t){
     pthread_mutex_unlock(p->mtx);
 }
 
-void pthread_pool_banch(pthread_pool_t * const p,const unsigned char count){
+void pthread_pool_batch(pthread_pool_t * const p,const unsigned char count){
     pthread_mutex_lock(p->mtx);
-    p->banch=count;
+    p->batch=count;
     pthread_mutex_unlock(p->mtx);
 }
 
