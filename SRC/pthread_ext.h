@@ -578,13 +578,13 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             memset(p->queue,0,size);
 
             {pthread_t * const tid=_pthread_pool_tids(p);
-            for(pattrs=(pattrs>1);p->count<count;++p->count){
+            for(pattrs=(pattrs>1);p->count<count;++p->count,pattr+=pattrs){
                 _pthread_pool_initializer_t * const _i=(_pthread_pool_initializer_t*)allocator(sizeof(*_i));
                 if(!_i){
                     pthread_pool_destroy(p,1); return NULL;
                 }
                 _i->p=p; _i->i=p->count;
-                if(pthread_create(tid+p->count,pattr+p->count*pattrs,(void*(*)(void*))_pthread_pool_worker,_i)){
+                if(pthread_create(tid+p->count,pattr,(void*(*)(void*))_pthread_pool_worker,_i)){
                     deallocator(_i); pthread_pool_destroy(p,1); return NULL;
                 }
             }}
