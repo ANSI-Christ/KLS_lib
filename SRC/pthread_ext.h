@@ -424,8 +424,11 @@ struct _pthread_pool_t{
 };
 
 typedef struct{
-    pthread_pool_t *p;
-    unsigned int i;
+    pthread_pool_t * const pool;
+    pthread_attr_t * const attr;
+    pthread_t * const tid;
+    const unsigned int attr_inc, tid_cnt;
+    unsigned int wait;
 }_pthread_pool_initializer_t;
 
 typedef struct{char _; pthread_t t;}_pthread_pool_align_t;
@@ -482,16 +485,15 @@ static void _pthread_pool_release(pthread_pool_t * const p){
     p->deallocator( (p->ctrl & 16) ? ((void**)p)[-1] : p );
 }
 
-static void *_pthread_pool_worker(_pthread_pool_initializer_t * const arg){
-    pthread_pool_t * const p=arg->p;
-    const unsigned int index=arg->i;
-    unsigned int busy=0;
+static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
+    pthread_pool_t * const p=cfg->pool;
+    const unsigned int index=p->count++;
+    unsigned int busy=(p->count==cfg->tid_cnt || pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->attr_inc,(void*(*)(void*))_pthread_pool_worker,cfg));
     void(* const del)(void*)=p->deallocator;
 
-    del(arg);
-
     pthread_mutex_lock(p->mtx);
-    while('0'){
+    if(busy){cfg->wait=0; pthread_cond_signal(p->cond+1);}
+    for(busy=0;;){
         _pthread_pool_task_t *t=_pthread_pool_pop(p);
         if(t){
             pthread_pool_t *_p;
@@ -587,16 +589,15 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             if(((size_t)_p) & 255){p->ctrl|=16; ((void**)p)[-1]=_p;}
             memset(p->queue,0,qsize);
 
-            {pthread_t * const tid=_pthread_pool_tids(p);
-            for(pattrs=(pattrs>1);p->count<count;++p->count,pattr+=pattrs){
-                _pthread_pool_initializer_t * const _i=(_pthread_pool_initializer_t*)allocator(sizeof(*_i));
-                if(!_i){
-                    pthread_pool_destroy(p,1); return NULL;
-                }
-                _i->p=p; _i->i=p->count;
-                if(pthread_create(tid+p->count,pattr,(void*(*)(void*))_pthread_pool_worker,_i)){
-                    deallocator(_i); pthread_pool_destroy(p,1); return NULL;
-                }
+            {_pthread_pool_initializer_t cfg[1]={{p,pattr,_pthread_pool_tids(p),pattrs>1,count,1}};
+            if(pthread_create(cfg->tid,cfg->attr,(void*(*)(void*))_pthread_pool_worker,cfg)){
+                pthread_pool_destroy(p,1); return NULL;
+            }
+            pthread_mutex_lock(p->mtx);
+            while(cfg->wait) pthread_cond_wait(p->cond+1,p->mtx);
+            pthread_mutex_unlock(p->mtx);
+            if(p->count!=count){
+                pthread_pool_destroy(p,1); return NULL;
             }}
             return p;
         }
