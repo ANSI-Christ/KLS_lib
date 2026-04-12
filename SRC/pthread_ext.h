@@ -85,12 +85,11 @@ void pthread_groupattr_destroy(pthread_groupattr_t *attr);
 typedef struct{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[1];
-    void (*deallocator)(void*);
     unsigned int target, done, reject;
     signed char state, destroy, wait;
 }pthread_group_t;
 
-int pthread_group_init(pthread_group_t *g,unsigned int target,const pthread_groupattr_t *attr,void(*deallocator)(void*));
+int pthread_group_init(pthread_group_t *g,unsigned int target,const pthread_groupattr_t *attr);
 
 int pthread_group_destroy(pthread_group_t *g); /* return 1 if group destroys at this call, else 0 */
 int pthread_group_rejected(pthread_group_t *g); /* return 1 if group is rejected and it destroys at this call, -1 if rejected, else 0 */
@@ -147,6 +146,12 @@ extern int pthread_detach(pthread_t);
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+
+#ifdef offsetof
+    #define _PTHREAD_OFFSETOF offsetof
+#else
+    #define _PTHREAD_OFFSETOF(_1_,_2_) ((size_t)&(_1_*)->_2_)
+#endif
 
 #ifdef _WIN32
 
@@ -423,7 +428,9 @@ typedef struct{
     unsigned int i;
 }_pthread_pool_initializer_t;
 
-#define _pthread_pool_pad(_N_) ((M_PADDING(_pthread_pool_queue_t,pthread_t)*(_N_))%M_ALIGNOF(pthread_t))
+typedef struct{char _; pthread_t t;}_pthread_pool_align_t;
+
+#define _pthread_pool_pad(_N_) ((_PTHREAD_OFFSETOF(_pthread_pool_align_t,t) - ((_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue)+sizeof(_pthread_pool_queue_t)*(_N_)) % _PTHREAD_OFFSETOF(_pthread_pool_align_t,t))) % _PTHREAD_OFFSETOF(_pthread_pool_align_t,t) )
 #define _pthread_pool_tids(_p_) ((pthread_t*)(((char*)(_p_->queue+1+(unsigned int)_p_->max))+_pthread_pool_pad(1+(unsigned int)_p_->max)))
 
 static void _pthread_pool_append(pthread_pool_t * const p,_pthread_pool_task_t * const t,const unsigned char prio){
@@ -552,8 +559,9 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     if(!deallocator) deallocator=free;
 
     if( (count || (count=pthread_cores())) && (pattrs<2 || pattrs>=count) ){
-        const size_t size=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count + _pthread_pool_pad(1+(unsigned int)prio);
-        pthread_pool_t * const p=(pthread_pool_t*)allocator(M_OFFSETOF(struct _pthread_pool_t,queue) + size);
+        const size_t qsize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio) + sizeof(pthread_t)*count + _pthread_pool_pad(1+(unsigned int)prio);
+        const size_t tsize=sizeof(pthread_t)*count + _pthread_pool_pad(1+(unsigned int)prio);
+        pthread_pool_t * const p=(pthread_pool_t*)malloc(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize);
         if(p){
             if(pthread_mutex_init(p->mtx,mattr)){
                 deallocator(p); return NULL;
@@ -575,7 +583,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             p->peak=0;
             p->max=prio;
             p->batch=0;
-            memset(p->queue,0,size);
+            memset(p->queue,0,qsize);
 
             {pthread_t * const tid=_pthread_pool_tids(p);
             for(pattrs=(pattrs>1);p->count<count;++p->count,pattr+=pattrs){
@@ -697,6 +705,7 @@ const pthread_t *pthread_pool_array(const pthread_pool_t * const p){
 
 #undef _pthread_pool_tids
 #undef _pthread_pool_pad
+#undef _PTHREAD_OFFSETOF
 
 int pthread_groupattr_init(pthread_groupattr_t * const attr){
     if(!attr) return EINVAL;
@@ -734,7 +743,7 @@ static void _pthread_group_reset(pthread_group_t * const g,const unsigned int ta
     g->target=target; g->done=g->reject=0; g->state=0; g->wait=1;
 }
 
-int pthread_group_init(pthread_group_t * const g,const unsigned int target,const pthread_groupattr_t * const attr,void(* const deallocator)(void*)){
+int pthread_group_init(pthread_group_t * const g,const unsigned int target,const pthread_groupattr_t * const attr){
     if(g){
         int err;
         pthread_condattr_t *cattr=NULL;
@@ -748,7 +757,6 @@ int pthread_group_init(pthread_group_t * const g,const unsigned int target,const
             return err;
         }
         _pthread_group_reset(g,target);
-        g->deallocator=deallocator;
         g->destroy=0;
         return 0;
     } return EINVAL;
@@ -757,20 +765,14 @@ int pthread_group_init(pthread_group_t * const g,const unsigned int target,const
 static void _pthread_group_destroy(pthread_group_t * const g){
     pthread_mutex_destroy(g->mtx);
     pthread_cond_destroy(g->cond);
-    if(g->deallocator) g->deallocator(g);
 }
 
 int pthread_group_destroy(pthread_group_t * const g){
     int del=0;
     pthread_mutex_lock(g->mtx);
-    if(g->target){
-        g->state=-1;
-        if(g->deallocator) g->destroy=1;
-        else{
-            del=1;
-            while(g->wait) pthread_cond_wait(g->cond,g->mtx);
-        }
-    }else del=1;
+    g->state=-1;
+    if(g->done+g->reject==g->target) del=1;
+    else g->destroy=1;
     pthread_mutex_unlock(g->mtx);
     if(del) _pthread_group_destroy(g);
     return del;
