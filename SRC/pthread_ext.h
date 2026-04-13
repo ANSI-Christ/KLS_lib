@@ -561,8 +561,9 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     if(!deallocator) deallocator=free;
 
     if( (count || (count=pthread_cores())) && (pattrs<2 || pattrs>=count) ){
-        const size_t palign=256-1, qsize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio), tsize=sizeof(pthread_t)*count + _pthread_pool_pad(1+(unsigned int)prio);
-        void * const _p=allocator(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize + palign);
+        const size_t qsize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio), tsize=_pthread_pool_pad(1+(unsigned int)prio) + sizeof(pthread_t)*count;
+        const size_t palign=256-1, asize=(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize + palign) & ~palign;
+        void * const _p=malloc(asize + palign);
         if(_p){
             pthread_pool_t * const p=(pthread_pool_t*)((((size_t)_p)+palign) & ~palign);
             if(pthread_mutex_init(p->mtx,mattr)){
