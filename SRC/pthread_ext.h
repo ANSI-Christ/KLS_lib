@@ -561,11 +561,10 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     if(!deallocator) deallocator=free;
 
     if( (count || (count=pthread_cores())) && (pattrs<2 || pattrs>=count) ){
-        const size_t qsize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio);
-        const size_t tsize=sizeof(pthread_t)*count + _pthread_pool_pad(1+(unsigned int)prio);
-        void * const _p=allocator(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize + 255);
+        const size_t palign=256-1, qsize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio), tsize=sizeof(pthread_t)*count + _pthread_pool_pad(1+(unsigned int)prio);
+        void * const _p=allocator(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize + palign);
         if(_p){
-            pthread_pool_t * const p=(pthread_pool_t*)((((size_t)_p)+255) & ~255);
+            pthread_pool_t * const p=(pthread_pool_t*)((((size_t)_p)+palign) & ~palign);
             if(pthread_mutex_init(p->mtx,mattr)){
                 deallocator(_p); return NULL;
             }
@@ -586,7 +585,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
             p->max=prio;
             p->batch=0;
             if(detached==PTHREAD_CREATE_DETACHED) p->ctrl|=4;
-            if(((size_t)_p) & 255){p->ctrl|=16; ((void**)p)[-1]=_p;}
+            if(((size_t)_p) & palign){p->ctrl|=16; ((void**)p)[-1]=_p;}
             memset(p->queue,0,qsize);
 
             {_pthread_pool_initializer_t cfg[1]={{p,pattr,_pthread_pool_tids(p),pattrs>1,count}};
