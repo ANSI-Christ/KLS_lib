@@ -16,17 +16,19 @@ unsigned int pthread_cores(void);
 
 
 
-typedef struct{void *_[4];}pthread_poolattr_t;
+typedef struct{void *_[5];}pthread_poolattr_t;
 
 int pthread_poolattr_init(pthread_poolattr_t *attr);
 
-int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr,unsigned int count); /* pattr is shared by all threads of pool if count < 2 */
+int pthread_poolattr_setalign(pthread_poolattr_t *attr,unsigned int align);
 int pthread_poolattr_setcattr(pthread_poolattr_t *attr,pthread_condattr_t *cattr);
 int pthread_poolattr_setmattr(pthread_poolattr_t *attr,pthread_mutexattr_t *mattr);
+int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr,unsigned int count); /* pattr is shared by all threads of pool if count < 2 */
 
-int pthread_poolattr_getpattr(const pthread_poolattr_t *attr,pthread_attr_t **pattr,unsigned int *count);
+int pthread_poolattr_getalign(const pthread_poolattr_t *attr,unsigned int *align);
 int pthread_poolattr_getcattr(const pthread_poolattr_t *attr,pthread_condattr_t **cattr);
 int pthread_poolattr_getmattr(const pthread_poolattr_t *attr,pthread_mutexattr_t **mattr);
+int pthread_poolattr_getpattr(const pthread_poolattr_t *attr,pthread_attr_t **pattr,unsigned int *count);
 
 void pthread_poolattr_destroy(pthread_poolattr_t *attr);
 
@@ -239,8 +241,8 @@ static void *_pthread_raise_func(const int sig){
 static void *_CtxCtrlRegf(CONTEXT *c){
     static unsigned int offset=-1;
     if(offset==-1){
-        const uintptr_t * const end=(void*)(c+1), f=(uintptr_t)GetThreadContext;
-        uintptr_t diff, min=0, *p=(void*)c;
+        const size_t * const end=(void*)(c+1), f=(uintptr_t)GetThreadContext;
+        size_t diff, min=0, *p=(void*)c;
         GetThreadContext(GetCurrentThread(),c);
         for(c->ContextFlags=0,min=~min;p!=end;++p)
             if((diff=(*p>f) ? (*p-f) : (f-*p))<min){
@@ -354,6 +356,7 @@ static unsigned int _pthread_cores(void){
 int pthread_poolattr_init(pthread_poolattr_t * const attr){
     if(!attr) return EINVAL;
     attr->_[0]=NULL; attr->_[1]=NULL; attr->_[2]=NULL; attr->_[3]=NULL;
+    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[4]}; *p.i=256;}
     return 0;
 }
 
@@ -385,6 +388,12 @@ int pthread_poolattr_setpattr(pthread_poolattr_t * const attr,pthread_attr_t * c
     return 0;
 }
 
+int pthread_poolattr_setalign(pthread_poolattr_t * const attr,const unsigned int align){
+    if(!attr || align<sizeof(void*) || (align & (align-1)) ) return EINVAL;
+    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[4]}; *p.i=align;}
+    return 0;
+}
+
 int pthread_poolattr_getmattr(const pthread_poolattr_t * const attr,pthread_mutexattr_t ** const mattr){
     if(!attr) return EINVAL;
     *mattr=(pthread_mutexattr_t*)attr->_[0]; return 0;
@@ -399,6 +408,12 @@ int pthread_poolattr_getpattr(const pthread_poolattr_t * const attr,pthread_attr
     if(!attr) return EINVAL;
     *pattr=(pthread_attr_t*)attr->_[2];
     {const union{void *_; unsigned int *i;} p={(void*)&attr->_[3]}; *count=*p.i;}
+    return 0;
+}
+
+int pthread_poolattr_getalign(const pthread_poolattr_t * const attr,unsigned int * const align){
+    if(!attr) return EINVAL;
+    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[4]}; *align=*p.i;}
     return 0;
 }
 
@@ -549,12 +564,13 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
     pthread_condattr_t *cattr=NULL;
     pthread_mutexattr_t *mattr=NULL;
     int detached=PTHREAD_CREATE_JOINABLE;
-    unsigned int pattrs=0;
+    unsigned int pattrs=0, align=256;
 
     pthread_poolattr_getpattr(attr,&pattr,&pattrs);
     if(pattr && pthread_attr_getdetachstate(pattr,&detached))
         return NULL;
 
+    pthread_poolattr_getalign(attr,&align);
     pthread_poolattr_getmattr(attr,&mattr);
     pthread_poolattr_getcattr(attr,&cattr);
     if(!allocator) allocator=malloc;
@@ -562,7 +578,7 @@ pthread_pool_t *pthread_pool_create_ex(unsigned int count,const unsigned char pr
 
     if( (count || (count=pthread_cores())) && (pattrs<2 || pattrs>=count) ){
         const size_t qsize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio), tsize=_pthread_pool_pad(1+(unsigned int)prio) + sizeof(pthread_t)*count;
-        const size_t palign=256-1, asize=(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize + palign) & ~palign;
+        const size_t palign=align-1, asize=(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize + palign) & ~palign;
         void * const _p=malloc(asize + palign);
         if(_p){
             pthread_pool_t * const p=(pthread_pool_t*)((((size_t)_p)+palign) & ~palign);
