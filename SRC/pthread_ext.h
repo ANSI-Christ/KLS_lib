@@ -649,7 +649,7 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
         if(p->busy!=p->count) pthread_cond_signal(p->cond);
     }
     pthread_mutex_unlock(p->mtx);
-    if(err & 1) return ECANCELED;
+    if(err & 1) return EINVAL;
     if(err & 2) return EAGAIN;
     return 0;
 }
