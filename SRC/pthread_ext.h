@@ -73,18 +73,18 @@ void pthread_groupattr_destroy(pthread_groupattr_t *attr);
 
 
 
-typedef struct{pthread_mutex_t _1;pthread_cond_t _2;int _3[3];char _4[3];}pthread_group_t;
+typedef struct{pthread_mutex_t _1;pthread_cond_t _2;int _3[4];char _4[2];}pthread_group_t;
 
 int pthread_group_init(pthread_group_t *group,const pthread_groupattr_t *attr,unsigned int target);
 
-int pthread_group_destroy(pthread_group_t *group); /* return 1 if group destroys at this call, else 0 */
-int pthread_group_rejected(pthread_group_t *group); /* return 1 if group destroys at this call, -1 if rejected, else 0 */
-int pthread_group_reject(pthread_group_t *group,unsigned char by_task); /* return like pthread_group_destroy */
-int pthread_group_progress(pthread_group_t *group,unsigned int add_targets); /* return like pthread_group_destroy */
-int pthread_group_wait(pthread_group_t *group,unsigned int *done,unsigned int *target); /* 0 = ok, -1 = reject */
-int pthread_group_timedwait(pthread_group_t *group,unsigned int *done,unsigned int *target,struct timespec *abstime); /* 0 = ok, -1 = reject, EINVAL, ETIMEDOUT */
-int pthread_group_reject_ex(pthread_group_t *group,unsigned char by_task,void(*payload)(void *arg),void *arg); /* return like pthread_group_destroy */
-int pthread_group_progress_ex(pthread_group_t *group,unsigned int add_targets,void(*payload)(void *arg),void *arg); /* return like pthread_group_destroy */
+int pthread_group_destroy(pthread_group_t *group);
+int pthread_group_rejected(pthread_group_t *group);
+int pthread_group_reject(pthread_group_t *group,unsigned char by_task);
+int pthread_group_progress(pthread_group_t *group,unsigned int add_targets);
+int pthread_group_wait(pthread_group_t *group,unsigned int *done,unsigned int *target);
+int pthread_group_timedwait(pthread_group_t *group,unsigned int *done,unsigned int *target,struct timespec *abstime);
+int pthread_group_reject_ex(pthread_group_t *group,unsigned char by_task,void(*payload)(void *arg),void *arg);
+int pthread_group_progress_ex(pthread_group_t *group,unsigned int add_targets,void(*payload)(void *arg),void *arg);
 
 
 
@@ -649,7 +649,7 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
         if(p->busy!=p->count) pthread_cond_signal(p->cond);
     }
     pthread_mutex_unlock(p->mtx);
-    if(err & 1) return EINVAL;
+    if(err & 1) return ECANCELED;
     if(err & 2) return EAGAIN;
     return 0;
 }
@@ -719,7 +719,7 @@ typedef struct{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[1];
     unsigned int target, done, reject;
-    signed char state, destroy, wait;
+    int state; char destroy, wait;
 }_pthread_group_t;
 
 static void _pthread_group_reset(_pthread_group_t * const g,const unsigned int target){
@@ -753,27 +753,27 @@ static void _pthread_group_destroy(_pthread_group_t * const g){
 
 int pthread_group_destroy(pthread_group_t * const _g){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    int del=0;
+    int err=0;
     pthread_mutex_lock(g->mtx);
-    g->state=-1;
-    if(g->done+g->reject==g->target) del=1;
+    g->state=EINTR;
+    if(g->done+g->reject==g->target) err=ENOENT;
     else g->destroy=1;
     pthread_mutex_unlock(g->mtx);
-    if(del) _pthread_group_destroy(g);
-    return del;
+    if(err) _pthread_group_destroy(g);
+    return err;
 }
 
 int pthread_group_wait(pthread_group_t * const _g,unsigned int * const done,unsigned int * const target){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    int ret;
+    int err;
     pthread_mutex_lock(g->mtx);
     if(g->target) while(g->wait) pthread_cond_wait(g->cond,g->mtx);
     if(done) *done=g->done;
     if(target) *target=g->target;
-    ret=g->state;
+    err=g->state;
     _pthread_group_reset(g,0);
     pthread_mutex_unlock(g->mtx);
-    return ret;
+    return err;
 }
 
 int pthread_group_timedwait(pthread_group_t * const _g,unsigned int * const done,unsigned int * const target,struct timespec * const abstime){
@@ -790,33 +790,31 @@ int pthread_group_timedwait(pthread_group_t * const _g,unsigned int * const done
 _mark:
     if(done) *done=g->done;
     if(target) *target=g->target;
-    if(err){
-        ret=err;
-    }else{
-        ret=g->state;
+    if(!err){
+        err=g->state;
        _pthread_group_reset(g,0);
     }
     pthread_mutex_unlock(g->mtx);
-    return ret;
+    return err;
 }
 
 int pthread_group_progress_ex(pthread_group_t * const _g,const unsigned int add_targets,void(* const f)(void *arg),void * const arg){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    int del=0;
+    int err=0;
     pthread_mutex_lock(g->mtx);
     if(f) f(arg);
     g->done+=!!g->target;
     g->target+=add_targets;
     if(g->done+g->reject==g->target){
-        if(g->destroy) del=1;
+        if(g->destroy) err=ENOENT;
         else{
             g->wait=0;
             pthread_cond_broadcast(g->cond);
         }
     }
     pthread_mutex_unlock(g->mtx);
-    if(del) _pthread_group_destroy(g);
-    return del;
+    if(err) _pthread_group_destroy(g);
+    return err;
 }
 
 int pthread_group_progress(pthread_group_t * const g,const unsigned int add_targets){
@@ -825,13 +823,13 @@ int pthread_group_progress(pthread_group_t * const g,const unsigned int add_targ
 
 int pthread_group_reject_ex(pthread_group_t * const _g,const unsigned char by_task,void(* const f)(void *arg),void * const arg){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    int del=0;
+    int err=0;
     pthread_mutex_lock(g->mtx);
     if(f) f(arg);
-    g->state=-1;
+    g->state=EINTR;
     if(by_task){
         if(++g->reject+g->done==g->target){
-            if(g->destroy) del=1;
+            if(g->destroy) err=ENOENT;
             else{
                 g->wait=0;
                 pthread_cond_broadcast(g->cond);
@@ -842,8 +840,8 @@ int pthread_group_reject_ex(pthread_group_t * const _g,const unsigned char by_ta
         _pthread_group_reset(g,0);
     }
     pthread_mutex_unlock(g->mtx);
-    if(del) _pthread_group_destroy(g);
-    return del;
+    if(err) _pthread_group_destroy(g);
+    return err;
 }
 
 int pthread_group_reject(pthread_group_t * const g,const unsigned char by_task){
@@ -852,7 +850,10 @@ int pthread_group_reject(pthread_group_t * const g,const unsigned char by_task){
 
 int pthread_group_rejected(pthread_group_t * const _g){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    return (g->state ? ((pthread_group_reject(_g,1)<<1)-1) : 0);
+    if(g->state){
+        const int e=pthread_group_reject(_g,1);
+        return e ? e : EINTR;
+    } return 0;
 }
 
 unsigned int pthread_cores(void){
