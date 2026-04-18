@@ -770,7 +770,7 @@ int pthread_group_wait(pthread_group_t * const _g,unsigned int * const done,unsi
 
 int pthread_group_timedwait(pthread_group_t * const _g,unsigned int * const done,unsigned int * const target,struct timespec * const abstime){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    int ret,err=0;
+    int err=0;
     pthread_mutex_lock(g->mtx);
     if(g->target) while(g->wait)
         #define _CASE_ERR case EINVAL: err=EINVAL; goto _mark; case ETIMEDOUT: err=ETIMEDOUT; goto _mark;
