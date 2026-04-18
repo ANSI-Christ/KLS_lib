@@ -129,31 +129,30 @@ extern int pthread_detach(pthread_t);
 #include <windows.h>
 #undef NOMINMAX
 
-int pthread_channel_open(pthread_channel_t * const channel){
-    if(channel) return CreatePipe(&channel->r->p,&channel->w->p,NULL,0)-1;
-    return -1;
+int pthread_channel_open(pthread_channel_t * const c){
+    return CreatePipe(&c->r->p,&c->w->p,NULL,0)==0 ? -1 : 0;
 }
 
-void pthread_channel_close(pthread_channel_t * const channel){
-    if(channel && channel->r->p){
-        CloseHandle(channel->w->p);
-        CloseHandle(channel->r->p);
-        channel->r->p=NULL;
+void pthread_channel_close(pthread_channel_t * const c){
+    if(c->r->p){
+        CloseHandle(c->w->p);
+        CloseHandle(c->r->p);
+        c->r->p=NULL;
     }
 }
 
-int pthread_channel_push(pthread_channel_t * const channel,const void *data,const int size){
+int pthread_channel_push(pthread_channel_t * const c,const void *data,const int size){
     DWORD count;
-    if(channel && channel->r->p && data && size>0 && WriteFile(channel->w->p,data,size,&count,NULL)) return size;
+    if(c->r->p && data && size>0 && WriteFile(c->w->p,data,size,&count,NULL)) return size;
     return -1;
 }
 
-int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
-    if(channel && channel->r->p && data){
+int pthread_channel_pop(pthread_channel_t * const c,void *data,int size){
+    if(c->r->p && data){
         char *p=(char*)data;
         while(size>0){
             DWORD bytes;
-            ReadFile(channel->r->p,p,size,&bytes,NULL);
+            ReadFile(c->r->p,p,size,&bytes,NULL);
             if(bytes>0){
                 size-=bytes;
                 p+=bytes;
@@ -256,42 +255,35 @@ static unsigned int _pthread_cores(void){
 
 extern int pthread_attr_getdetachstate(const pthread_attr_t *,int *);
 
-static int _pthread_pipe(int fd[2]){
-    fd[0]=fd[1]=-1; return pipe(fd);
-}
-
-int pthread_channel_open(pthread_channel_t * const channel){
-    if(channel){
-        int fd[2];
-        if(_pthread_pipe(fd)){
-            channel->r->i=channel->w->i=-1;
-            return -1;
-        }
-        channel->r->i=fd[0];
-        channel->w->i=fd[1];
-        return 0;
+int pthread_channel_open(pthread_channel_t * const c){
+    int fd[2];
+    if(pipe(fd)){
+        c->r->i=c->w->i=-1;
+        return -1;
     }
-    return -1;
+    c->r->i=fd[0];
+    c->w->i=fd[1];
+    return 0;
 }
 
-void pthread_channel_close(pthread_channel_t * const channel){
-    if(channel && channel->r->i!=-1){
-        close(channel->w->i);
-        close(channel->r->i);
-        channel->r->i=-1;
+void pthread_channel_close(pthread_channel_t * const c){
+    if(c->r->i!=-1){
+        close(c->w->i);
+        close(c->r->i);
+        c->r->i=-1;
     }
 }
 
-int pthread_channel_push(pthread_channel_t * const channel,const void *data,int size){
-    if(channel && channel->r->i!=-1 && data && size>0) return write(channel->w->i,data,size);
+int pthread_channel_push(pthread_channel_t * const c,const void *data,int size){
+    if(c->r->i!=-1 && data && size>0) return write(c->w->i,data,size);
     return -1;
 }
 
-int pthread_channel_pop(pthread_channel_t * const channel,void *data,int size){
-    if(channel && channel->r->i!=-1 && data){
+int pthread_channel_pop(pthread_channel_t * const c,void *data,int size){
+    if(c->r->i!=-1 && data){
         char *p=(char*)data;
         while(size>0){
-            const int bytes=read(channel->r->i,p,size);
+            const int bytes=read(c->r->i,p,size);
             if(bytes>0){
                 size-=bytes;
                 p+=bytes;
