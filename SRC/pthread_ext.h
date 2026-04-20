@@ -416,13 +416,13 @@ static void _pthread_pool_append(pthread_pool_t * const p,_pthread_pool_task_t *
     _pthread_pool_queue_t * const q=p->queue+prio;
     if(q->last) q->last->next=t;
     else q->first=t;
-    q->last=t; ++p->size;
+    q->last=t;
 }
 
 static void _pthread_pool_prepend(pthread_pool_t * const p,_pthread_pool_task_t * const t,const unsigned char prio){
     _pthread_pool_queue_t * const q=p->queue+prio;
     if( !(t->next=q->first) ) q->last=t;
-    q->first=t; ++p->size;
+    q->first=t;
 }
 
 static _pthread_pool_task_t *_pthread_pool_pop(pthread_pool_t * const p){
@@ -637,7 +637,7 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
     pthread_mutex_lock(p->mtx);
     if( !(err=p->ctrl & 3) ){
         if(prio>p->peak) p->peak=prio;
-        _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
+        ++p->size; _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
         if(p->busy!=p->count) pthread_cond_signal(p->cond);
     }
     pthread_mutex_unlock(p->mtx);
@@ -647,8 +647,9 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
 }
 
 void pthread_pool_urgent(pthread_pool_t * const p,void * const t){
+    ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
-    _pthread_pool_prepend(p,(_pthread_pool_task_t*)t,(p->peak=p->max));
+    ++p->size; _pthread_pool_prepend(p,(_pthread_pool_task_t*)t,(p->peak=p->max));
     if(p->busy!=p->count) pthread_cond_signal(p->cond);
     pthread_mutex_unlock(p->mtx);
 }
