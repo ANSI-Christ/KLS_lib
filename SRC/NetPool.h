@@ -38,12 +38,6 @@ enum NET_ENDIAN{
     NET_BIG = 3   /* network byte order */
 };
 
-#define NET_ANY4        "0.0.0.0"
-#define NET_ANY6        "::"
-#define NET_LOCAL4      "127.0.0.1"
-#define NET_LOCAL6      "::1"
-
-
 
 typedef struct NetPool NetPool;
 
@@ -70,6 +64,11 @@ typedef struct{
 
 
 
+
+extern const char NET_ANY4[];
+extern const char NET_ANY6[];
+extern const char NET_LOCAL4[];
+extern const char NET_LOCAL6[];
 
 char *NetAddressString(const NetAddress *address,char buffer[46]);
 
@@ -101,9 +100,9 @@ void NetUnitShutdown(NetUnit *unit);
 void NetUnitDisconnect(NetUnit *unit);
 void NetUnitAutoRemove(NetUnit *unit);
 
-short *NetUnitRDWR(const NetUnit *unit);
 extern const short NET_RD;
 extern const short NET_WR;
+short *NetUnitRDWR(const NetUnit *unit);
 
 NetPool *NetUnitPool(const NetUnit *unit);
 
@@ -421,6 +420,11 @@ typedef union{
     struct sockaddr_in6 a6;
     struct sockaddr_storage st;
 }_NetAddressStorage;
+
+const char NET_ANY4[]="0.0.0.0";
+const char NET_ANY6[]="::";
+const char NET_LOCAL4[]="127.0.0.1";
+const char NET_LOCAL6[]="::1";
 
 
 static int _NetAddressFromNet(const _NetAddressStorage * const in,const unsigned int l,NetAddress * const out){
