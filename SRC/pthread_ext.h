@@ -496,12 +496,13 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
             pthread_mutex_lock(p->mtx);
         }else{
             if(busy){busy=0; if(!--p->busy) pthread_cond_broadcast(p->cond+1);}
-            if(p->ctrl & 1) break;
+            if( (p->ctrl & 1) && !p->busy) break;
             pthread_cond_wait(p->cond,p->mtx);
         }
     }
     busy=p->ctrl & 12;
     busy|=(busy & 4) && !--p->count;
+    if(p->ctrl & 32){p->ctrl&=~32; pthread_cond_broadcast(p->cond);}
     pthread_mutex_unlock(p->mtx);
 
     if(!index && !(busy & 4)){
@@ -582,10 +583,10 @@ int pthread_pool_detach(pthread_pool_t * const p,const int forced){
 
 void pthread_pool_destroy(pthread_pool_t * const p,const unsigned char now){
     if(p){
-        unsigned int i=1|((now!=0)<<1);
+        unsigned int i=1|32|((now!=0)<<1);
         pthread_mutex_lock(p->mtx);
         i=(p->ctrl|=i);
-        pthread_cond_broadcast(p->cond);
+        pthread_cond_signal(p->cond);
         pthread_mutex_unlock(p->mtx);
         if(i & 12) return;
         pthread_join(_pthread_pool_tids(p)[0],NULL);
