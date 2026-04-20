@@ -421,10 +421,10 @@ typedef union{
     struct sockaddr_storage st;
 }_NetAddressStorage;
 
-const char NET_ANY4[]="0.0.0.0";
-const char NET_ANY6[]="::";
-const char NET_LOCAL4[]="127.0.0.1";
-const char NET_LOCAL6[]="::1";
+const char NET_ANY4[8]={'0','.','0','.','0','.','0',0};
+const char NET_ANY6[3]={':',':',0};
+const char NET_LOCAL4[10]={'1','2','7','.','0','.','0','.','1',0};
+const char NET_LOCAL6[4]={':',':','1',0};
 
 
 static int _NetAddressFromNet(const _NetAddressStorage * const in,const unsigned int l,NetAddress * const out){
