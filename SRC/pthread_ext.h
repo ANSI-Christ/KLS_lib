@@ -50,6 +50,7 @@ void pthread_pool_reject(pthread_pool_t *pool);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
+unsigned int pthread_pool_pending(const pthread_pool_t *pool);
 
 unsigned char pthread_pool_batch(pthread_pool_t *pool,unsigned char count);
 
@@ -669,6 +670,10 @@ unsigned int pthread_pool_count(const pthread_pool_t * const p){
     return p->count;
 }
 
+unsigned int pthread_pool_pending(const pthread_pool_t * const p){
+    return p->size;
+}
+
 const pthread_t *pthread_pool_threads(const pthread_pool_t * const p){
     return _pthread_pool_tids(p);
 }
@@ -759,20 +764,20 @@ int pthread_group_destroy(pthread_group_t * const _g){
 
 int pthread_group_wait(pthread_group_t * const _g,unsigned int * const done,unsigned int * const target){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    int err;
+    int err; unsigned int v[2];
     pthread_mutex_lock(g->mtx);
     if(g->target) while(g->wait) pthread_cond_wait(g->cond,g->mtx);
-    if(done) *done=g->done;
-    if(target) *target=g->target;
-    err=g->state;
+    v[0]=g->done; v[1]=g->target; err=g->state;
     _pthread_group_reset(g,0);
     pthread_mutex_unlock(g->mtx);
+    if(done) *done=v[0];
+    if(target) *target=v[1];
     return err;
 }
 
 int pthread_group_timedwait(pthread_group_t * const _g,unsigned int * const done,unsigned int * const target,struct timespec * const abstime){
     _pthread_group_t * const g=(_pthread_group_t*)_g;
-    int err=0;
+    int err=0; unsigned int v[2];
     pthread_mutex_lock(g->mtx);
     if(g->target) while(g->wait)
         #define _CASE_ERR case EINVAL: err=EINVAL; goto _mark; case ETIMEDOUT: err=ETIMEDOUT; goto _mark;
@@ -782,13 +787,14 @@ int pthread_group_timedwait(pthread_group_t * const _g,unsigned int * const done
         }
         #undef _CASE_ERR
 _mark:
-    if(done) *done=g->done;
-    if(target) *target=g->target;
+    v[0]=g->done; v[1]=g->target;
     if(!err){
         err=g->state;
        _pthread_group_reset(g,0);
     }
     pthread_mutex_unlock(g->mtx);
+    if(done) *done=v[0];
+    if(target) *target=v[1];
     return err;
 }
 
