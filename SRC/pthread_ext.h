@@ -120,7 +120,7 @@ extern int pthread_detach(pthread_t);
 #ifdef offsetof
     #define _PTHREAD_OFFSETOF offsetof
 #else
-    #define _PTHREAD_OFFSETOF(_1_,_2_) ((size_t)&(_1_*)->_2_)
+    #define _PTHREAD_OFFSETOF(_1_,_2_) ((size_t)&((_1_*)0)->_2_)
 #endif
 
 #ifdef _WIN32
