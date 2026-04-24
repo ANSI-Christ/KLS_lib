@@ -474,6 +474,7 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
             pthread_pool_t *_p;
             _pthread_pool_task_t *i=t;
             unsigned int c=(--p->size)/p->count;
+            if(!busy) {busy=1; ++p->busy;}
             if(c>p->batch){c=p->batch;}
             if(p->reject){
                 unsigned int j=0;
@@ -485,8 +486,6 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
             }else
                 for(_p=((p->ctrl & 2)?NULL:p),p->size-=c;c;--c)
                     i=i->next=_pthread_pool_pop(p);
-            if(!busy) {busy=1; ++p->busy;}
-
             pthread_mutex_unlock(p->mtx);
             i->next=NULL;
             do{
@@ -640,7 +639,7 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
     if( !(err=p->ctrl & 3) ){
         if(prio>p->peak) p->peak=prio;
         _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
-        if(p->size++<p->count-p->busy) pthread_cond_signal(p->cond);
+        if(++p->size>p->busy && p->busy!=p->count) pthread_cond_signal(p->cond);
     }
     pthread_mutex_unlock(p->mtx);
     if(err & 1) return EINVAL;
@@ -652,7 +651,7 @@ void pthread_pool_urgent(pthread_pool_t * const p,void * const t){
     ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
     _pthread_pool_prepend(p,(_pthread_pool_task_t*)t,(p->peak=p->max));
-    if(p->size++<p->count-p->busy) pthread_cond_signal(p->cond);
+    if(++p->size>p->busy && p->busy!=p->count) pthread_cond_signal(p->cond);
     pthread_mutex_unlock(p->mtx);
 }
 
