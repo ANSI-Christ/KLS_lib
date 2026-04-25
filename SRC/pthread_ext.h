@@ -41,6 +41,7 @@ int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
 typedef struct{ void *_padding; void(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index); } pthread_pool_task_t;
 /* composite task structure must include pthread_pool_task_t as first field. */
+int pthread_pool_quiet(pthread_pool_t *pool,void *composite_task,unsigned char prio);
 int pthread_pool_task(pthread_pool_t *pool,void *composite_task,unsigned char prio);
 void pthread_pool_urgent(pthread_pool_t *pool,void *composite_task);
 
@@ -633,13 +634,29 @@ _mark:
 
 int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio){
     int err;
-    if(prio>p->max) prio=p->max;
     ((_pthread_pool_task_t*)t)->next=NULL;
+    if(prio>p->max) prio=p->max;
     pthread_mutex_lock(p->mtx);
     if( !(err=p->ctrl & 3) ){
         if(prio>p->peak) p->peak=prio;
         _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
         if(++p->size>=p->busy && p->busy!=p->count) pthread_cond_signal(p->cond);
+    }
+    pthread_mutex_unlock(p->mtx);
+    if(err & 1) return EINVAL;
+    if(err & 2) return EAGAIN;
+    return 0;
+}
+
+int pthread_pool_quiet(pthread_pool_t * const p,void * const t,unsigned char prio){
+    int err;
+    ((_pthread_pool_task_t*)t)->next=NULL;
+    if(prio>p->max) prio=p->max;
+    pthread_mutex_lock(p->mtx);
+    if( !(err=p->ctrl & 3) ){
+        ++p->size; if(prio>p->peak) p->peak=prio;
+        _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
+        if(!p->busy) pthread_cond_signal(p->cond);
     }
     pthread_mutex_unlock(p->mtx);
     if(err & 1) return EINVAL;
