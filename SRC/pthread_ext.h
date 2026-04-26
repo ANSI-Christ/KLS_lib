@@ -13,7 +13,7 @@ unsigned int pthread_cores(void);
 
 
 
-typedef struct{void *_[5];}pthread_poolattr_t;
+typedef struct{union{void *p;char c; short s; int i; void(*f)(void);}_[9];} pthread_poolattr_t;
 
 int pthread_poolattr_init(pthread_poolattr_t *attr);
 
@@ -21,11 +21,15 @@ int pthread_poolattr_setalign(pthread_poolattr_t *attr,unsigned int align);
 int pthread_poolattr_setcattr(pthread_poolattr_t *attr,pthread_condattr_t *cattr);
 int pthread_poolattr_setmattr(pthread_poolattr_t *attr,pthread_mutexattr_t *mattr);
 int pthread_poolattr_setpattr(pthread_poolattr_t *attr,pthread_attr_t *pattr,unsigned int count); /* pattr is shared by all threads of pool if count < 2 */
+int pthread_poolattr_setfini(pthread_poolattr_t *attr,void(*fini)(void *arg),void *arg);
+int pthread_poolattr_setinit(pthread_poolattr_t *attr,int(*init)(void *arg,unsigned int index),void *arg);
 
 int pthread_poolattr_getalign(const pthread_poolattr_t *attr,unsigned int *align);
 int pthread_poolattr_getcattr(const pthread_poolattr_t *attr,pthread_condattr_t **cattr);
 int pthread_poolattr_getmattr(const pthread_poolattr_t *attr,pthread_mutexattr_t **mattr);
 int pthread_poolattr_getpattr(const pthread_poolattr_t *attr,pthread_attr_t **pattr,unsigned int *count);
+int pthread_poolattr_getfini(const pthread_poolattr_t *attr,void(**fini)(void *arg),void **arg);
+int pthread_poolattr_getinit(const pthread_poolattr_t *attr,int(**init)(void *arg,unsigned int index),void **arg);
 
 void pthread_poolattr_destroy(pthread_poolattr_t *attr);
 
@@ -60,7 +64,7 @@ const pthread_t *pthread_pool_threads(const pthread_pool_t *pool);
 
 
 
-typedef struct{void *_[2];}pthread_groupattr_t;
+typedef struct{void *_[2];} pthread_groupattr_t;
 
 int pthread_groupattr_init(pthread_groupattr_t *attr);
 
@@ -75,7 +79,7 @@ void pthread_groupattr_destroy(pthread_groupattr_t *attr);
 
 
 
-typedef struct{pthread_mutex_t _1;pthread_cond_t _2;int _3[4];char _4[2];}pthread_group_t;
+typedef struct{pthread_mutex_t _1;pthread_cond_t _2;int _3[4];char _4[2];} pthread_group_t;
 
 int pthread_group_init(pthread_group_t *group,const pthread_groupattr_t *attr,unsigned int target);
 
@@ -316,68 +320,101 @@ static unsigned int _pthread_cores(void){
 
 #endif /* end not _WIN32 */
 
+static void _pthread_fptrcpy(void * const dst,const void * const src){
+    struct fptr{void(*_)(void);}; *(struct fptr*)dst=*(const struct fptr*)src;
+}
 
 int pthread_poolattr_init(pthread_poolattr_t * const attr){
     if(!attr) return EINVAL;
-    attr->_[0]=NULL; attr->_[1]=NULL; attr->_[2]=NULL; attr->_[3]=NULL;
-    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[4]}; *p.i=256;}
+    attr->_[0].p=NULL; attr->_[1].p=NULL; attr->_[2].p=NULL;
+    attr->_[3].i=0; attr->_[4].i=256;
+    attr->_[5].f=attr->_[7].f=(void(*)(void))0;
+    attr->_[6].p=NULL; attr->_[8].p=NULL;
     return 0;
 }
 
 void pthread_poolattr_destroy(pthread_poolattr_t * const attr){
     if(!attr) return;
-    if(attr->_[0]) pthread_mutexattr_destroy((pthread_mutexattr_t*)attr->_[0]);
-    if(attr->_[1]) pthread_condattr_destroy((pthread_condattr_t*)attr->_[1]);
-    if(attr->_[2]){
-        const union{void *_; unsigned int *i;} p={(void*)&attr->_[3]};
-        unsigned int i=*p.i;
-        while(i--) pthread_attr_destroy(((pthread_attr_t*)attr->_[2])+i);
+    if(attr->_[0].p) pthread_mutexattr_destroy((pthread_mutexattr_t*)attr->_[0].p);
+    if(attr->_[1].p) pthread_condattr_destroy((pthread_condattr_t*)attr->_[1].p);
+    if(attr->_[2].p){
+        unsigned int i=attr->_[3].i;
+        while(i--) pthread_attr_destroy(((pthread_attr_t*)attr->_[2].p)+i);
     }
 }
 
 int pthread_poolattr_setmattr(pthread_poolattr_t * const attr,pthread_mutexattr_t * const mattr){
     if(!attr) return EINVAL;
-    attr->_[0]=mattr; return 0;
+    attr->_[0].p=mattr; return 0;
 }
 
 int pthread_poolattr_setcattr(pthread_poolattr_t * const attr,pthread_condattr_t * const cattr){
     if(!attr) return EINVAL;
-    attr->_[1]=cattr; return 0;
+    attr->_[1].p=cattr; return 0;
 }
 
 int pthread_poolattr_setpattr(pthread_poolattr_t * const attr,pthread_attr_t * const pattr,const unsigned int count){
     if(!attr) return EINVAL;
-    attr->_[2]=pattr;
-    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[3]}; *p.i=(pattr?count:0);}
+    attr->_[2].p=pattr;
+    attr->_[3].i=(int)(pattr?count:0);
     return 0;
 }
 
 int pthread_poolattr_setalign(pthread_poolattr_t * const attr,const unsigned int align){
     if(!attr || !align || (align & (align-1)) ) return EINVAL;
-    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[4]}; *p.i=align;}
+    attr->_[4].i=(int)align;
     return 0;
 }
 
+int pthread_poolattr_setinit(pthread_poolattr_t *const attr,int(* const init)(void *arg,unsigned int index),void * const arg){
+    if(!attr) return EINVAL;
+    _pthread_fptrcpy(&attr->_[5].f,&init);
+    attr->_[6].p=arg;
+    return 0;
+}
+
+int pthread_poolattr_setfini(pthread_poolattr_t * const attr,void(* const fini)(void*),void * const arg){
+    if(!attr) return EINVAL;
+    _pthread_fptrcpy(&attr->_[7].f,&fini);
+    attr->_[8].p=arg;
+    return 0;
+}
+
+
 int pthread_poolattr_getmattr(const pthread_poolattr_t * const attr,pthread_mutexattr_t ** const mattr){
     if(!attr) return EINVAL;
-    *mattr=(pthread_mutexattr_t*)attr->_[0]; return 0;
+    *mattr=(pthread_mutexattr_t*)attr->_[0].p; return 0;
 }
 
 int pthread_poolattr_getcattr(const pthread_poolattr_t * const attr,pthread_condattr_t ** const cattr){
     if(!attr) return EINVAL;
-    *cattr=(pthread_condattr_t*)attr->_[1]; return 0;
+    *cattr=(pthread_condattr_t*)attr->_[1].p; return 0;
 }
 
 int pthread_poolattr_getpattr(const pthread_poolattr_t * const attr,pthread_attr_t ** const pattr,unsigned int * const count){
     if(!attr) return EINVAL;
-    *pattr=(pthread_attr_t*)attr->_[2];
-    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[3]}; *count=*p.i;}
+    *pattr=(pthread_attr_t*)attr->_[2].p;
+    *count=(unsigned int)attr->_[3].i;
     return 0;
 }
 
 int pthread_poolattr_getalign(const pthread_poolattr_t * const attr,unsigned int * const align){
     if(!attr) return EINVAL;
-    {const union{void *_; unsigned int *i;} p={(void*)&attr->_[4]}; *align=*p.i;}
+    *align=(unsigned int)attr->_[4].i;
+    return 0;
+}
+
+int pthread_poolattr_getinit(const pthread_poolattr_t * const attr,int(**init)(void *arg,unsigned int index),void **arg){
+    if(!attr) return EINVAL;
+    _pthread_fptrcpy(init,&attr->_[5].f);
+    *arg=attr->_[6].p;
+    return 0;
+}
+
+int pthread_poolattr_getfini(const pthread_poolattr_t * const attr,void(**fini)(void *arg),void **arg){
+    if(!attr) return EINVAL;
+    _pthread_fptrcpy(fini,&attr->_[7].f);
+    *arg=attr->_[8].p;
     return 0;
 }
 
@@ -401,6 +438,9 @@ struct _pthread_pool_t{
 };
 
 typedef struct{
+    int(*init)(void*,unsigned int);
+    void(*fini)(void*);
+    void *iarg, *farg;
     pthread_pool_t * const pool;
     pthread_attr_t * const attr;
     pthread_t * const tid;
@@ -463,9 +503,16 @@ static void _pthread_pool_release(pthread_pool_t * const p){
 }
 
 static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
+    void(*const fini)(void*)=cfg->fini;
+    void * const farg=cfg->farg;
     pthread_pool_t * const p=cfg->pool;
-    const unsigned int index=p->count++;
-    int busy=(p->count!=cfg->count ? pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg) : 1);
+    const unsigned int index=p->count;
+    int busy=(++p->count==cfg->count);
+
+    if(!busy){
+        if(cfg->init) busy=cfg->init(cfg->iarg,index);
+        if(!busy) busy=pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg);
+    }
 
     pthread_mutex_lock(p->mtx);
     if(busy){cfg->err=busy; pthread_cond_signal(p->cond+1);}
@@ -511,8 +558,10 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
         while(--i) pthread_join(tid[i],NULL);
         busy|=(busy & 8)>>3;
     }
-    if(busy & 1) _pthread_pool_release(p);
-
+    if(busy & 1){
+        _pthread_pool_release(p);
+        if(fini) fini(farg);
+    }
     return NULL;
 }
 
@@ -559,7 +608,9 @@ int pthread_pool_create(pthread_pool_t ** const pool,const pthread_poolattr_t * 
             if(((size_t)_p) & palign){p->ctrl|=16; ((void**)p)[-1]=_p;}
             memset(p->queue,0,qsize);
 
-            {_pthread_pool_initializer_t cfg[1]={{p,pattr,_pthread_pool_tids(p),pattrs>1,count,0}};
+            {_pthread_pool_initializer_t cfg[1]={{NULL,NULL,NULL,NULL,p,pattr,_pthread_pool_tids(p),pattrs>1,count,0}};
+            pthread_poolattr_getinit(attr,&cfg->init,&cfg->iarg);
+            pthread_poolattr_getfini(attr,&cfg->fini,&cfg->farg);
             if( !(err=pthread_create(cfg->tid,cfg->attr,(void*(*)(void*))_pthread_pool_worker,cfg)) ){
                 pthread_mutex_lock(p->mtx);
                 while(!cfg->err) pthread_cond_wait(p->cond+1,p->mtx);
@@ -641,22 +692,6 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
         if(prio>p->peak) p->peak=prio;
         _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
         if(p->size++<p->count-p->busy) pthread_cond_signal(p->cond);
-    }
-    pthread_mutex_unlock(p->mtx);
-    if(err & 1) return EINVAL;
-    if(err & 2) return EAGAIN;
-    return 0;
-}
-
-int pthread_pool_soft(pthread_pool_t * const p,void * const t,unsigned char prio){
-    int err;
-    ((_pthread_pool_task_t*)t)->next=NULL;
-    if(prio>p->max) prio=p->max;
-    pthread_mutex_lock(p->mtx);
-    if( !(err=p->ctrl & 3) ){
-        if(prio>p->peak) p->peak=prio;
-        _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
-        if(p->size++<p->count-p->busy && p->size>p->busy) pthread_cond_signal(p->cond);
     }
     pthread_mutex_unlock(p->mtx);
     if(err & 1) return EINVAL;
