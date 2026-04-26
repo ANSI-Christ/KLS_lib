@@ -404,14 +404,14 @@ int pthread_poolattr_getalign(const pthread_poolattr_t * const attr,unsigned int
     return 0;
 }
 
-int pthread_poolattr_getinit(const pthread_poolattr_t * const attr,int(**init)(void *arg,unsigned int index),void **arg){
+int pthread_poolattr_getinit(const pthread_poolattr_t * const attr,int(**init)(void *arg,unsigned int index),void ** const arg){
     if(!attr) return EINVAL;
     _pthread_fptrcpy(init,&attr->_[5].f);
     *arg=attr->_[6].p;
     return 0;
 }
 
-int pthread_poolattr_getfini(const pthread_poolattr_t * const attr,void(**fini)(void *arg),void **arg){
+int pthread_poolattr_getfini(const pthread_poolattr_t * const attr,void(**fini)(void *arg),void ** const arg){
     if(!attr) return EINVAL;
     _pthread_fptrcpy(fini,&attr->_[7].f);
     *arg=attr->_[8].p;
@@ -506,13 +506,9 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
     void(*const fini)(void*)=cfg->fini;
     void * const farg=cfg->farg;
     pthread_pool_t * const p=cfg->pool;
-    const unsigned int index=p->count;
-    int busy=(++p->count==cfg->count);
-
-    if(!busy){
-        if(cfg->init) busy=cfg->init(cfg->iarg,index);
-        if(!busy) busy=pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg);
-    }
+    const unsigned int index=p->count++;
+    int busy=(cfg->init ? cfg->init(cfg->iarg,index) : 0);
+    if(!busy) busy=(p->count!=cfg->count ? pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg) : 1);
 
     pthread_mutex_lock(p->mtx);
     if(busy){cfg->err=busy; pthread_cond_signal(p->cond+1);}
