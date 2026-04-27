@@ -36,13 +36,12 @@ typedef struct _pthread_pool_t pthread_pool_t;
 
 int pthread_pool_create(pthread_pool_t **pool,const pthread_poolattr_t *attr,unsigned int count,unsigned char max_prio);
 
-int pthread_pool_detach(pthread_pool_t *pool,int forced);
+int pthread_pool_detach(pthread_pool_t *pool);
 int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 
 typedef struct{ void *_padding; void(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index); } pthread_pool_task_t;
 /* composite task structure must include pthread_pool_task_t as first field. */
 int pthread_pool_task(pthread_pool_t *pool,void *composite_task,unsigned char prio);
-int pthread_pool_soft(pthread_pool_t *pool,void *composite_task,unsigned char prio);
 void pthread_pool_urgent(pthread_pool_t *pool,void *composite_task);
 
 void pthread_pool_wait(pthread_pool_t *pool);
@@ -573,10 +572,10 @@ int pthread_pool_create(pthread_pool_t ** const pool,const pthread_poolattr_t * 
     } *pool=(pthread_pool_t*)6; return EINVAL;
 }
 
-int pthread_pool_detach(pthread_pool_t * const p,const int forced){
+int pthread_pool_detach(pthread_pool_t * const p){
     int err=EINVAL;
     pthread_mutex_lock(p->mtx);
-    if( !(p->ctrl & 12) && ( !(err=pthread_detach(_pthread_pool_tids(p)[0])) || forced) )
+    if( !(p->ctrl & 12) && !(err=pthread_detach(_pthread_pool_tids(p)[0])) )
         p->ctrl|=8;
     pthread_mutex_unlock(p->mtx);
     return err;
