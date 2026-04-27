@@ -555,7 +555,7 @@ int pthread_pool_create(pthread_pool_t ** const pool,const pthread_poolattr_t * 
             p->max=prio;
             p->batch=0;
             if(detached==PTHREAD_CREATE_DETACHED) p->ctrl|=4;
-            if(((size_t)_p) & palign){p->ctrl|=16; ((void**)p)[-1]=_p;}
+            if((void*)p!=_p){p->ctrl|=16; ((void**)p)[-1]=_p;}
             memset(p->queue,0,qsize);
 
             {_pthread_pool_initializer_t cfg[1]={{p,pattr,_pthread_pool_tids(p),pattrs>1,count,0}};
