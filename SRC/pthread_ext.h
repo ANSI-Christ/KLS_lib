@@ -117,6 +117,7 @@ extern int pthread_detach(pthread_t);
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 
 #ifdef offsetof
     #define _PTHREAD_OFFSETOF offsetof
@@ -464,7 +465,7 @@ static void _pthread_pool_release(pthread_pool_t * const p){
 static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
     pthread_pool_t * const p=cfg->pool;
     const unsigned int index=p->count++;
-    int busy=(p->count!=cfg->count ? pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg) : 1);
+    int sleep=0, busy=(p->count!=cfg->count ? pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg) : 1);
 
     pthread_mutex_lock(p->mtx);
     if(busy){cfg->err=busy; pthread_cond_signal(p->cond+1);}
@@ -492,11 +493,16 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
                 i=t->next;
                 t->f(_p,t,index);
             }while( (t=i) );
+            sleep=10;
             pthread_mutex_lock(p->mtx);
         }else{
             if(busy){busy=0; if(!--p->busy) pthread_cond_broadcast(p->cond+1);}
             if( (p->ctrl & 1) && !p->busy) break;
-            pthread_cond_wait(p->cond,p->mtx);
+            if(sleep){
+                pthread_mutex_unlock(p->mtx);
+                --sleep; {const struct timespec ts={0,1000000};nanosleep(&ts,NULL);}
+                pthread_mutex_lock(p->mtx);
+            }else pthread_cond_wait(p->cond,p->mtx);
         }
     }
     busy=p->ctrl & 12;
