@@ -119,6 +119,8 @@ extern int pthread_detach(pthread_t);
 #include <errno.h>
 #include <time.h>
 
+extern int nanosleep(const struct timespec*,struct timespec*);
+
 #ifdef offsetof
     #define _PTHREAD_OFFSETOF offsetof
 #else
