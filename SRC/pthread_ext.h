@@ -47,6 +47,7 @@ void pthread_pool_urgent(pthread_pool_t *pool,void *composite_task);
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
 void pthread_pool_reject(pthread_pool_t *pool);
+void pthread_pool_idle(pthread_pool_t *pool,unsigned char ms);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
 
 unsigned int pthread_pool_count(const pthread_pool_t *pool);
@@ -397,8 +398,8 @@ struct _pthread_pool_t{
     pthread_mutex_t mtx[1];
     pthread_cond_t cond[2];
     _pthread_pool_task_t *reject;
-    unsigned int count, busy, size;
-    unsigned char ctrl, peak, max, batch;
+    unsigned int count, busy, wait, size;
+    unsigned char ctrl, peak, max, batch, idle;
     _pthread_pool_queue_t queue[1];
 };
 
@@ -495,7 +496,7 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
                 i=t->next;
                 t->f(_p,t,index);
             }while( (t=i) );
-            sleep=10;
+            sleep=p->idle;
             pthread_mutex_lock(p->mtx);
         }else{
             if(busy){busy=0; if(!--p->busy) pthread_cond_broadcast(p->cond+1);}
@@ -504,7 +505,11 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
                 pthread_mutex_unlock(p->mtx);
                 --sleep; {const struct timespec ts={0,1000000};nanosleep(&ts,NULL);}
                 pthread_mutex_lock(p->mtx);
-            }else pthread_cond_wait(p->cond,p->mtx);
+            }else{
+                ++p->wait;
+                pthread_cond_wait(p->cond,p->mtx);
+                --p->wait;
+            }
         }
     }
     busy=p->ctrl & 12;
@@ -558,10 +563,9 @@ int pthread_pool_create(pthread_pool_t ** const pool,const pthread_poolattr_t * 
                 free(_p); *pool=(pthread_pool_t*)3; return err;
             }
             p->reject=NULL;
-            p->count=p->busy=p->size=0;
-            p->ctrl=p->peak=0;
+            p->count=p->busy=p->wait=p->size=0;
+            p->ctrl=p->peak=p->batch=p->idle=0;
             p->max=prio;
-            p->batch=0;
             if(detached==PTHREAD_CREATE_DETACHED) p->ctrl|=4;
             if((void*)p!=_p){p->ctrl|=16; ((void**)p)[-1]=_p;}
             memset(p->queue,0,qsize);
@@ -647,7 +651,7 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
     if( !(err=p->ctrl & 3) ){
         if(prio>p->peak) p->peak=prio;
         _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
-        if(p->size++<p->count-p->busy) pthread_cond_signal(p->cond);
+        if(p->size++<p->wait) pthread_cond_signal(p->cond);
     }
     pthread_mutex_unlock(p->mtx);
     if(err & 1) return EINVAL;
@@ -659,7 +663,7 @@ void pthread_pool_urgent(pthread_pool_t * const p,void * const t){
     ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
     _pthread_pool_prepend(p,(_pthread_pool_task_t*)t,(p->peak=p->max));
-    if(p->size++<p->count-p->busy) pthread_cond_signal(p->cond);
+    if(p->size++<p->wait) pthread_cond_signal(p->cond);
     pthread_mutex_unlock(p->mtx);
 }
 
@@ -671,6 +675,10 @@ unsigned char pthread_pool_batch(pthread_pool_t * const p,unsigned char count){
         p->batch=count;
         pthread_mutex_unlock(p->mtx);
     } return sav+1;
+}
+
+void pthread_pool_idle(pthread_pool_t * const p,const unsigned char ms){
+    p->idle=ms;
 }
 
 unsigned int pthread_pool_count(const pthread_pool_t * const p){
