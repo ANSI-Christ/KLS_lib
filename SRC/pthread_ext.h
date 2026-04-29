@@ -503,7 +503,7 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
             if( (p->ctrl & 1) && !p->busy) break;
             if(sleep){
                 pthread_mutex_unlock(p->mtx);
-                if(p->idle!=(unsigned char)-1){--sleep;} nanosleep(ts,NULL);
+                sleep-=(p->idle!=(unsigned char)-1); nanosleep(ts,NULL);
                 pthread_mutex_lock(p->mtx);
             }else{
                 ++p->wait;
