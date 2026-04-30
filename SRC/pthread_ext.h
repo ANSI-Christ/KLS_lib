@@ -469,7 +469,8 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
     const struct timespec ts[1]={{0,1000000}};
     pthread_pool_t * const p=cfg->pool;
     const unsigned int index=p->count++;
-    int sleep=0, busy=(p->count!=cfg->count ? pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg) : 1);
+    unsigned int sleep=0;
+    int busy=(p->count!=cfg->count ? pthread_create(cfg->tid+p->count,cfg->attr+p->count*cfg->inc,(void*(*)(void*))_pthread_pool_worker,cfg) : 1);
 
     pthread_mutex_lock(p->mtx);
     if(busy){cfg->err=busy; pthread_cond_signal(p->cond+1);}
@@ -502,8 +503,11 @@ static void *_pthread_pool_worker(_pthread_pool_initializer_t * const cfg){
             if(busy){busy=0; sleep=p->idle; if(!--p->busy) pthread_cond_broadcast(p->cond+1);}
             if( (p->ctrl & 1) && !p->busy) break;
             if(sleep){
+                const unsigned int idle=p->idle;
                 pthread_mutex_unlock(p->mtx);
-                sleep-=(p->idle!=(unsigned char)-1); nanosleep(ts,NULL);
+                if(sleep>idle) sleep=idle;
+                else sleep-=(idle!=(unsigned char)-1);
+                nanosleep(ts,NULL);
                 pthread_mutex_lock(p->mtx);
             }else{
                 ++p->wait;
