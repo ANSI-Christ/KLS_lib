@@ -400,8 +400,8 @@ static int poll(struct pollfd * const p,const int cnt,const int timeout){
     struct sockaddr_in6{
         sa_family_t sin6_family;
         in_port_t sin6_port;
-        int sin6_addr[4];
-    }
+        char sin6_addr[16];
+    };
 #endif
 
 const short NET_RD=POLLIN;
