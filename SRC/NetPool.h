@@ -31,12 +31,6 @@ enum NET_STATE{
     NET_ACCEPTING
 };
 
-enum NET_ENDIAN{
-    NET_UND = 0,
-    NET_LTL = 1,
-    NET_PDP = 2,
-    NET_BIG = 3   /* network byte order */
-};
 
 
 typedef struct NetPool NetPool;
@@ -121,37 +115,29 @@ enum NET_STATE NetUnitState(const NetUnit *unit);
 void NetViewNet(void *base_type_pointer);
 void NetViewHost(void *base_type_pointer);
 
-enum NET_ENDIAN NetEndian(void);
 
 
 
 
-#define NetEndian() (\
-    sizeof(long)==sizeof(char) ? ( ((unsigned char)-1)>255 ? NET_UND : NET_BIG) : (\
-        ((const union{long l; struct{char x;}s;}){1}).s.x ? NET_LTL : (\
-            (sizeof(long)==4 && ((const union{long l; struct{char a,x;}s;}){1}).s.x) ? NET_PDP : NET_BIG \
-        )\
-    )\
-)
-#define NetViewHost(_p_) NetViewNet(_p_)
+#define NetViewHost NetViewNet
 #define NetViewNet(_p_) do{\
-    struct static_assert_bad_type_##__LINE__{char _1[(sizeof((_p_)[0]<=16) && sizeof((_p_)[0])>1) ? 1 : -1], _2[sizeof((_p_)[0]+=0.1)];};\
-    if(NetEndian()==NET_LTL)\
-        switch(sizeof(*(_p_))){\
-            case 2:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
-            case 4:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(3,0),  _NetViewSwap(2,1);} break;\
-            case 8:  {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(7,0),  _NetViewSwap(6,1),  _NetViewSwap(5,2),  _NetViewSwap(4,3);} break;\
-            case 12: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(11,0), _NetViewSwap(10,1), _NetViewSwap(9,2),  _NetViewSwap(8,3),  _NetViewSwap(7,4),  _NetViewSwap(6,5);} break;\
-            case 16: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(15,0), _NetViewSwap(14,1), _NetViewSwap(13,2), _NetViewSwap(12,3), _NetViewSwap(11,4), _NetViewSwap(10,5), _NetViewSwap(9,6), _NetViewSwap(8,7);} break;\
-        }\
-    else if(NetEndian()==NET_PDP)\
-        switch(sizeof(*(_p_))){\
-            case 2: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(1,0);} break;\
-            case 4: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(3,2), _NetViewSwap(1,0);} break;\
-            case 8: {unsigned char * const _1_=(unsigned char *)(_p_),_2_; _NetViewSwap(7,6), _NetViewSwap(5,4), _NetViewSwap(3,2), _NetViewSwap(1,0);} break;\
-        }\
+    struct static_assert_bad_type{char _1[(sizeof((_p_)[0]<9)) ? 1 : -1], _2[sizeof((_p_)[0]+=0.1)];};\
+    if(sizeof(long)!=1){\
+        const union{long _; struct{char ltl,pdp;}v;}_e_={1};\
+        if(_e_.v.ltl)\
+            switch(sizeof(*(_p_))){\
+                case 2:{char * const _b_=(char*)(_p_); _NetViewSwap(0,1); break;}\
+                case 4:{char * const _b_=(char*)(_p_); _NetViewSwap(0,3); _NetViewSwap(1,2); break;}\
+                case 8:{char * const _b_=(char*)(_p_); _NetViewSwap(0,7); _NetViewSwap(1,6); _NetViewSwap(2,5); _NetViewSwap(3,4); break;}\
+            }\
+        else if(sizeof(long)==4 && _e_.v.pdp)\
+            switch(sizeof(*(_p_))){\
+                case 2:{char * const _b_=(char*)(_p_); _NetViewSwap(0,1); break;}\
+                case 4:{char * const _b_=(char*)(_p_); _NetViewSwap(0,1); _NetViewSwap(3,2); break;}\
+            }\
+    }\
 }while(0)
-#define _NetViewSwap(_i_,_j_) _2_=_1_[_i_], _1_[_i_]=_1_[_j_], _1_[_j_]=_2_
+#define _NetViewSwap(_1_,_2_) do{const char _x_=_b_[_1_]; _b_[_1_]=_b_[_2_]; _b_[_2_]=_x_;}while(0)
 
 #endif /* NETPOOL_H */
 
