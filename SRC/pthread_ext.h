@@ -827,12 +827,12 @@ int pthread_group_progress_ex(pthread_group_t * const _g,const unsigned int add_
     if(g->done+g->reject==g->target){
         if(g->destroy) err=ENOENT;
         else{
-            g->wait=0;
+            g->wait=0; err=ERANGE;
             pthread_cond_broadcast(g->cond);
         }
     }
     pthread_mutex_unlock(g->mtx);
-    if(err) _pthread_group_destroy(g);
+    if(err==ENOENT) _pthread_group_destroy(g);
     return err;
 }
 
@@ -850,7 +850,7 @@ int pthread_group_reject_ex(pthread_group_t * const _g,const unsigned char by_ta
         if(++g->reject+g->done==g->target){
             if(g->destroy) err=ENOENT;
             else{
-                g->wait=0;
+                g->wait=0; err=ERANGE;
                 pthread_cond_broadcast(g->cond);
             }
         }
@@ -859,7 +859,7 @@ int pthread_group_reject_ex(pthread_group_t * const _g,const unsigned char by_ta
         _pthread_group_reset(g,0);
     }
     pthread_mutex_unlock(g->mtx);
-    if(err) _pthread_group_destroy(g);
+    if(err==ENOENT) _pthread_group_destroy(g);
     return err;
 }
 
