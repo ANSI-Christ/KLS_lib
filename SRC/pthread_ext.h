@@ -634,7 +634,6 @@ void pthread_pool_clear(pthread_pool_t * const p){
 void pthread_pool_cancel(pthread_pool_t * const p){
     pthread_mutex_lock(p->mtx);
     p->ctrl|=2;
-    while(p->busy|p->size) pthread_cond_wait(p->cond+1,p->mtx);
     pthread_mutex_unlock(p->mtx);
 }
 
