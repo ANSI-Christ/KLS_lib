@@ -46,6 +46,7 @@ void pthread_pool_urgent(pthread_pool_t *pool,void *composite_task);
 
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
+void pthread_pool_cancel(pthread_pool_t *pool);
 void pthread_pool_reject(pthread_pool_t *pool);
 void pthread_pool_idle(pthread_pool_t *pool,unsigned char ms);
 void pthread_pool_destroy(pthread_pool_t *pool,unsigned char now);
@@ -624,11 +625,16 @@ void pthread_pool_wait(pthread_pool_t * const p){
 
 void pthread_pool_clear(pthread_pool_t * const p){
     pthread_mutex_lock(p->mtx);
-    if(p->busy|p->size){
-        p->ctrl|=2;
-        do{ pthread_cond_wait(p->cond+1,p->mtx); } while(p->busy|p->size);
-        p->ctrl&=~2;
-    }
+    p->ctrl|=2;
+    while(p->busy|p->size) pthread_cond_wait(p->cond+1,p->mtx);
+    p->ctrl&=~2;
+    pthread_mutex_unlock(p->mtx);
+}
+
+void pthread_pool_cancel(pthread_pool_t * const p){
+    pthread_mutex_lock(p->mtx);
+    p->ctrl|=2;
+    while(p->busy|p->size) pthread_cond_wait(p->cond+1,p->mtx);
     pthread_mutex_unlock(p->mtx);
 }
 
