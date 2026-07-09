@@ -42,7 +42,7 @@ int pthread_pool_timedwait(pthread_pool_t *pool,const struct timespec *abstime);
 typedef struct{ void *_padding; void(*task)(pthread_pool_t *pool,void *composite_task,unsigned int index); } pthread_pool_task_t;
 /* composite task structure must include pthread_pool_task_t as first field. */
 int pthread_pool_task(pthread_pool_t *pool,void *composite_task,unsigned char prio);
-void pthread_pool_urgent(pthread_pool_t *pool,void *composite_task);
+int pthread_pool_urgent(pthread_pool_t *pool,void *composite_task);
 
 void pthread_pool_wait(pthread_pool_t *pool);
 void pthread_pool_clear(pthread_pool_t *pool);
@@ -552,9 +552,9 @@ int pthread_pool_create(pthread_pool_t ** const pool,const pthread_poolattr_t * 
     if( (count || (count=pthread_cores())) && (pattrs<2 || pattrs>=count) ){
         const size_t qsize=sizeof(_pthread_pool_queue_t)*(1+(unsigned int)prio), tsize=_pthread_pool_pad(1+(unsigned int)prio) + sizeof(pthread_t)*count;
         const size_t palign=align-1, asize=(_PTHREAD_OFFSETOF(struct _pthread_pool_t,queue) + qsize + tsize + palign) & ~palign;
-        void * const _p=malloc(asize + palign);
+        char * const _p=(char*)malloc(asize + palign);
         if(_p){
-            pthread_pool_t * const p=(pthread_pool_t*)((((size_t)_p)+palign) & ~palign);
+            pthread_pool_t * const p=(pthread_pool_t*)(_p + (( align-((size_t)_p%align) )%align) );
             if( (err=pthread_mutex_init(p->mtx,mattr)) ){
                 free(_p); *pool=(pthread_pool_t*)2; return err;
             }
@@ -658,22 +658,29 @@ int pthread_pool_task(pthread_pool_t * const p,void * const t,unsigned char prio
     if(prio>p->max) prio=p->max;
     pthread_mutex_lock(p->mtx);
     if( !(err=p->ctrl & 3) ){
-        if(prio>p->peak) p->peak=prio;
-        _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
-        if(p->size++<p->wait) pthread_cond_signal(p->cond);
+        if(p->size!=(unsigned int)-1){
+            if(prio>p->peak) p->peak=prio;
+            _pthread_pool_append(p,(_pthread_pool_task_t*)t,prio);
+            if(p->size++<p->wait) pthread_cond_signal(p->cond);
+        }else err=4;
     }
     pthread_mutex_unlock(p->mtx);
     if(err & 1) return EINVAL;
     if(err & 2) return EAGAIN;
+    if(err & 4) return ERANGE;
     return 0;
 }
 
-void pthread_pool_urgent(pthread_pool_t * const p,void * const t){
+int pthread_pool_urgent(pthread_pool_t * const p,void * const t){
+    int err=0;
     ((_pthread_pool_task_t*)t)->next=NULL;
     pthread_mutex_lock(p->mtx);
-    _pthread_pool_prepend(p,(_pthread_pool_task_t*)t,(p->peak=p->max));
-    if(p->size++<p->wait) pthread_cond_signal(p->cond);
+    if(p->size!=(unsigned int)-1){
+        _pthread_pool_prepend(p,(_pthread_pool_task_t*)t,(p->peak=p->max));
+        if(p->size++<p->wait) pthread_cond_signal(p->cond);
+    }else err=ERANGE;
     pthread_mutex_unlock(p->mtx);
+    return err;
 }
 
 unsigned char pthread_pool_batch(pthread_pool_t * const p,unsigned char count){
