@@ -211,13 +211,13 @@ static void *_pthread_raise_func(const int sig){
 #endif
 
 #ifndef _CtxCtrlReg
-static void *_CtxCtrlRegf(CONTEXT *c){
+static void *_CtxCtrlRegf(CONTEXT * const c){
     static unsigned int offset=-1;
+    memset(c,0,sizeof(*c));
+    c->ContextFlags=CONTEXT_CONTROL;
     if(offset==-1){
         const size_t * const end=(void*)(c+1), f=(size_t)GetThreadContext;
         size_t min=0, *p=(size_t*)c;
-        memset(c,0,sizeof(*c));
-        c->ContextFlags=CONTEXT_CONTROL;
         GetThreadContext(GetCurrentThread(),c);
         for(c->ContextFlags=0,min=~min;p!=end;++p){
             const size_t diff=((*p>f) ? (*p-f) : (f-*p));
