@@ -215,7 +215,9 @@ static void *_CtxCtrlRegf(CONTEXT *c){
     static unsigned int offset=-1;
     if(offset==-1){
         const size_t * const end=(void*)(c+1), f=(size_t)GetThreadContext;
-        size_t min=0, *p=(void*)c;
+        size_t min=0, *p=(size_t*)c;
+        memset(c,0,sizeof(*c));
+        c->ContextFlags=CONTEXT_CONTROL;
         GetThreadContext(GetCurrentThread(),c);
         for(c->ContextFlags=0,min=~min;p!=end;++p){
             const size_t diff=((*p>f) ? (*p-f) : (f-*p));
@@ -238,8 +240,8 @@ int _pthread_kill_win(pthread_t tid,const int sig){
     if(!sig) return pthread_kill(tid,0);
     else if(pthread_equal(pthread_self(),tid)) return raise(sig);
     else if( (f=_pthread_raise_func(sig)) ){
-        CONTEXT c={.ContextFlags=CONTEXT_CONTROL};
-        void **x=(void*)_CtxCtrlReg(c), *p=pthread_gethandle(tid);
+        CONTEXT c;
+        void **x=(void**)_CtxCtrlReg(c), *p=pthread_gethandle(tid);
         SuspendThread(p);
         GetThreadContext(p,&c);
         *x=f;
@@ -836,7 +838,7 @@ int pthread_group_progress_ex(pthread_group_t * const _g,const unsigned int add_
     if(f) f(arg);
     g->done+=!!g->target;
     g->target+=add_targets;
-    if(g->done+g->reject==g->target){
+    if(g->target && g->done+g->reject==g->target){
         if(g->destroy) err=ENOENT;
         else{
             g->wait=0; err=ERANGE;
@@ -859,7 +861,7 @@ int pthread_group_reject_ex(pthread_group_t * const _g,const unsigned char by_ta
     if(f) f(arg);
     g->state=EINTR;
     if(by_task){
-        if(++g->reject+g->done==g->target){
+        if(g->target && ++g->reject+g->done==g->target){
             if(g->destroy) err=ENOENT;
             else{
                 g->wait=0; err=ERANGE;
